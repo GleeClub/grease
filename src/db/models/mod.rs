@@ -1,11 +1,48 @@
 use chrono::{NaiveDateTime, NaiveDate};
-use schema::*;
+use crate::db::schema::*;
+use serde::{Serialize, Deserialize};
 
-#[derive(Queryable, Identifiable)]
+pub mod absence_request;
+pub mod active_semester;
+pub mod announcement;
+pub mod attendance;
+pub mod carpool;
+pub mod event;
+pub mod fee;
+pub mod google_docs;
+pub mod member;
+pub mod semester;
+pub mod misc;
+
+// Announcement
+// Attendance
+// Carpool
+// Event
+// EventType
+// Fee
+// Gig
+// GigRequest
+// GigSong
+// MemberRole
+// MeetingMinutes
+// Outfit
+// OutfitBorrow
+// Permission
+// RidesIn
+// Role
+// RolePermission
+// SectionType
+// Todo
+// Transaction
+// TransactionType
+// Uniform
+// Variable
+
+#[derive(Queryable, Serialize, Deserialize)]
 #[table_name = "absence_request"]
-#[primary_key(member, event)]
 #[belongs_to(Member, foreign_key = "member")]
 #[belongs_to(Event, foreign_key = "event")]
+#[primary_key(member, event)]
 pub struct AbsenceRequest {
     pub member: String,
     pub event: i32,
@@ -14,29 +51,25 @@ pub struct AbsenceRequest {
     pub state: AbsenceRequestState,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "active_semester"]
-#[primary_key(member, semester, choir)]
+#[primary_key(member, semester)]
 #[belongs_to(Member, foreign_key = "member")]
 #[belongs_to(Semester, foreign_key = "semester")]
-#[belongs_to(Choir, foreign_key = "choir")]
 pub struct ActiveSemester {
     pub member: String,
     pub semester: i32,
-    pub choir: String,
     pub enrollment: Enrollment,
     pub section: Option<i32>,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "announcement"]
 #[primary_key(id)]
 #[belongs_to(Member, foreign_key = "member")]
-#[belongs_to(Choir, foreign_key = "choir")]
 #[belongs_to(Semester, foreign_key = "semester")]
 pub struct Announcement {
     pub id: i32,
-    pub choir: String,
     pub member: String,
     pub semester: i32,
     pub time: NaiveDateTime,
@@ -44,7 +77,7 @@ pub struct Announcement {
     pub archived: bool,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "attendance"]
 #[primary_key(member, event)]
 #[belongs_to(Member, foreign_key = "member")]
@@ -58,7 +91,7 @@ pub struct Attendance {
     pub minutes_late: i32,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "carpool"]
 #[primary_key(id)]
 #[belongs_to(Member, foreign_key = "driver")]
@@ -69,28 +102,17 @@ pub struct Carpool {
     pub driver: String,
 }
 
-#[derive(Queryable, Identifiable)]
-#[table_name = "choir"]
-#[primary_key(name)]
-pub struct Choir {
-    pub name: String,
-	pub officer_email_list: String,
-	pub member_email_list: String,
-}
-
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "event"]
-#[primary_key(id)]
-#[belongs_to(Choir, foreign_key = "choir")]
 #[belongs_to(Semester, foreign_key = "semester")]
 #[belongs_to(EventType, foreign_key = "type")]
 #[belongs_to(SectionType, foreign_key = "section")]
+#[primary_key(id)]
 pub struct Event {
     pub id: i32,
     pub name: String,
-    pub choir: String,
     pub semester: String,
-    pub type: i32,
+    pub type_: i32,
     pub call_time: NaiveDateTime,
     pub release_time: Option<NaiveDateTime>,
     pub points: i32,
@@ -101,28 +123,24 @@ pub struct Event {
     pub section: Option<i32>,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "event_type"]
 #[primary_key(id)]
-#[belongs_to(Choir, foreign_key = "choir")]
 pub struct EventType {
     pub id: i32,
     pub name: String,
-    pub choir: String,
     pub weight: i32,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "fee"]
-#[primary_key(name, choir)]
-#[belongs_to(Choir, foreign_key = "choir")]
+#[primary_key(name)]
 pub struct Fee {
     pub name: String,
-    pub choir: String,
     pub amount: i32,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "gig"]
 #[primary_key(event)]
 #[belongs_to(Event, foreign_key = "event")]
@@ -140,7 +158,7 @@ pub struct Gig {
     pub description: Option<String>,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "gig_request"]
 #[primary_key(id)]
 #[belongs_to(Event, foreign_key = "event")]
@@ -159,7 +177,7 @@ pub struct GigRequest {
     pub status: GigRequestStatus,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "gig_song"]
 #[primary_key(id)]
 #[belongs_to(Event, foreign_key = "event")]
@@ -171,17 +189,15 @@ pub struct GigSong {
     pub order: i32,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "google_docs"]
-#[primary_key(name, choir)]
-#[belongs_to(Choir, foreign_key = "choir")]
+#[primary_key(name)]
 pub struct GoogleDoc {
     pub name: String,
-    pub choir: String,
     pub url: String,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "media_type"]
 #[primary_key(name)]
 pub struct MediaType {
@@ -190,7 +206,7 @@ pub struct MediaType {
     pub storage: StorageType,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "member"]
 #[primary_key(email)]
 pub struct Member {
@@ -200,6 +216,7 @@ pub struct Member {
     pub last_name: String,
     pub pass_hash: String,
     pub phone_number: String,
+    pub picture: Option<String>,
     pub passengers: i32,
     pub location: String,
     pub about: Option<String>,
@@ -212,7 +229,7 @@ pub struct Member {
     pub dietary_restrictions: Option<String>,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "member_role"]
 #[primary_key(member, role, semester)]
 #[belongs_to(Member, foreign_key = "member")]
@@ -224,41 +241,28 @@ pub struct MemberRole {
     pub semester: i32,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "minutes"]
 #[primary_key(id)]
-#[belongs_to(Choir, foreign_key = "choir")]
 pub struct MeetingMinutes {
     pub id: i32,
-    pub choir: String,
     pub name: String,
     pub date: NaiveDate,
     pub private: Option<String>,
     pub public: Option<String>,
 }
 
-#[derive(Queryable, Identifiable)]
-#[table_name = "permission"]
-#[primary_key(name)]
-pub struct Permission {
-    pub name: String,
-    pub description: Option<String>,
-    pub type: PermissionType,
-}
-
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "outfit"]
 #[primary_key(id)]
-#[belongs_to(Choir, foreign_key = "choir")]
 pub struct Outfit {
     pub id: i32,
     pub name: String,
-    pub choir: String,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "outfit"]
-#[primary_key(id)]
+#[primary_key(outfit)]
 #[belongs_to(Outfit, foreign_key = "outfit")]
 #[belongs_to(Member, foreign_key = "member")]
 pub struct OutfitBorrow {
@@ -267,17 +271,17 @@ pub struct OutfitBorrow {
     pub status: BorrowStatus,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "permission"]
 #[primary_key(name)]
 pub struct Permission {
     pub name: String,
 	pub description: Option<String>,
-	pub type: PermissionType,
+	pub type_: PermissionType,
 }
 
-#[derive(Queryable, Identifiable)]
-#[table_name = "ridesin"]
+#[derive(Queryable)]
+#[table_name = "rides_in"]
 #[primary_key(member, carpool)]
 #[belongs_to(Member, foreign_key = "member")]
 #[belongs_to(Carpool, foreign_key = "carpool")]
@@ -286,19 +290,17 @@ pub struct RidesIn {
     pub carpool: i32,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "role"]
 #[primary_key(id)]
-#[belongs_to(Choir, foreign_key = "choir")]
 pub struct Role {
     pub id: i32,
     pub name: Option<String>,
-    pub choir: String,
     pub rank: i32,
     pub max_quantity: i32,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "role_permission"]
 #[primary_key(id)]
 #[belongs_to(Role, foreign_key = "role")]
@@ -311,30 +313,26 @@ pub struct RolePermission {
     pub event_type: Option<i32>,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "section_type"]
 #[primary_key(id)]
-#[belongs_to(Choir, foreign_key = "choir")]
 pub struct SectionType {
     pub id: i32,
 	pub name: String,
-	pub choir: Option<String>,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "semester"]
 #[primary_key(id)]
-#[belongs_to(Choir, foreign_key = "choir")]
 pub struct Semester {
 	pub id: i32,
     pub name: String,
-    pub choir: String,
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
     pub gig_requirement: i32,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "semester"]
 #[primary_key(member)]
 #[belongs_to(Member, foreign_key = "member")]
@@ -343,13 +341,11 @@ pub struct Session {
     pub key: String,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "song"]
 #[primary_key(id)]
-#[belongs_to(Choir, foreign_key = "choir")]
 pub struct Song {
     pub id: i32,
-    pub choir: String,
     pub title: String,
     pub info: Option<String>,
     pub current: bool,
@@ -358,7 +354,7 @@ pub struct Song {
     pub mode: Option<SongMode>,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "song_link"]
 #[primary_key(id)]
 #[belongs_to(Song, foreign_key = "song")]
@@ -366,12 +362,12 @@ pub struct Song {
 pub struct SongLink {
     pub id: i32,
     pub song: i32,
-    pub type: String,
+    pub type_: String,
     pub name: String,
     pub target: String,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "todo"]
 #[primary_key(id)]
 #[belongs_to(Member, foreign_key = "member")]
@@ -382,52 +378,44 @@ pub struct Todo {
 	pub completed: bool,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "transaction"]
 #[primary_key(id)]
 #[belongs_to(Member, foreign_key = "member")]
-#[belongs_to(Choir, foreign_key = "choir")]
 #[belongs_to(Semester, foreign_key = "semester")]
 #[belongs_to(TransactionType, foreign_key = "type")]
 pub struct Transaction {
     pub id: i32,
     pub member: String,
-    pub choir: String,
     pub time: NaiveDateTime,
     pub amount: i32,
     pub description: String,
     pub semester: Option<i32>,
-    pub type: Option<i32>,
+    pub type_: Option<i32>,
     pub resolved: bool,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "transaction_type"]
 #[primary_key(id)]
-#[belongs_to(Choir, foreign_key = "choir")]
 pub struct TransactionType {
     pub id: i32,
     pub name: String,
-    pub choir: String,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "uniform"]
 #[primary_key(id)]
-#[belongs_to(Choir, foreign_key = "choir")]
 pub struct Uniform {
     pub id: i32,
     pub name: String,
-    pub choir: String,
     pub description: Option<String>,
 }
 
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable)]
 #[table_name = "variable"]
-#[primary_key(choir, key)]
-#[belongs_to(Choir, foreign_key = "choir")]
+#[primary_key(key)]
 pub struct Variable {
-    pub choir: String,
     pub key: String,
     pub value: String,
 }

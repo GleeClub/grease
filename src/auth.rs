@@ -1,64 +1,36 @@
-use db::POOL;
 use diesel::mysql::MysqlConnection;
-use models::*;
-use std::collections::HashMap;
-use std::sync::Mutex;
-use warp::filters::BoxedFilter;
-use warp::{self, Filter};
-use error::GreaseError;
+use crate::db::models::Member;
+use crate::extract::Extract;
+use crate::error::{GreaseError, GreaseResult};
 
-const TOKEN_NAME: &str = "grease-session-token";
+const TOKEN_NAME: &str = "GREASE_TOKEN";
 
-#[derive(Clone)]
-pub struct User<'u> {
+pub struct User {
     member: Member,
     permissions: Vec<String>,
-    conn: &'u MysqlConnection,
+    conn: MysqlConnection,
 }
 
-lazy_static! {
-    static ref SESSIONS: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
-}
+// TODO: blanket impls with const generics?
+// pub struct PermittedUser<const S: &'static str>(User);
 
-// TODO: lifetimes on mysql connections?
-pub fn login_required() -> BoxedFilter(User,)> {
-    warp::filters::cookie::cookie(TOKEN_NAME)
-        .or(warp::header::<String>(TOKEN_NAME))
-        .unify()
-        .and_then(|token: String| {
-            SESSIONS.get(&token).ok_or(GreaseError::unauthorized()).and_then(|email| {
-                let conn = POOL.get().unwrap();
-                match Member::load_if_exists(email, conn)? {
-                    Some(member) => Ok(User {
-                        member: member,
-                        permissions: member.permissions(conn)?,
-                        conn: conn,
-                    }),
-                    None => Err(GreaseError::unauthorized()),
-                }
-            )
-        }).boxed()
-}
+impl Extract for User {
+    fn extract(request: &cgi::Request) -> GreaseResult<Self> {
+        let conn = <MysqlConnection as Extract>::extract(request)?;
+        let member = request
+            .headers()
+            .get(TOKEN_NAME)
+            .ok_or(GreaseError::Unauthorized)
+            .and_then(|token| Member::load_from_token(token.to_str().unwrap(), &conn)
+                .transpose()
+                .unwrap_or(Err(GreaseError::Unauthorized))
+            )?;
+        let permissions = member.permissions(&conn)?;
 
-pub fn permission_required(permission: &str) -> BoxedFilter<(User,)> {
-    warp::filters::cookie::cookie(TOKEN_NAME)
-        .or(warp::header::<String>(TOKEN_NAME))
-        .unify()
-        .and_then(|token: String| {
-            SESSIONS.get(&token).ok_or(GreaseError::unauthorized()).and_then(|email| {
-                let conn = POOL.get().unwrap();
-                match Member::load_if_exists(email, conn)? {
-                    Some(member) => {
-                        let permissions = member.permissions(conn)?;
-                        if permissions.contains(permission) {
-                            Ok(User { member, permissions, conn })
-                        } else {
-                            Err(GreaseError::forbidden())
-                        }
-
-                    }),
-                    None => Err(GreaseError::unauthorized()),
-                }
-            )
-        }).boxed()
+        Ok(User {
+            member,
+            permissions,
+            conn,
+        }) 
+    }
 }

@@ -23,33 +23,20 @@ CREATE TABLE member (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
-CREATE TABLE choir (
-  name varchar(32) NOT NULL PRIMARY KEY,
-  officer_email_list varchar(255) NOT NULL,
-  member_email_list varchar(255) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
 CREATE TABLE semester (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name varchar(32) NOT NULL,
-  choir varchar(32) NOT NULL,
   start_date datetime NOT NULL,
   end_date datetime NOT NULL,
-  gig_requirement int NOT NULL DEFAULT '5',
-
-  FOREIGN KEY (choir) REFERENCES choir (name) ON UPDATE CASCADE ON DELETE CASCADE
+  gig_requirement int NOT NULL DEFAULT '5'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE role (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name varchar(20) DEFAULT NULL,
-  choir varchar(32) NOT NULL,
   `rank` int NOT NULL,
-  max_quantity int NOT NULL,
-
-  FOREIGN KEY (choir) REFERENCES choir (name) ON DELETE CASCADE ON UPDATE CASCADE
+  max_quantity int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -67,28 +54,22 @@ CREATE TABLE member_role (
 
 CREATE TABLE section_type (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  name varchar(20) NOT NULL,
-  choir varchar(32) DEFAULT NULL,
-
-  FOREIGN KEY (choir) REFERENCES choir (name) ON UPDATE CASCADE ON DELETE CASCADE
+  name varchar(20) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE event_type (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name varchar(32) NOT NULL,
-  choir varchar(32) NOT NULL,
   weight int NOT NULL,
 
-  UNIQUE (name, choir),
-  FOREIGN KEY (choir) REFERENCES choir (name) ON UPDATE CASCADE ON DELETE CASCADE
+  UNIQUE (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE event (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name varchar(64) NOT NULL,
-  choir varchar(32) NOT NULL,
   semester int NOT NULL,
   `type` int NOT NULL,
   call_time datetime NOT NULL,
@@ -99,8 +80,7 @@ CREATE TABLE event (
   gig_count boolean NOT NULL DEFAULT '1',
   default_attend boolean NOT NULL DEFAULT '1',
   section int DEFAULT NULL,
-
-  FOREIGN KEY (choir) REFERENCES choir (name) ON UPDATE CASCADE ON DELETE CASCADE,
+  
   FOREIGN KEY (semester) REFERENCES semester (id) ON UPDATE CASCADE ON DELETE CASCADE,
   FOREIGN KEY (`type`) REFERENCES event_type (id) ON UPDATE CASCADE ON DELETE CASCADE,
   FOREIGN KEY (section) REFERENCES section_type (id) ON UPDATE CASCADE ON DELETE SET NULL
@@ -123,21 +103,18 @@ CREATE TABLE absence_request (
 CREATE TABLE active_semester (
   member varchar(50) NOT NULL,
   semester int NOT NULL,
-  choir varchar(32) NOT NULL,
   enrollment enum('class', 'club') NOT NULL DEFAULT 'club',
   section int DEFAULT NULL,
 
-  PRIMARY KEY (member, semester, choir),
+  PRIMARY KEY (member, semester),
   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
   FOREIGN KEY (semester) REFERENCES semester (id) ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (choir) REFERENCES choir (name) ON DELETE CASCADE ON UPDATE CASCADE,
   FOREIGN KEY (section) REFERENCES section_type (id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE announcement (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  choir varchar(32) NOT NULL,
   member varchar(50) DEFAULT NULL,
   semester int NOT NULL,
   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -145,7 +122,6 @@ CREATE TABLE announcement (
   archived bool NOT NULL DEFAULT '0',
 
   FOREIGN KEY (member) REFERENCES member (email) ON DELETE SET NULL ON UPDATE CASCADE,
-  FOREIGN KEY (choir) REFERENCES choir (name) ON DELETE CASCADE ON UPDATE CASCADE,
   FOREIGN KEY (semester) REFERENCES semester (id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -175,32 +151,21 @@ CREATE TABLE carpool (
 
 
 CREATE TABLE fee (
-  name varchar(40) NOT NULL,
-  choir varchar(32) NOT NULL,
-  amount int NOT NULL DEFAULT '0',
-
-  PRIMARY KEY (name, choir),
-  FOREIGN KEY (choir) REFERENCES choir (name) ON DELETE CASCADE ON UPDATE CASCADE
+  name varchar(40) NOT NULL PRIMARY KEY,
+  amount int NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE google_docs (
-  name varchar(40) NOT NULL,
-  choir varchar(32) NOT NULL,
-  url varchar(255) NOT NULL,
-
-  PRIMARY KEY (name, choir),
-  FOREIGN KEY (choir) REFERENCES choir (name) ON DELETE CASCADE ON UPDATE CASCADE
+  name varchar(40) NOT NULL PRIMARY KEY,
+  url varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE uniform (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name varchar(32) NOT NULL,
-  choir varchar(32) NOT NULL,
-  description text DEFAULT NULL,
-
-  FOREIGN KEY (choir) REFERENCES choir (name) ON DELETE CASCADE ON UPDATE CASCADE
+  description text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -241,7 +206,6 @@ CREATE TABLE gig_request (
 
 CREATE TABLE song (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  choir varchar(32) NOT NULL,
   title varchar(128) NOT NULL,
   info text DEFAULT NULL,
   current boolean NOT NULL DEFAULT '0',
@@ -250,9 +214,7 @@ CREATE TABLE song (
   starting_pitch enum('A♭', 'A', 'A#', 'B♭', 'B', 'B#', 'C♭', 'C', 'C♯', 'D♭', 'D', 'D♯',
                       'E♭', 'E', 'E#', 'F♭', 'F', 'F♯', 'G♭', 'G', 'G#') DEFAULT NULL,
   mode enum('major', 'minor', 'dorian', 'phrygian', 'lydian',
-            'mixolydian', 'locrian') DEFAULT NULL,
-
-  FOREIGN KEY (choir) REFERENCES choir (name) ON UPDATE CASCADE ON DELETE CASCADE
+            'mixolydian', 'locrian') DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -276,13 +238,10 @@ CREATE TABLE media_type (
 
 CREATE TABLE minutes (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  choir varchar(32) NOT NULL,
   name varchar(100) NOT NULL,
   `date` date NOT NULL,
   private longtext DEFAULT NULL,
-  public longtext DEFAULT NULL,
-
-  FOREIGN KEY (choir) REFERENCES choir (name) ON UPDATE CASCADE ON DELETE CASCADE
+  public longtext DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -329,10 +288,7 @@ CREATE TABLE song_link (
 
 CREATE TABLE outfit (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  name varchar(32) NOT NULL,
-  choir varchar(32) NOT NULL,
-
-  FOREIGN KEY (choir) REFERENCES choir (name) ON DELETE CASCADE ON UPDATE CASCADE
+  name varchar(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -358,17 +314,13 @@ CREATE TABLE todo (
 
 CREATE TABLE transaction_type (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  name varchar(40) NOT NULL,
-  choir varchar(32) NOT NULL,
-
-  FOREIGN KEY (choir) REFERENCES choir (name) ON DELETE CASCADE ON UPDATE CASCADE
+  name varchar(40) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE transaction (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   member varchar(50) NOT NULL,
-  choir varchar(32) NOT NULL,
   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   amount int NOT NULL,
   description varchar(500) NOT NULL,
@@ -378,8 +330,7 @@ CREATE TABLE transaction (
 
   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
   FOREIGN KEY (`type`) REFERENCES transaction_type (id) ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (semester) REFERENCES semester (id) ON UPDATE CASCADE,
-  FOREIGN KEY (choir) REFERENCES choir (name) ON DELETE CASCADE ON UPDATE CASCADE
+  FOREIGN KEY (semester) REFERENCES semester (id) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -392,10 +343,6 @@ CREATE TABLE session (
 
 
 CREATE TABLE variable (
-  choir varchar(32) NOT NULL,
-  `key` varchar(255) NOT NULL,
-  value varchar(255) NOT NULL,
-
-  PRIMARY KEY (choir, `key`),
-  FOREIGN KEY (choir) REFERENCES choir (name) ON DELETE CASCADE ON UPDATE CASCADE
+  `key` varchar(255) NOT NULL PRIMARY KEY,
+  value varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

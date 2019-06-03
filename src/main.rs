@@ -1,34 +1,46 @@
+#![feature(custom_attribute)]
+#![feature(const_generics)]
+
 extern crate serde;
 extern crate serde_json;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate warp;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate diesel_derive_enum;
-extern crate r2d2_diesel_mysql;
-#[macro_use]
 extern crate dotenv;
-#[macro_use]
-extern crate dotenv_codegen;
 extern crate chrono;
-
-use warp::Filter;
+extern crate app_route;
+extern crate cgi;
+#[macro_use]
+extern crate diesel;
+extern crate http;
 
 mod auth;
 mod db;
 mod error;
-mod models;
 mod routes;
+mod extract;
+
+use http::{response, header::{CONTENT_LENGTH, CONTENT_TYPE}};
+use crate::routes::handle_request;
 
 fn main() {
-    let json_api = path!("grease" / "api").and(members::api().or(gallery::api()));
-    // layout is:
-    //   GET   /grease/api/members/ -> returns the current members
-    //   POST  /grease/api/members/ -> adds a JSON-formatted member to the list
-    //   GET   /grease/api/gallery/ -> returns the current gallery "images"
-    //   POST  /grease/api/gallery/ -> adds a JSON-formatted "image" to the list
-    warp::serve(json_api).run(([127, 0, 0, 1], 3030));
+    cgi::handle(|request: cgi::Request| -> cgi::Response {
+        let uri = request
+            .headers()
+            .get("x-cgi-path-info")
+            .map(|uri| uri.to_str().unwrap())
+            .unwrap_or("")
+            .to_string();
+
+        match handle_request(request, uri) {
+            Ok(value) => {
+                let body = value.to_string().into_bytes();
+                response::Builder::new()
+                    .status(200)
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(CONTENT_LENGTH, body.len().to_string().as_str())
+                    .body(body)
+                    .unwrap()
+            }
+            Err(error) => error.as_response(),
+        }
+    });
 }
