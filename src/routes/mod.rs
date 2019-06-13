@@ -1,43 +1,120 @@
-use app_route::AppRoute;
-use diesel::mysql::MysqlConnection;
-use crate::error::{GreaseError, GreaseResult};
-use crate::auth::User;
-use crate::extract::Extract;
-use serde_json::Value;
-use crate::db::models::*;
-use serde::{Serialize, Deserialize};
+mod misc;
+mod event;
+mod member;
+mod officers;
 
+use crate::error::{GreaseError, GreaseResult};
+use crate::extract::Extract;
+use http::{
+    header::{CONTENT_LENGTH, CONTENT_TYPE},
+    response,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use self::misc::*;
+use self::event::*;
+use self::member::*;
+use self::officers::*;
+
+#[macro_export]
 macro_rules! check_for_permission {
     ($user:expr => $permission:expr) => {
-        if !$user.has_permission($permission) {
+        if !$user.permissions.contains(&crate::db::models::member::MemberPermission {
+            name: $permission.to_owned(),
+            event_type: None,
+        }) {
+            return Err(GreaseError::Forbidden(Some($permission.to_owned())));
+        }
+    };
+    ($user:expr => $permission:expr; $event_type:expr) => {
+        if !$user.permissions.contains(&crate::db::models::member::MemberPermission {
+            permission: $permission.to_owned(),
+            event_type: Some($event_type.to_owned()),
+        }) {
             return Err(GreaseError::Forbidden($permission.to_owned()));
         }
-    }
+    };
 }
 
 macro_rules! handle_routes {
-    ($request:expr, $uri:expr, $given_method:expr =>
-        [ $method:ident $route:ty => $handler:ident, $($methods:ident $routes:ty => $handlers:ident, )* ] ) => {
+    ($request:expr, $uri:expr, $given_method:expr => [ $($methods:ident $routes:ty => $handlers:ident, )* ] ) => {
         {
-            if $given_method == stringify!($method) { 
-                if let Some(data) = $uri.parse::<$route>().or(format!("{}?", $uri).parse::<$route>()).ok() {
-                    return $handler(data, Extract::extract(&$request)?);
+            $(if $given_method == stringify!($method) {
+                if let Some(data) = $uri.parse::<$routes>().or(format!("{}?", $uri).parse::<$routes>()).ok() {
+                    return $handlers(data, Extract::extract(&$request)?);
                 }
-            }
-            handle_routes!($request, $uri, $given_method => [ $($methods $routes => $handlers, )* ])
+            })*
+            Err(GreaseError::NotFound)
         }
-    };
-    ($request:expr, $uri:expr, $given_method:expr => [ ]) => {
-        Err(GreaseError::NotFound)
     };
 }
 
-pub fn handle_request(request: cgi::Request) -> GreaseResult<Value> {
-    handle_routes!(request, request.uri().to_string(), request.method().to_string() => [
-        GET MembersRequest     => get_members,
-        GET EventsRequest      => get_events,
-        GET GetVariableRequest => get_variable,
-        GET SetVariableRequest => set_variable,
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///
+///
+/// TODO: find dependencies using libc that mess up static compile... (PROBABLY UUID)
+///
+///
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pub fn handle_request(request: cgi::Request) -> cgi::Response {
+    let uri = request
+        .headers()
+        .get("x-cgi-path-info")
+        .map(|uri| uri.to_str().unwrap())
+        .unwrap_or("")
+        .to_string();
+    let method = request.method().to_string();
+
+    match route_request(request, uri, method) {
+        Ok(value) => {
+            let body = value.to_string().into_bytes();
+            response::Builder::new()
+                .status(200)
+                .header(CONTENT_TYPE, "application/json")
+                .header(CONTENT_LENGTH, body.len().to_string().as_str())
+                .body(body)
+                .unwrap()
+        }
+        Err(error) => error.as_response(),
+    }
+}
+
+fn route_request(request: cgi::Request, uri: String, method: String) -> GreaseResult<Value> {
+    handle_routes!(request, uri, method => [
+        GET  LoginRequest  => login,
+        GET  LogoutRequest => logout,
+        GET  MembersRequest => get_members,
+        GET  EventsRequest  => get_events,
+        GET  GetVariableRequest => get_variable,
+        POST SetVariableRequest => set_variable,
+        GET  AnnouncementsRequest   => get_announcements,
+        POST NewAnnouncementRequest => make_new_announcement,
+        GET  GoogleDocsRequest => get_google_docs,
+        POST GoogleDocsRequest => modify_google_docs,
     ])
 }
 
@@ -51,55 +128,20 @@ pub struct OptionalIdQuery {
     id: Option<i32>,
 }
 
-#[derive(AppRoute, Debug, PartialEq)]
-#[route("/members")]
-pub struct MembersRequest {
-    #[query]
-    pub query: OptionalEmailQuery,
+#[derive(PartialEq)]
+pub enum Method {
+    Get,
+    Post,
 }
 
-pub fn get_members(req: MembersRequest, user: User) -> GreaseResult<Value> {
-    if let Some(email) = req.query.email {
-        Member::load(&email, &user.conn).map(|member| member.into())
-    } else {
-        Member::load_all(&user.conn).map(|members| members.into())
+impl Extract for Method {
+    fn extract(request: &cgi::Request) -> GreaseResult<Self> {
+        match request.method().to_string().as_str() {
+            "GET" => Ok(Method::Get),
+            "POST" => Ok(Method::Post),
+            _other => Err(GreaseError::InvalidMethod),
+        }
     }
-}
-
-#[derive(AppRoute, Debug, PartialEq)]
-#[route("/events")]
-pub struct EventsRequest {
-    #[query]
-    pub query: OptionalIdQuery,
-}
-
-pub fn get_events(req: EventsRequest, user: User) -> GreaseResult<Value> {
-    if let Some(event_id) = req.query.id {
-        Event::load(event_id, &user.conn).map(|event| event.into())
-    } else {
-        Event::load_all(&user.conn).map(|events| events.into())
-    }
-}
-
-#[derive(AppRoute, Debug, PartialEq)]
-#[route("/variables/:key")]
-pub struct GetVariableRequest {
-    pub key: String,
-}
-
-pub fn get_variable(req: GetVariableRequest, user: User) -> GreaseResult<Value> {
-    Variable::load(&req.key, &user.conn).map(|var| var.into())
-}
-
-#[derive(AppRoute, Debug, PartialEq)]
-#[route("/variables/:key/:value")]
-pub struct SetVariableRequest {
-    pub key: String,
-    pub value: String,
-}
-
-pub fn set_variable(req: SetVariableRequest, user: User) -> GreaseResult<Value> {
-    Variable::set(&req.key, &req.value, &user.conn).map(|old_val| old_val.into())
 }
 
 // AbsenceRequest
@@ -133,4 +175,3 @@ pub fn set_variable(req: SetVariableRequest, user: User) -> GreaseResult<Value> 
 // Transaction
 // TransactionType
 // Uniform
-// Variable

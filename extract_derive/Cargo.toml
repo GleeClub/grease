@@ -5,8 +5,6 @@ authors = ["Sam Mohr <sammohr97@gmail.com>"]
 edition = "2018"
 
 [lib]
-name = "extract_derive"
-path = "src/lib.rs"
 proc-macro = true
 
 [dependencies]

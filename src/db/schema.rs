@@ -1,15 +1,14 @@
-use serde::{Serialize, Deserialize};
 use diesel_derive_enum::DbEnum;
+use serde::{Deserialize, Serialize};
 
 pub mod enums {
     pub use super::AbsenceRequestState;
     pub use super::Enrollment;
     pub use super::GigRequestStatus;
-    pub use super::StorageType;
-    pub use super::BorrowStatus;
-    pub use super::PermissionType;
     pub use super::Key;
+    pub use super::PermissionType;
     pub use super::SongMode;
+    pub use super::StorageType;
 }
 
 #[derive(Debug, PartialEq, DbEnum, Serialize, Deserialize)]
@@ -44,9 +43,9 @@ table! {
 
     active_semester (member, semester) {
         member -> Varchar,
-        semester -> Integer,
+        semester -> Varchar,
         enrollment -> EnrollmentMapping,
-        section -> Nullable<Integer>,
+        section -> Nullable<Varchar>,
     }
 }
 
@@ -54,7 +53,7 @@ table! {
     announcement (id) {
         id -> Integer,
         member -> Nullable<Varchar>,
-        semester -> Integer,
+        semester -> Varchar,
         time -> Timestamp,
         content -> Longtext,
         archived -> Bool,
@@ -66,7 +65,7 @@ table! {
         member -> Varchar,
         event -> Integer,
         should_attend -> Bool,
-        did_attend -> Nullable<Bool>,
+        did_attend -> Bool,
         confirmed -> Bool,
         minutes_late -> Integer,
     }
@@ -84,9 +83,9 @@ table! {
     event (id) {
         id -> Integer,
         name -> Varchar,
-        semester -> Integer,
+        semester -> Varchar,
         #[sql_name = "type"]
-        type_ -> Integer,
+        type_ -> Varchar,
         call_time -> Datetime,
         release_time -> Nullable<Datetime>,
         points -> Integer,
@@ -94,13 +93,12 @@ table! {
         location -> Nullable<Varchar>,
         gig_count -> Bool,
         default_attend -> Bool,
-        section -> Nullable<Integer>,
+        section -> Nullable<Varchar>,
     }
 }
 
 table! {
-    event_type (id) {
-        id -> Integer,
+    event_type (name) {
         name -> Varchar,
         weight -> Integer,
     }
@@ -109,6 +107,7 @@ table! {
 table! {
     fee (name) {
         name -> Varchar,
+        description -> Varchar,
         amount -> Integer,
     }
 }
@@ -117,7 +116,7 @@ table! {
     gig (event) {
         event -> Integer,
         performance_time -> Datetime,
-        uniform -> Integer,
+        uniform -> Varchar,
         contact_name -> Nullable<Varchar>,
         contact_email -> Nullable<Varchar>,
         contact_phone -> Nullable<Varchar>,
@@ -156,8 +155,7 @@ table! {
 }
 
 table! {
-    gig_song (id) {
-        id -> Integer,
+    gig_song (event, song) {
         event -> Integer,
         song -> Integer,
         order -> Integer,
@@ -195,7 +193,7 @@ table! {
         preferred_name -> Nullable<Varchar>,
         last_name -> Varchar,
         pass_hash -> Varchar,
-        phone -> Varchar,
+        phone_number -> Varchar,
         picture -> Nullable<Varchar>,
         passengers -> Integer,
         location -> Varchar,
@@ -213,8 +211,8 @@ table! {
 table! {
     member_role (member, role, semester) {
         member -> Varchar,
-        role -> Integer,
-        semester -> Integer,
+        role -> Varchar,
+        semester -> Varchar,
     }
 }
 
@@ -228,31 +226,6 @@ table! {
     }
 }
 
-table! {
-    outfit (id) {
-        id -> Integer,
-        name -> Varchar,
-    }
-}
-
-#[derive(Debug, PartialEq, DbEnum, Serialize, Deserialize)]
-pub enum BorrowStatus {
-    Circulating,
-    Lost,
-    Decommissioned,
-}
-
-table! {
-    use diesel::sql_types::*;
-    use super::BorrowStatusMapping;
-
-    outfit_borrow (outfit) {
-        outfit -> Integer,
-        member -> Varchar,
-        status -> BorrowStatusMapping,
-    }
-}
-
 #[derive(Debug, PartialEq, DbEnum, Serialize, Deserialize)]
 pub enum PermissionType {
     Static,
@@ -262,7 +235,7 @@ pub enum PermissionType {
 table! {
     use diesel::sql_types::*;
     use super::PermissionTypeMapping;
-    
+
     permission (name) {
         name -> Varchar,
         description -> Nullable<Text>,
@@ -279,9 +252,8 @@ table! {
 }
 
 table! {
-    role (id) {
-        id -> Integer,
-        name -> Nullable<Varchar>,
+    role (name) {
+        name -> Varchar,
         rank -> Integer,
         max_quantity -> Integer,
     }
@@ -290,26 +262,25 @@ table! {
 table! {
     role_permission (id) {
         id -> Integer,
-        role -> Integer,
+        role -> Varchar,
         permission -> Varchar,
-        event_type -> Nullable<Integer>,
+        event_type -> Nullable<Varchar>,
     }
 }
 
 table! {
-    section_type (id) {
-        id -> Integer,
+    section_type (name) {
         name -> Varchar,
     }
 }
 
 table! {
-    semester (id) {
-        id -> Integer,
+    semester (name) {
         name -> Varchar,
         start_date -> Datetime,
         end_date -> Datetime,
         gig_requirement -> Integer,
+        current -> Bool,
     }
 }
 
@@ -326,43 +297,43 @@ pub enum Key {
     AFlat,
     #[db_rename = "A"]
     A,
-    #[db_rename = "A#"]
+    #[db_rename = "A\x26\x6F"]
     ASharp,
     #[db_rename = "B\x26\x6D"]
     BFlat,
     #[db_rename = "B"]
     B,
-    #[db_rename = "B#"]
+    #[db_rename = "B\x26\x6F"]
     BSharp,
     #[db_rename = "C\x26\x6D"]
     CFlat,
     #[db_rename = "C"]
     C,
-    #[db_rename = "C#"]
+    #[db_rename = "C\x26\x6F"]
     CSharp,
     #[db_rename = "D\x26\x6D"]
     DFlat,
     #[db_rename = "D"]
     D,
-    #[db_rename = "D#"]
+    #[db_rename = "D\x26\x6F"]
     DSharp,
     #[db_rename = "E\x26\x6D"]
     EFlat,
     #[db_rename = "E"]
     E,
-    #[db_rename = "E#"]
+    #[db_rename = "E\x26\x6F"]
     ESharp,
     #[db_rename = "F\x26\x6D"]
     FFlat,
     #[db_rename = "F"]
     F,
-    #[db_rename = "F#"]
+    #[db_rename = "F\x26\x6F"]
     FSharp,
     #[db_rename = "G\x26\x6D"]
     GFlat,
     #[db_rename = "G"]
     G,
-    #[db_rename = "G#"]
+    #[db_rename = "G\x26\x6F"]
     GSharp,
 }
 
@@ -420,23 +391,22 @@ table! {
         time -> Timestamp,
         amount -> Integer,
         description -> Varchar,
-        semester -> Nullable<Integer>,
+        semester -> Nullable<Varchar>,
         #[sql_name = "type"]
-        type_ -> Nullable<Integer>,
+        type_ -> Varchar,
         resolved -> Bool,
     }
 }
 
 table! {
-    transaction_type (id) {
-        id -> Integer,
+    transaction_type (name) {
         name -> Varchar,
     }
 }
 
 table! {
     uniform (id) {
-        id -> Integer,
+        id -> Varchar,
         name -> Varchar,
         description -> Nullable<Text>,
     }
@@ -471,8 +441,6 @@ joinable!(gig_song -> song (song));
 joinable!(member_role -> member (member));
 joinable!(member_role -> role (role));
 joinable!(member_role -> semester (semester));
-joinable!(outfit_borrow -> member (member));
-joinable!(outfit_borrow -> outfit (outfit));
 joinable!(rides_in -> carpool (carpool));
 joinable!(rides_in -> member (member));
 joinable!(role_permission -> event_type (event_type));
@@ -503,8 +471,6 @@ allow_tables_to_appear_in_same_query!(
     member,
     member_role,
     minutes,
-    outfit,
-    outfit_borrow,
     permission,
     rides_in,
     role,

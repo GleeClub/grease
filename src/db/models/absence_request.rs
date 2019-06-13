@@ -1,40 +1,38 @@
 use db::models::*;
 use db::schema::absence_request::dsl::*;
+use db::schema::AbsenceRequestState;
 use diesel::mysql::MysqlConnection;
 use diesel::*;
+use error::*;
 
 impl AbsenceRequest {
-    pub fn load(given_user_email: &str, given_event_id: i32, conn: &MysqlConnection) -> Option<AbsenceRequest> {
+    pub fn load(
+        given_user_email: &str,
+        given_event_id: i32,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Option<AbsenceRequest>> {
         absence_request
-            .filter(event.eq(&given_event_id))
-            .filter(member.eq(&given_user_email))
+            .filter(event.eq(&given_event_id).and(member.eq(&given_user_email)))
             .first::<AbsenceRequest>(conn)
             .optional()
-            .expect("error loading absence request")
+            .map_err(GreaseError::DbError)
     }
 
-    // pub fn override_table_with_values(
-    //     new_vals: &Vec<NewAbsenceRequest>,
-    //     conn: &MysqlConnection,
-    // ) -> QueryResult<()> {
-    //     diesel::delete(absence_request).execute(conn)?;
-    //     diesel::sql_query("ALTER SEQUENCE absence_requests_id_seq RESTART").execute(conn)?;
-    //     diesel::insert_into(absence_request)
-    //         .values(new_vals)
-    //         .execute(conn)?;
-
-    //     Ok(())
-    // }
+    pub fn excused_for_event(
+        given_user_email: &str,
+        given_event_id: i32,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<bool> {
+        absence_request
+            .filter(event.eq(&given_event_id).and(member.eq(&given_user_email)))
+            .select(state)
+            .first::<AbsenceRequestState>(conn)
+            .optional()
+            .map(|request| {
+                request
+                    .map(|req_state| req_state == AbsenceRequestState::Approved)
+                    .unwrap_or(false)
+            })
+            .map_err(GreaseError::DbError)
+    }
 }
-
-// impl From<AbsenceRequest> for NewAbsenceRequest {
-//     fn from(absence_request: AbsenceRequest) -> Self {
-//         NewAbsenceRequest {
-//             event_id: absence_request.event_id,
-//             user_email: absence_request.user_email,
-//             reason: absence_request.reason,
-//             status: absence_request.status,
-//             time: absence_request.time,
-//         }
-//     }
-// }

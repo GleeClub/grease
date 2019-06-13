@@ -43,7 +43,6 @@ fn main() {
     })
 }
 
-// "mysql://chris:l%3Fr21Vs34oe2Hc%244K80inh%3F1@localhost/mensgleeclub"
 fn retrieve_members(url: &str) -> Result<Value, String> {
     let pool = my::Pool::new(url)
         .map_err(|err| format!("connection failed: {:?}", err))?;

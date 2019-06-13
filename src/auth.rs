@@ -1,14 +1,15 @@
-use diesel::mysql::MysqlConnection;
-use crate::db::models::Member;
-use crate::extract::Extract;
+use crate::db::models::member::{MemberForSemester, MemberPermission};
 use crate::error::{GreaseError, GreaseResult};
+use crate::extract::Extract;
+use diesel::mysql::MysqlConnection;
+
 
 const TOKEN_NAME: &str = "GREASE_TOKEN";
 
 pub struct User {
-    member: Member,
-    permissions: Vec<String>,
-    conn: MysqlConnection,
+    pub member: MemberForSemester,
+    pub permissions: Vec<MemberPermission>,
+    pub conn: MysqlConnection,
 }
 
 // TODO: blanket impls with const generics?
@@ -21,16 +22,13 @@ impl Extract for User {
             .headers()
             .get(TOKEN_NAME)
             .ok_or(GreaseError::Unauthorized)
-            .and_then(|token| Member::load_from_token(token.to_str().unwrap(), &conn)
-                .transpose()
-                .unwrap_or(Err(GreaseError::Unauthorized))
-            )?;
+            .and_then(|token| MemberForSemester::load_from_token(token.to_str().unwrap(), &conn))?;
         let permissions = member.permissions(&conn)?;
 
         Ok(User {
             member,
             permissions,
             conn,
-        }) 
+        })
     }
 }

@@ -1,155 +1,204 @@
+use db::models::event::EventWithGig;
+use db::models::member::MemberForSemester;
 use db::models::*;
-use db::schema::attendances::dsl::*;
-use db::schema::users::dsl::{first_name, last_name};
-use db::schema::EventCategory;
-use db::schema::{attendances, events, users};
-use diesel::pg::PgConnection;
-use diesel::result::QueryResult;
+use db::schema::attendance::dsl::*;
+use db::schema::member::dsl::{first_name, last_name};
+use db::schema::AbsenceRequestState;
+use db::schema::{active_semester, attendance, event, member};
+use diesel::mysql::MysqlConnection;
 use diesel::*;
+use error::*;
+use std::collections::HashMap;
 
 impl Attendance {
-    pub fn load(given_attendance_id: i32, conn: &PgConnection) -> Result<Attendance, String> {
-        attendances
-            .filter(id.eq(given_attendance_id))
-            .first::<Attendance>(conn)
+    pub fn load(
+        given_member_email: &str,
+        given_event_id: i32,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Attendance> {
+        attendance
+            .filter(member.eq(given_member_email).and(event.eq(given_event_id)))
+            .first(conn)
             .optional()
-            .expect("error loading attendance")
-            .ok_or(format!(
-                "attendance with id {} not found",
-                given_attendance_id
-            ))
+            .map_err(GreaseError::DbError)?
+            .ok_or(GreaseError::BadRequest(format!(
+                "attendance for member {} for event {} not found",
+                given_member_email, given_event_id
+            )))
     }
 
     pub fn load_for_event(
         given_event_id: i32,
-        conn: &PgConnection,
-    ) -> Result<(Event, Vec<(Attendance, User)>), String> {
-        let event = Event::load(given_event_id, conn)?;
-        let attendance_data = attendances::table
-            .inner_join(users::table)
-            .order(first_name) // TODO: Which way is this supposed to go (first or last first)?
-            .order(last_name)
-            .filter(event_id.eq(&given_event_id))
-            .load::<(Attendance, User)>(conn)
-            .expect("error loading attendance");
+        conn: &MysqlConnection,
+    ) -> GreaseResult<(EventWithGig, Vec<(Attendance, MemberForSemester)>)> {
+        let found_event = Event::load(given_event_id, conn)?;
+        let attendance_data = attendance::table
+            .inner_join(member::table.inner_join(active_semester::table))
+            .filter(attendance::dsl::event.eq(&given_event_id))
+            .order((first_name, last_name)) // TODO: Which way is this supposed to go (first or last first)?
+            .load::<(Attendance, (Member, ActiveSemester))>(conn)
+            .map_err(GreaseError::DbError)?;
 
-        Ok((event, attendance_data))
+        Ok((
+            found_event,
+            attendance_data
+                .into_iter()
+                .map(
+                    |(found_attendance, (found_member, found_active_semester))| {
+                        (
+                            found_attendance,
+                            MemberForSemester {
+                                member: found_member,
+                                active_semester: found_active_semester,
+                            },
+                        )
+                    },
+                )
+                .collect(),
+        ))
     }
 
     pub fn load_for_event_separate_by_section(
         given_event_id: i32,
-        conn: &PgConnection,
-    ) -> Result<(Event, [Vec<(Attendance, User)>; 4]), String> {
-        let (event, pairs) = Attendance::load_for_event(given_event_id, conn)?;
-        let mut sorted = [Vec::new(), Vec::new(), Vec::new(), Vec::new()]; // TODO: figure out [T; n] notation here
-        for pair in pairs {
-            match pair.1.section.to_lowercase().as_str() {
-                "tenor 1" => sorted[0].push(pair),
-                "tenor 2" => sorted[1].push(pair),
-                "baritone" => sorted[2].push(pair),
-                "bass" => sorted[3].push(pair),
-                bad => return Err(format!("{} is not a real section", bad)),
-            }
-        }
-
-        Ok((event, sorted))
-    }
-
-    pub fn load_for_user_at_event(
-        given_user_email: &str,
-        given_event_id: i32,
-        conn: &PgConnection,
-    ) -> Attendance {
-        attendances
-            .filter(event_id.eq(&given_event_id))
-            .filter(user_email.eq(&given_user_email))
-            .first::<Attendance>(conn)
-            .expect("error loading attendance")
-    }
-
-    pub fn load_for_user_at_all_events(
-        given_user_email: &str,
-        conn: &PgConnection,
-    ) -> Vec<(Attendance, Event)> {
-        attendances::table
-            .inner_join(events::table)
-            .filter(user_email.eq(&given_user_email))
-            .load::<(Attendance, Event)>(conn)
-            .expect("error loading event")
-    }
-
-    pub fn load_for_user_at_all_events_of_type(
-        given_user_email: &str,
-        event_type: &EventCategory,
-        conn: &PgConnection,
-    ) -> Vec<(Attendance, Event)> {
-        attendances::table
-            .inner_join(events::table)
-            .filter(user_email.eq(&given_user_email))
-            .filter(category.eq(event_type))
-            .load::<(Attendance, Event)>(conn)
-            .expect("error loading event")
-    }
-
-    pub fn create_for_new_user(given_user_email: &str, conn: &PgConnection) {
-        let new_attendances = Event::load_all(conn)
-            .iter()
-            .map(|e| NewAttendance {
-                user_email: given_user_email.to_owned(),
-                event_id: e.id,
-            })
-            .collect::<Vec<NewAttendance>>();
-
-        diesel::insert_into(attendances)
-            .values(&new_attendances)
-            .execute(conn)
-            .expect("error adding new attendances");
-    }
-
-    pub fn create_for_new_event(given_event_id: i32, conn: &PgConnection) {
-        let all_users = User::load_all(conn);
-        let new_attendances = all_users
+        conn: &MysqlConnection,
+    ) -> GreaseResult<(
+        EventWithGig,
+        HashMap<Option<String>, (Attendance, MemberForSemester)>,
+    )> {
+        let (found_event, pairs) = Attendance::load_for_event(given_event_id, conn)?;
+        let sorted_attendance = pairs
             .into_iter()
-            .map(|u| NewAttendance {
-                user_email: u.email,
-                event_id: given_event_id,
+            .map(|(member_attendance, member_for_semester)| {
+                (
+                    member_for_semester.active_semester.section.clone(),
+                    (member_attendance, member_for_semester),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        Ok((found_event, sorted_attendance))
+    }
+
+    pub fn load_for_member_at_event(
+        given_member_email: &str,
+        given_event_id: i32,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Attendance> {
+        attendance
+            .filter(event.eq(given_event_id).and(member.eq(given_member_email)))
+            .first(conn)
+            .map_err(GreaseError::DbError)
+    }
+
+    pub fn load_for_member_at_all_events(
+        given_member_email: &str,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Vec<(Event, Attendance)>> {
+        let current_semester = Semester::load_current(conn)?;
+        event::table
+            .inner_join(attendance::table)
+            .filter(
+                attendance::dsl::member
+                    .eq(given_member_email)
+                    .and(event::dsl::semester.eq(&current_semester.name)),
+            )
+            .load::<(Event, Attendance)>(conn)
+            .map_err(GreaseError::DbError)
+    }
+
+    pub fn load_for_member_at_all_events_of_type(
+        given_member_email: &str,
+        event_type: &str,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Vec<(Attendance, Event)>> {
+        let current_semester = Semester::load_current(conn)?;
+        attendance::table
+            .inner_join(event::table)
+            .filter(
+                member
+                    .eq(&given_member_email)
+                    .and(event::dsl::type_.eq(event_type))
+                    .and(event::dsl::semester.eq(&current_semester.name)),
+            )
+            .load::<(Attendance, Event)>(conn)
+            .map_err(GreaseError::DbError)
+    }
+
+    pub fn create_for_new_member(
+        given_member_email: &str,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<()> {
+        let new_attendances = Event::load_all_for_current_semester(conn)?
+            .into_iter()
+            .map(|event_with_gig| NewAttendance {
+                event: event_with_gig.event.id,
+                member: given_member_email.to_owned(),
             })
             .collect::<Vec<NewAttendance>>();
-
-        diesel::insert_into(attendances)
+        diesel::insert_into(attendance)
             .values(&new_attendances)
             .execute(conn)
-            .expect("error adding new attendances");
-    }
-
-    pub fn update(
-        given_attendance_id: i32,
-        attendance_form: &AttendanceForm,
-        conn: &PgConnection,
-    ) -> bool {
-        let updated = diesel::update(attendances.find(given_attendance_id))
-            .set(attendance_form)
-            .get_result::<Attendance>(conn);
-
-        updated.is_ok()
-    }
-
-    pub fn is_excused(&self, conn: &PgConnection) -> bool {
-        AbsenceRequest::load(&self.user_email, self.event_id, conn)
-            .and_then(|r| r.status)
-            .unwrap_or(false)
-    }
-
-    pub fn override_table_with_values(
-        new_vals: &Vec<NewAttendanceWithVals>,
-        conn: &PgConnection,
-    ) -> QueryResult<()> {
-        diesel::delete(attendances).execute(conn)?;
-        diesel::sql_query("ALTER SEQUENCE attendances_id_seq RESTART").execute(conn)?;
-        diesel::insert_into(attendances)
-            .values(new_vals)
-            .execute(conn)?;
+            .map_err(GreaseError::DbError)?;
 
         Ok(())
     }
+
+    pub fn create_for_new_event(given_event_id: i32, conn: &MysqlConnection) -> GreaseResult<()> {
+        let event_semester = Event::load(given_event_id, conn)?.event.semester;
+        let semester_members = MemberForSemester::load_all(&event_semester, conn)?;
+
+        let new_attendances = semester_members
+            .into_iter()
+            .map(|member_for_semester| NewAttendance {
+                event: given_event_id,
+                member: member_for_semester.member.email,
+            })
+            .collect::<Vec<NewAttendance>>();
+        diesel::insert_into(attendance)
+            .values(&new_attendances)
+            .execute(conn)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(())
+    }
+
+    pub fn update(
+        given_event_id: i32,
+        given_member_email: &str,
+        attendance_form: &AttendanceForm,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<()> {
+        diesel::update(
+            attendance.filter(member.eq(given_member_email).and(event.eq(given_event_id))),
+        )
+        .set(attendance_form)
+        .execute(conn)
+        .map_err(GreaseError::DbError)?;
+
+        Ok(())
+    }
+
+    pub fn is_excused(&self, conn: &MysqlConnection) -> GreaseResult<bool> {
+        AbsenceRequest::load(&self.member, self.event, conn).map(|absence_request| {
+            absence_request
+                .map(|ar| ar.state == AbsenceRequestState::Approved)
+                .unwrap_or(false)
+        })
+    }
+}
+
+#[derive(Insertable, Serialize, Deserialize)]
+#[table_name = "attendance"]
+pub struct NewAttendance {
+    pub event: i32,
+    pub member: String,
+}
+
+#[derive(AsChangeset, Debug, Serialize)]
+#[table_name = "attendance"]
+pub struct AttendanceForm {
+    pub should_attend: bool,
+    pub did_attend: Option<bool>,
+    pub minutes_late: i32,
+    pub confirmed: bool,
 }

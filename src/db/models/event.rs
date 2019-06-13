@@ -1,11 +1,17 @@
 use chrono::Datelike;
-use chrono::{Duration, NaiveDateTime};
+use chrono::{Duration, Local};
 use db::models::*;
 use db::schema::event::dsl::*;
 use diesel::mysql::MysqlConnection;
-use diesel::result::QueryResult;
 use diesel::*;
-use serde_json::{to_value, Value};
+use error::*;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+pub struct EventWithGig {
+    pub event: Event,
+    pub gig: Option<Gig>,
+}
 
 impl Event {
     // pub const VALID_TYPES: [&'static str; 6] = [
@@ -17,240 +23,196 @@ impl Event {
     //     "Other",
     // ];
 
-    pub fn load(given_event_id: i32, conn: &MysqlConnection) -> Result<Event, String> {
-        event
+    pub fn load(given_event_id: i32, conn: &MysqlConnection) -> GreaseResult<EventWithGig> {
+        use crate::db::schema::event;
+
+        let found_event = event::table
             .filter(id.eq(given_event_id))
             .first::<Event>(conn)
             .optional()
-            .expect("error loading event")
-            .ok_or(format!("event with id {} doesn't exist", given_event_id))
+            .map_err(GreaseError::DbError)?
+            .ok_or(GreaseError::BadRequest(format!(
+                "event with id {} doesn't exist",
+                given_event_id
+            )))?;
+        let found_gig = Gig::load(given_event_id, conn)?;
+
+        Ok(EventWithGig {
+            event: found_event,
+            gig: found_gig,
+        })
     }
 
-    pub fn load_all(conn: &MysqlConnection) -> Vec<Event> {
+    pub fn load_all(conn: &MysqlConnection) -> GreaseResult<Vec<EventWithGig>> {
+        use crate::db::schema::event;
+
+        let found_events = event::table
+            .left_join(gig::table)
+            .order(gig::dsl::performance_time)
+            .load::<(Event, Option<Gig>)>(conn)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(found_events
+            .into_iter()
+            .map(|(found_event, found_gig)| EventWithGig {
+                event: found_event,
+                gig: found_gig,
+            })
+            .collect())
+    }
+
+    pub fn load_all_for_current_semester(
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Vec<EventWithGig>> {
+        use crate::db::schema::event;
+
+        let current_semester = Semester::load_current(conn)?;
+        let found_events = event::table
+            .left_join(gig::table)
+            .filter(event::dsl::semester.eq(&current_semester.name))
+            .order(event::dsl::call_time)
+            .load::<(Event, Option<Gig>)>(conn)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(found_events
+            .into_iter()
+            .map(|(found_event, found_gig)| EventWithGig {
+                event: found_event,
+                gig: found_gig,
+            })
+            .collect())
+    }
+
+    pub fn load_all_for_current_semester_until_now(
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Vec<Event>> {
+        let current_semester = Semester::load_current(conn)?;
+        let now = Local::now().naive_local();
+
         event
-            .order(performance_time)
+            .filter(semester.eq(&current_semester.name))
+            .filter(release_time.lt(now))
+            .order(call_time)
             .load::<Event>(conn)
-            .expect("error loading events")
+            .map_err(GreaseError::DbError)
     }
 
-    pub fn load_all_of_type(given_category: &EventCategory, conn: &MysqlConnection) -> Vec<Event> {
-        event
-            .filter(category.eq(given_category))
-            .order(performance_time)
-            .load::<Event>(conn)
-            .expect("error loading events")
-    }
+    pub fn load_all_of_type_for_current_semester(
+        given_event_type: &str,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Vec<EventWithGig>> {
+        use crate::db::schema::event;
 
-    pub fn points(&self) -> f32 {
-        match self.category {
-            "tutti" => 35.0,
-            "rehearsal" | "sectional" => 10.0,
-            "volunteer" | "ombuds" | "other" | _ => 5.0,
-        }
-    }
-
-    pub fn create(new_event: &NewEvent, conn: &MysqlConnection) -> i32 {
-        insert_into(event)
-            .values(new_event)
-            .execute(conn)
-            .expect("error adding event");
-
-        let new_event_id = event
-            .filter(title.eq(&new_event.title))
-            .filter(start_time.eq(&new_event.start_time))
-            .first::<Event>(conn)
-            .expect("error loading event")
-            .id;
-
-        Attendance::create_for_new_event(new_event_id, conn);
-
-        new_event_id
-    }
-
-    pub fn grade(&self, user: &User, current_grade: f32, conn: &MysqlConnection) -> (f32, String) {
-        let attendance = Attendance::load_for_user_at_event(&user.email, self.id, conn);
-        let mut value = self.points();
-
-        // if they attended the event
-        if attendance.did_attend {
-            // if it's a Tutti gig, check if they attended this week's rehearsal
-            if self.category == "tutti" {
-                let mut rehearsals = Event::load_all_of_type(&"rehearsal", conn);
-                rehearsals.sort_by_key(|e| e.start_time);
-                let last_rehearsal = rehearsals
-                    .iter()
-                    .take_while(|e| e.start_time < self.start_time)
-                    .last();
-                if let Some(last) = last_rehearsal {
-                    let rehearsal_attendance =
-                        Attendance::load_for_user_at_event(&user.email, last.id, conn);
-                    if !rehearsal_attendance.did_attend && !rehearsal_attendance.is_excused(conn) {
-                        return (
-                            current_grade - value,
-                            "Lost full points for unexcused absence \
-                             from this week's rehearsal"
-                                .to_owned(),
-                        );
-                    }
-                }
-            // If they already attended a previous sectional in the same week, award no points
-            } else if self.category == "sectional" {
-                let sectionals = self.load_sectionals_the_week_of(conn);
-                let num_attended = sectionals
-                    .iter()
-                    .filter(|s| {
-                        s.start_time < self.start_time
-                            && Attendance::load_for_user_at_event(&user.email, s.id, conn)
-                                .did_attend
-                    })
-                    .count();
-                if num_attended > 0 {
-                    return if current_grade + value > 100.0 {
-                        (
-                            100.0,
-                            format!(
-                                "Earned to over 100 points (the grade cap), so only earned \
-                                 {:.2} points for attending a previous sectional the same week",
-                                100.0 - current_grade
-                            ),
-                        )
-                    } else {
-                        (
-                            current_grade + value,
-                            format!(
-                                "Earned {:.0} points for attending a previous \
-                                 sectional the same week",
-                                value
-                            ),
-                        )
-                    };
-                } else {
-                    value = 0.0;
-                }
-            }
-
-            let tardiness = attendance.minutes_late as f32 * 10.0 / 60.0;
-            let new_grade = current_grade + value - tardiness;
-
-            if attendance.minutes_late > 0 {
-                if new_grade > 100.0 {
-                    (
-                        100.0,
-                        format!(
-                            "Earned to over 100 points (the grade cap), \
-                             so only earned {:.2} points (lost {:.2} points for tardiness)",
-                            100.0 - current_grade,
-                            tardiness
-                        ),
-                    )
-                } else {
-                    (
-                        new_grade,
-                        format!(
-                            "Earned {:.2} points (lost {:.2} points for tardiness)",
-                            value - tardiness,
-                            tardiness
-                        ),
-                    )
-                }
-            } else {
-                if new_grade > 100.0 {
-                    (
-                        100.0,
-                        format!(
-                            "Earned to over 100 points (the grade cap), \
-                             so only earned {:.2} points",
-                            100.0 - current_grade
-                        ),
-                    )
-                } else {
-                    (
-                        new_grade,
-                        format!("Earned {:.0} points (full value)", value),
-                    )
-                }
-            }
-        // didn't attend but should have
-        } else if attendance.should_attend {
-            if self.category == "ombuds" {
-                (
-                    current_grade,
-                    "Ombuds events aren't required, no points lost".to_owned(),
-                )
-            } else if self.category == "sectional" {
-                let other_sectionals = self.load_sectionals_the_week_of(conn);
-                if other_sectionals.iter().any(|s| {
-                    let attendance = Attendance::load_for_user_at_event(&user.email, s.id, conn);
-                    // TODO: do excuses matter?
-                    attendance.did_attend || attendance.is_excused(conn)
-                }) {
-                    (
-                        current_grade,
-                        "No points lost as another sectional was \
-                         attended or excused the same week"
-                            .to_owned(),
-                    )
-                } else if other_sectionals
-                    .iter()
-                    .filter(|s| s.start_time > self.start_time)
-                    .count() > 0
-                {
-                    (
-                        current_grade - value,
-                        format!(
-                            "Lost {:.0} points for not attending a sectional the given week",
-                            value
-                        ),
-                    )
-                } else {
-                    (
-                        current_grade,
-                        "Only the last sectional of the week deducts points".to_owned(),
-                    )
-                }
-            } else if attendance.is_excused(conn) {
-                (
-                    current_grade,
-                    "Didn't lose points as the absence was excused".to_owned(),
-                )
-            } else {
-                (
-                    current_grade - value,
-                    format!(
-                        "Lost {:.0} points (full value) for an unexcused absence",
-                        value
-                    ),
-                )
-            }
-        // didn't attend and shouldn't have
-        } else {
-            (
-                current_grade,
-                "Lost no points for not attending when not expected".to_owned(),
+        let current_semester = Semester::load_current(conn)?;
+        let found_events = event::table
+            .left_join(gig::table)
+            .filter(
+                type_
+                    .eq(given_event_type)
+                    .and(semester.eq(&current_semester.name)),
             )
+            .order(event::dsl::call_time)
+            .load::<(Event, Option<Gig>)>(conn)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(found_events
+            .into_iter()
+            .map(|(found_event, found_gig)| EventWithGig {
+                event: found_event,
+                gig: found_gig,
+            })
+            .collect())
+    }
+
+    // pub fn create(new_event: NewEvent, conn: &MysqlConnection) -> GreaseResult<i32> {
+    //     let new_event_id: i32 = insert_into(event)
+    //         .values(new_event)
+    //         .returning(id)
+    //         .execute(conn)
+    //         .map_err(GreaseError::DbError)? as i32;
+
+    //     Attendance::create_for_new_event(new_event_id, conn)?;
+
+    //     Ok(new_event_id)
+    // }
+
+    pub fn went_to_event_type_during_week_of(
+        &self,
+        member: &Member,
+        given_event_type: &str,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Option<bool>> {
+        use db::schema::attendance;
+
+        let days_since_sunday = self.call_time.date().weekday().num_days_from_sunday() as i64;
+        let last_sunday = self.call_time - Duration::days(days_since_sunday);
+        let next_sunday = last_sunday + Duration::days(7);
+        let now = Local::now().naive_local();
+
+        let given_event_type_attendance_for_week = event
+            .inner_join(attendance::table)
+            .select((id, attendance::dsl::did_attend))
+            .filter(
+                type_
+                    .eq(given_event_type)
+                    .and(id.ne(self.id))
+                    .and(semester.eq(&self.semester))
+                    .and(call_time.gt(last_sunday))
+                    .and(release_time.lt(next_sunday))
+                    .and(release_time.lt(now))
+                    .and(attendance::dsl::member.eq(&member.email)),
+            )
+            .order(call_time)
+            .load::<(i32, bool)>(conn)
+            .map_err(GreaseError::DbError)?;
+
+        let attended_given_event_types = given_event_type_attendance_for_week
+            .into_iter()
+            .map(|(event_id, did_attend)| {
+                if did_attend {
+                    Ok(true)
+                } else {
+                    AbsenceRequest::excused_for_event(&member.email, event_id, conn)
+                }
+            })
+            .collect::<GreaseResult<Vec<bool>>>()?;
+
+        if attended_given_event_types.len() == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(
+                attended_given_event_types.into_iter().any(|sect| sect),
+            ))
         }
     }
 
     // TODO: fix for weekend sectionals?
-    pub fn load_sectionals_the_week_of(&self, conn: &MysqlConnection) -> Vec<Event> {
-        let datetime = NaiveDateTime::from_timestamp(self.start_time as i64, 0);
-        let sunday_diff = datetime.date().weekday().num_days_from_sunday();
-        let last_sunday = (datetime - Duration::days(sunday_diff as i64)).timestamp() as i32;
-        let next_sunday = last_sunday + 60 * 60 * 24 * 7; // add a week in seconds
+    pub fn load_sectionals_the_week_of(&self, conn: &MysqlConnection) -> GreaseResult<Vec<Event>> {
+        let days_since_sunday = self.call_time.date().weekday().num_days_from_sunday() as i64;
+        let last_sunday = self.call_time - Duration::days(days_since_sunday);
+        let next_sunday = last_sunday + Duration::days(7);
 
-        let mut sectionals = Event::load_all_of_type("sectional", conn);
-        sectionals.retain(|e| last_sunday > e.start_time && e.start_time < next_sunday);
-        sectionals
+        event
+            .filter(
+                type_
+                    .eq("sectional")
+                    .and(semester.eq(&self.semester))
+                    .and(call_time.gt(last_sunday))
+                    .and(release_time.lt(next_sunday)),
+            )
+            .order(call_time)
+            .load::<Event>(conn)
+            .map_err(GreaseError::DbError)
     }
+}
 
-    // pub fn override_table_with_values(
-    //     new_vals: &Vec<NewEvent>,
-    //     conn: &MysqlConnection,
-    // ) -> QueryResult<()> {
-    //     diesel::delete(event).execute(conn)?;
-    //     diesel::sql_query("ALTER SEQUENCE events_id_seq RESTART").execute(conn)?;
-    //     diesel::insert_into(event).values(new_vals).execute(conn)?;
+impl Gig {
+    pub fn load(given_event_id: i32, conn: &MysqlConnection) -> GreaseResult<Option<Gig>> {
+        use crate::db::schema::gig::dsl::*;
 
-    //     Ok(())
-    // }
+        gig.filter(event.eq(given_event_id))
+            .first(conn)
+            .optional()
+            .map_err(GreaseError::DbError)
+    }
 }

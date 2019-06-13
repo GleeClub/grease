@@ -14,3 +14,6 @@ dotenv = "0.14.1"
 http = "0.1.17"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+extract_derive = { path = "extract_derive" }
+lettre = { version = "0.9", git = "https://github.com/lettre/lettre" }
+lettre_email = { version = "0.9", git = "https://github.com/lettre/lettre" }

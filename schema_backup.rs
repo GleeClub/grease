@@ -1,13 +1,27 @@
-#[derive(Debug, DbEnum, Serialize, Deserialize, PartialEq)]
+use diesel_derive_enum::DbEnum;
+use serde::{Deserialize, Serialize};
+
+pub mod enums {
+    pub use super::AbsenceRequestState;
+    pub use super::BorrowStatus;
+    pub use super::Enrollment;
+    pub use super::GigRequestStatus;
+    pub use super::Key;
+    pub use super::PermissionType;
+    pub use super::SongMode;
+    pub use super::StorageType;
+}
+
+#[derive(Debug, PartialEq, DbEnum, Serialize, Deserialize)]
 pub enum AbsenceRequestState {
+    Pending,
     Approved,
     Denied,
-    Pending,
 }
 
 table! {
-    use super::AbsenceRequestStateMapping;
     use diesel::sql_types::*;
+    use super::AbsenceRequestStateMapping;
 
     absence_request (member, event) {
         member -> Varchar,
@@ -18,31 +32,29 @@ table! {
     }
 }
 
-#[derive(Debug, DbEnum, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, DbEnum, Serialize, Deserialize)]
 pub enum Enrollment {
     Class,
     Club,
 }
 
 table! {
-    use super::EnrollmentMapping;
     use diesel::sql_types::*;
+    use super::EnrollmentMapping;
 
-    active_semester (member, semester, choir) {
+    active_semester (member, semester) {
         member -> Varchar,
-        semester -> Integer,
-        choir -> Varchar,
+        semester -> Varchar,
         enrollment -> EnrollmentMapping,
-        section -> Nullable<Integer>,
+        section -> Nullable<Varchar>,
     }
 }
 
 table! {
     announcement (id) {
         id -> Integer,
-        choir -> Varchar,
         member -> Nullable<Varchar>,
-        semester -> Integer,
+        semester -> Varchar,
         time -> Timestamp,
         content -> Longtext,
         archived -> Bool,
@@ -54,7 +66,7 @@ table! {
         member -> Varchar,
         event -> Integer,
         should_attend -> Bool,
-        did_attend -> Nullable<Bool>,
+        did_attend -> Bool,
         confirmed -> Bool,
         minutes_late -> Integer,
     }
@@ -69,21 +81,12 @@ table! {
 }
 
 table! {
-    choir (name) {
-        name -> Varchar,
-        officer_email_list -> Varchar,
-        member_email_list -> Varchar,
-    }
-}
-
-table! {
     event (id) {
         id -> Integer,
         name -> Varchar,
-        choir -> Varchar,
-        semester -> Integer,
+        semester -> Varchar,
         #[sql_name = "type"]
-        type_ -> Integer,
+        type_ -> Varchar,
         call_time -> Datetime,
         release_time -> Nullable<Datetime>,
         points -> Integer,
@@ -91,23 +94,20 @@ table! {
         location -> Nullable<Varchar>,
         gig_count -> Bool,
         default_attend -> Bool,
-        section -> Nullable<Integer>,
+        section -> Nullable<Varchar>,
     }
 }
 
 table! {
-    event_type (id) {
-        id -> Integer,
+    event_type (name) {
         name -> Varchar,
-        choir -> Varchar,
         weight -> Integer,
     }
 }
 
 table! {
-    fee (name, choir) {
+    fee (name) {
         name -> Varchar,
-        choir -> Varchar,
         amount -> Integer,
     }
 }
@@ -127,16 +127,16 @@ table! {
     }
 }
 
-#[derive(Debug, DbEnum, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, DbEnum, Serialize, Deserialize)]
 pub enum GigRequestStatus {
+    Pending,
     Accepted,
     Dismissed,
-    Pending,
 }
 
 table! {
-    use super::GigRequestStatusMapping;
     use diesel::sql_types::*;
+    use super::GigRequestStatusMapping;
 
     gig_request (id) {
         id -> Integer,
@@ -164,22 +164,21 @@ table! {
 }
 
 table! {
-    google_docs (name, choir) {
+    google_docs (name) {
         name -> Varchar,
-        choir -> Varchar,
         url -> Varchar,
     }
 }
 
-#[derive(Debug, DbEnum, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, DbEnum, Serialize, Deserialize)]
 pub enum StorageType {
     Local,
     Remote,
 }
 
 table! {
-    use super::StorageTypeMapping;
     use diesel::sql_types::*;
+    use super::StorageTypeMapping;
 
     media_type (name) {
         name -> Varchar,
@@ -195,7 +194,7 @@ table! {
         preferred_name -> Nullable<Varchar>,
         last_name -> Varchar,
         pass_hash -> Varchar,
-        phone -> Varchar,
+        phone_number -> Varchar,
         picture -> Nullable<Varchar>,
         passengers -> Integer,
         location -> Varchar,
@@ -213,15 +212,14 @@ table! {
 table! {
     member_role (member, role, semester) {
         member -> Varchar,
-        role -> Integer,
-        semester -> Integer,
+        role -> Varchar,
+        semester -> Varchar,
     }
 }
 
 table! {
     minutes (id) {
         id -> Integer,
-        choir -> Varchar,
         name -> Varchar,
         date -> Date,
         private -> Nullable<Longtext>,
@@ -233,11 +231,10 @@ table! {
     outfit (id) {
         id -> Integer,
         name -> Varchar,
-        choir -> Varchar,
     }
 }
 
-#[derive(Debug, DbEnum, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, DbEnum, Serialize, Deserialize)]
 pub enum BorrowStatus {
     Circulating,
     Lost,
@@ -245,8 +242,8 @@ pub enum BorrowStatus {
 }
 
 table! {
-    use super::BorrowStatusMapping;
     use diesel::sql_types::*;
+    use super::BorrowStatusMapping;
 
     outfit_borrow (outfit) {
         outfit -> Integer,
@@ -255,15 +252,15 @@ table! {
     }
 }
 
-#[derive(Debug, DbEnum, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, DbEnum, Serialize, Deserialize)]
 pub enum PermissionType {
     Static,
     Event,
 }
 
 table! {
-    use super::PermissionTypeMapping;
     use diesel::sql_types::*;
+    use super::PermissionTypeMapping;
 
     permission (name) {
         name -> Varchar,
@@ -281,40 +278,34 @@ table! {
 }
 
 table! {
-    role (id) {
-        id -> Integer,
-        name -> Nullable<Varchar>,
-        choir -> Varchar,
+    role (name) {
+        name -> Varchar,
         rank -> Integer,
         max_quantity -> Integer,
     }
 }
 
 table! {
-    role_permission (id) {
-        id -> Integer,
-        role -> Integer,
+    role_permission (role, permission) {
+        role -> Varchar,
         permission -> Varchar,
-        event_type -> Nullable<Integer>,
+        event_type -> Nullable<Varchar>,
     }
 }
 
 table! {
-    section_type (id) {
-        id -> Integer,
+    section_type (name) {
         name -> Varchar,
-        choir -> Nullable<Varchar>,
     }
 }
 
 table! {
-    semester (id) {
-        id -> Integer,
+    semester (name) {
         name -> Varchar,
-        choir -> Varchar,
         start_date -> Datetime,
         end_date -> Datetime,
         gig_requirement -> Integer,
+        current -> Bool,
     }
 }
 
@@ -325,50 +316,70 @@ table! {
     }
 }
 
-#[derive(Debug, DbEnum, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, DbEnum, Serialize, Deserialize)]
 pub enum Key {
+    #[db_rename = "A\x26\x6D"]
     AFlat,
+    #[db_rename = "A"]
     A,
+    #[db_rename = "A#"]
     ASharp,
+    #[db_rename = "B\x26\x6D"]
     BFlat,
+    #[db_rename = "B"]
     B,
+    #[db_rename = "B#"]
     BSharp,
+    #[db_rename = "C\x26\x6D"]
     CFlat,
+    #[db_rename = "C"]
     C,
+    #[db_rename = "C#"]
     CSharp,
+    #[db_rename = "D\x26\x6D"]
     DFlat,
+    #[db_rename = "D"]
     D,
+    #[db_rename = "D#"]
     DSharp,
+    #[db_rename = "E\x26\x6D"]
     EFlat,
+    #[db_rename = "E"]
     E,
+    #[db_rename = "E#"]
     ESharp,
+    #[db_rename = "F\x26\x6D"]
     FFlat,
+    #[db_rename = "F"]
     F,
+    #[db_rename = "F#"]
     FSharp,
+    #[db_rename = "G\x26\x6D"]
     GFlat,
+    #[db_rename = "G"]
     G,
+    #[db_rename = "G#"]
     GSharp,
 }
 
-#[derive(Debug, DbEnum, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, DbEnum, Serialize, Deserialize)]
 pub enum SongMode {
     Major,
     Minor,
     Dorian,
     Phrygian,
     Lydian,
-    Mixolydian,
+    Myxolydian,
     Locrian,
 }
 
 table! {
+    use diesel::sql_types::*;
     use super::KeyMapping;
     use super::SongModeMapping;
-    use diesel::sql_types::*;
 
     song (id) {
         id -> Integer,
-        choir -> Varchar,
         title -> Varchar,
         info -> Nullable<Text>,
         current -> Bool,
@@ -402,22 +413,19 @@ table! {
     transaction (id) {
         id -> Integer,
         member -> Varchar,
-        choir -> Varchar,
         time -> Timestamp,
         amount -> Integer,
         description -> Varchar,
-        semester -> Nullable<Integer>,
+        semester -> Nullable<Varchar>,
         #[sql_name = "type"]
-        type_ -> Nullable<Integer>,
+        type_ -> Nullable<Varchar>,
         resolved -> Bool,
     }
 }
 
 table! {
-    transaction_type (id) {
-        id -> Integer,
+    transaction_type (name) {
         name -> Varchar,
-        choir -> Varchar,
     }
 }
 
@@ -425,14 +433,12 @@ table! {
     uniform (id) {
         id -> Integer,
         name -> Varchar,
-        choir -> Varchar,
         description -> Nullable<Text>,
     }
 }
 
 table! {
-    variable (choir, key) {
-        choir -> Varchar,
+    variable (key) {
         key -> Varchar,
         value -> Varchar,
     }
@@ -440,56 +446,40 @@ table! {
 
 joinable!(absence_request -> event (event));
 joinable!(absence_request -> member (member));
-joinable!(active_semester -> choir (choir));
 joinable!(active_semester -> member (member));
 joinable!(active_semester -> section_type (section));
 joinable!(active_semester -> semester (semester));
-joinable!(announcement -> choir (choir));
 joinable!(announcement -> member (member));
 joinable!(announcement -> semester (semester));
 joinable!(attendance -> event (event));
 joinable!(attendance -> member (member));
 joinable!(carpool -> event (event));
 joinable!(carpool -> member (driver));
-joinable!(event -> choir (choir));
-joinable!(event -> event_type (type));
+joinable!(event -> event_type (type_));
 joinable!(event -> section_type (section));
 joinable!(event -> semester (semester));
-joinable!(event_type -> choir (choir));
-joinable!(fee -> choir (choir));
 joinable!(gig -> event (event));
 joinable!(gig -> uniform (uniform));
 joinable!(gig_request -> event (event));
 joinable!(gig_song -> event (event));
 joinable!(gig_song -> song (song));
-joinable!(google_docs -> choir (choir));
 joinable!(member_role -> member (member));
 joinable!(member_role -> role (role));
 joinable!(member_role -> semester (semester));
-joinable!(minutes -> choir (choir));
-joinable!(outfit -> choir (choir));
 joinable!(outfit_borrow -> member (member));
 joinable!(outfit_borrow -> outfit (outfit));
 joinable!(rides_in -> carpool (carpool));
 joinable!(rides_in -> member (member));
-joinable!(role -> choir (choir));
 joinable!(role_permission -> event_type (event_type));
 joinable!(role_permission -> permission (permission));
 joinable!(role_permission -> role (role));
-joinable!(section_type -> choir (choir));
-joinable!(semester -> choir (choir));
 joinable!(session -> member (member));
-joinable!(song -> choir (choir));
-joinable!(song_link -> media_type (type));
+joinable!(song_link -> media_type (type_));
 joinable!(song_link -> song (song));
 joinable!(todo -> member (member));
-joinable!(transaction -> choir (choir));
 joinable!(transaction -> member (member));
 joinable!(transaction -> semester (semester));
-joinable!(transaction -> transaction_type (type));
-joinable!(transaction_type -> choir (choir));
-joinable!(uniform -> choir (choir));
-joinable!(variable -> choir (choir));
+joinable!(transaction -> transaction_type (type_));
 
 allow_tables_to_appear_in_same_query!(
     absence_request,
@@ -497,7 +487,6 @@ allow_tables_to_appear_in_same_query!(
     announcement,
     attendance,
     carpool,
-    choir,
     event,
     event_type,
     fee,
