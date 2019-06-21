@@ -1,5 +1,5 @@
 [package]
-name = "extract_derive"
+name = "grease_derive"
 version = "0.1.0"
 authors = ["Sam Mohr <sammohr97@gmail.com>"]
 edition = "2018"
@@ -8,6 +8,7 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
-syn = "0.13.1"
-quote = "0.5.1"
+syn = { version = "0.15", features = ["full"] }
+quote = "0.6"
 serde = { version = "*", features = ["derive"] }
+proc-macro2 = "0.4"

@@ -10,3 +10,4 @@ edition = "2018"
 mysql = "16.0"
 chrono = { version = "0.4", features = ["serde"] }
 structopt = "0.2"
+url = "1.7.2"

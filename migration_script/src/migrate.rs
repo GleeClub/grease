@@ -2,13 +2,15 @@ use crate::error::*;
 use crate::new_schema::*;
 use crate::old_schema::*;
 use mysql::Pool;
+use std::collections::HashMap;
+use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
 
 pub trait Load: Sized {
     fn load(old_db: &Pool) -> MigrateResult<Vec<Self>>;
 }
 
 pub trait Insert: Sized {
-    fn insert(new_db: &Pool, new_values: &Vec<Self>) -> MigrateResult<()>;
+    fn insert(new_db: &Pool, new_value: &Vec<Self>) -> MigrateResult<()>;
 }
 
 pub trait Migrate<Old: Load>: Insert {
@@ -51,7 +53,7 @@ impl Migrate<OldMember> for NewMember {
                         ))?
                         .to_string(),
                     picture: old_member.picture.clone(),
-                    passengers: old_member.passengers,
+                    passengers: std::cmp::max(old_member.passengers, 0),
                     location: old_member
                         .location
                         .as_ref()
@@ -61,7 +63,10 @@ impl Migrate<OldMember> for NewMember {
                     major: old_member.major.clone(),
                     minor: old_member.minor.clone(),
                     hometown: old_member.hometown.clone(),
-                    arrived_at_tech: old_member.techYear.clone(),
+                    arrived_at_tech: old_member
+                        .techYear
+                        .clone()
+                        .map(|year| std::cmp::max(year, 1)),
                     gateway_drug: old_member.gatewayDrug.clone(),
                     conflicts: old_member.conflicts.clone(),
                     dietary_restrictions: None,
@@ -160,7 +165,6 @@ impl Migrate<OldMemberRole> for NewMemberRole {
             .map(|old_member_role| {
                 Ok(NewMemberRole {
                     member: old_member_role.member.clone(),
-                    semester: old_member_role.semester.clone(),
                     role: dependencies
                         .iter()
                         .find(|role| role.id == old_member_role.role)
@@ -310,7 +314,11 @@ impl Migrate<OldAbsenceRequest> for NewAbsenceRequest {
                 event: old_absence_request.eventNo,
                 time: old_absence_request.time.clone(),
                 reason: old_absence_request.reason.clone(),
-                state: old_absence_request.state.clone(),
+                state: if old_absence_request.state == "confirmed" {
+                    "approved".to_owned()
+                } else {
+                    old_absence_request.state.clone()
+                },
             })
             .collect::<Vec<NewAbsenceRequest>>();
         Insert::insert(new_db, &new_absence_requests)?;
@@ -414,14 +422,33 @@ impl Migrate<OldAnnouncement> for NewAnnouncement {
 }
 
 impl Migrate<OldAttends> for NewAttendance {
-    type Dependencies = ();
+    type Dependencies = (Vec<OldActiveSemester>, Vec<OldEvent>);
     fn migrate(
         old_db: &Pool,
         new_db: &Pool,
-        _dependencies: &Self::Dependencies,
+        (old_active_semesters, old_events): &Self::Dependencies,
     ) -> MigrateResult<(Vec<OldAttends>, Vec<Self>)> {
         let old_attendances = OldAttends::load(old_db)?;
-        let new_attendances = old_attendances
+        let mut grouped_active_semesters = old_active_semesters.iter().fold(
+            HashMap::new(),
+            |mut map: HashMap<String, Vec<&OldActiveSemester>>, active_semester| {
+                map.get_mut(&active_semester.semester)
+                    .get_or_insert(&mut Vec::new())
+                    .push(active_semester);
+                map
+            },
+        );
+        let grouped_events = old_events.iter().fold(
+            HashMap::new(),
+            |mut map: HashMap<String, Vec<&OldEvent>>, event| {
+                map.get_mut(&event.semester)
+                    .get_or_insert(&mut Vec::new())
+                    .push(event);
+                map
+            },
+        );
+
+        let mut new_attendances = old_attendances
             .iter()
             .map(|old_attendance| NewAttendance {
                 member: old_attendance.memberID.clone(),
@@ -432,6 +459,40 @@ impl Migrate<OldAttends> for NewAttendance {
                 minutes_late: old_attendance.minutesLate,
             })
             .collect::<Vec<NewAttendance>>();
+
+        let mut additional_new_attendances: Vec<NewAttendance> = Vec::new();
+        for (semester, events) in grouped_events.iter() {
+            for event in events {
+                let active_semesters =
+                    grouped_active_semesters
+                        .remove(semester)
+                        .ok_or(MigrateError::Other(format!(
+                        "event {} was during semester '{}' which no active semesters were found in",
+                        event.eventNo, semester
+                    )))?;
+                additional_new_attendances.extend(active_semesters.into_iter().filter_map(
+                    |active_semester| {
+                        if !new_attendances.iter().any(|attendance| {
+                            attendance.member == active_semester.member
+                                && attendance.event == event.eventNo
+                        }) {
+                            Some(NewAttendance {
+                                member: active_semester.member.clone(),
+                                event: event.eventNo,
+                                should_attend: false,
+                                did_attend: false,
+                                confirmed: false,
+                                minutes_late: 0,
+                            })
+                        } else {
+                            None
+                        }
+                    },
+                ));
+            }
+        }
+
+        new_attendances.extend(additional_new_attendances.into_iter());
         Insert::insert(new_db, &new_attendances)?;
 
         Ok((old_attendances, new_attendances))
@@ -522,10 +583,17 @@ impl Migrate<OldUniform> for NewUniform {
         let old_uniforms = OldUniform::load(old_db)?;
         let new_uniforms = old_uniforms
             .iter()
+            .filter(|old_uniform| old_uniform.choir == "glee")
             .map(|old_uniform| NewUniform {
-                id: old_uniform.id.clone(),
                 name: old_uniform.name.clone(),
-                description: Some(old_uniform.description.clone()),
+                description: Some(old_uniform.description.clone()).filter(|d| d.len() > 0),
+                color: match old_uniform.id.as_str() {
+                    "casual" => Some("#a8c".to_owned()),
+                    "jeans" | "tshirt_mode" => Some("#137".to_owned()),
+                    "slacks" | "wedding" => Some("#000".to_owned()),
+                    "tshirt" => Some("#dc3".to_owned()),
+                    _other => None,
+                },
             })
             .collect::<Vec<NewUniform>>();
         Insert::insert(new_db, &new_uniforms)?;
@@ -535,28 +603,38 @@ impl Migrate<OldUniform> for NewUniform {
 }
 
 impl Migrate<OldGig> for NewGig {
-    type Dependencies = ();
+    type Dependencies = Vec<OldUniform>;
     fn migrate(
         old_db: &Pool,
         new_db: &Pool,
-        _dependencies: &Self::Dependencies,
+        dependencies: &Self::Dependencies,
     ) -> MigrateResult<(Vec<OldGig>, Vec<Self>)> {
         let old_gigs = OldGig::load(old_db)?;
         let new_gigs = old_gigs
             .iter()
-            .map(|old_gig| NewGig {
-                event: old_gig.eventNo,
-                performance_time: old_gig.performanceTime.clone(),
-                uniform: old_gig.uniform.clone(),
-                contact_name: old_gig.cname.clone(),
-                contact_email: old_gig.cemail.clone(),
-                contact_phone: old_gig.cphone.clone(),
-                price: old_gig.price.clone(),
-                public: old_gig.public.clone(),
-                summary: Some(old_gig.summary.clone()),
-                description: Some(old_gig.description.clone()),
+            .map(|old_gig| {
+                Ok(NewGig {
+                    event: old_gig.eventNo,
+                    performance_time: old_gig.performanceTime.clone(),
+                    contact_name: old_gig.cname.clone(),
+                    contact_email: old_gig.cemail.clone(),
+                    contact_phone: old_gig.cphone.clone(),
+                    price: old_gig.price.clone(),
+                    public: old_gig.public.clone(),
+                    summary: Some(old_gig.summary.clone()),
+                    description: Some(old_gig.description.clone()),
+                    uniform: dependencies
+                        .iter()
+                        .find(|old_uniform| old_uniform.id == old_gig.uniform)
+                        .ok_or(MigrateError::Other(format!(
+                            "no uniform with id {}",
+                            old_gig.uniform
+                        )))?
+                        .name
+                        .clone(),
+                })
             })
-            .collect::<Vec<NewGig>>();
+            .collect::<MigrateResult<Vec<NewGig>>>()?;
         Insert::insert(new_db, &new_gigs)?;
 
         Ok((old_gigs, new_gigs))
@@ -666,7 +744,7 @@ impl Migrate<OldSongLink> for NewSongLink {
                     id: old_song.id,
                     song: old_song.song,
                     name: old_song.name.clone(),
-                    target: old_song.target.clone(),
+                    target: utf8_percent_encode(&old_song.target, DEFAULT_ENCODE_SET).to_string(),
                     type_: dependencies
                         .iter()
                         .find(|old_media_type| old_media_type.typeid == old_song.type_)

@@ -1,10 +1,7 @@
 use db::models::Member;
-use http::{
-    header::{CONTENT_LENGTH, CONTENT_TYPE},
-    response,
-};
-use serde_json::json;
+use serde_json::{json, Value};
 
+#[derive(Debug)]
 pub enum GreaseError {
     NotFound,
     AlreadyLoggedIn(String),
@@ -14,14 +11,15 @@ pub enum GreaseError {
     Forbidden(Option<String>),
     ServerError(String),
     BadRequest(String),
-    DbError(diesel::result::Error),
+    DbError(mysql::error::Error),
+    FromRowError(mysql::FromRowError),
 }
 
 pub type GreaseResult<T> = Result<T, GreaseError>;
 
 impl GreaseError {
-    pub fn as_response(self) -> cgi::Response {
-        let (status, response_body) = match self {
+    pub fn as_response(self) -> (u16, Value) {
+        match self {
             GreaseError::Unauthorized => (
                 401,
                 json!({
@@ -88,14 +86,13 @@ impl GreaseError {
                     "error": format!("{:?}", error)
                 }),
             ),
-        };
-
-        let body = response_body.to_string().into_bytes();
-        response::Builder::new()
-            .status(status)
-            .header(CONTENT_TYPE, "application/json")
-            .header(CONTENT_LENGTH, body.len().to_string().as_str())
-            .body(body)
-            .unwrap()
+            GreaseError::FromRowError(error) => (
+                500,
+                json!({
+                    "message": "database error (error deserializing from returned row)",
+                    "error": format!("{:?}", error)
+                }),
+            ),
+        }
     }
 }

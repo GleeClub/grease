@@ -3,17 +3,33 @@ name = "grease_api"
 version = "0.1.0"
 # TODO: update your email, Schauer!
 authors = ["Sam Mohr <sammohr97@gmail.com>", "Matthew Schauer <awesome@gatech.edu>"]
+build = "build.rs"
 
 [dependencies]
-app_route = "0.2.1"
+base64 = "0.10"
 cgi = "0.2"
 chrono = { version =  "0.4", features = ["serde"] }
-diesel = { version = "1.4.2", features = ["mysql", "chrono"] }
-diesel-derive-enum = { version = "0.4", features = ["mysql"] }
 dotenv = "0.14.1"
+grease_derive = { path = "grease_derive" }
 http = "0.1.17"
+mysql = "14.2.0"
+mysql_enum = "0.1.3"
+pinto = "0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-extract_derive = { path = "extract_derive" }
-lettre = { version = "0.9", git = "https://github.com/lettre/lettre" }
-lettre_email = { version = "0.9", git = "https://github.com/lettre/lettre" }
+strum = "0.14"
+strum_macros = "0.14"
+url = "1.7.2"
+regex = "1.0"
+glob = "0.3"
+# lettre = { version = "0.9", git = "https://github.com/lettre/lettre", features = [] }
+# lettre_email = { version = "0.9", git = "https://github.com/lettre/lettre", features = [] }
+
+# [features]
+# # Force openssl-sys to staticly link in the openssl library. Necessary when
+# # cross compiling to x86_64-unknown-linux-musl.
+# default = ["vendored"]
+# vendored = ["openssl-sys/vendored"]
+
+[profile.release]
+panic = "unwind"

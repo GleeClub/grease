@@ -8,7 +8,7 @@ impl<T: Extract> Extract for GreaseResult<T> {
     fn extract(request: &cgi::Request) -> GreaseResult<Self> {
         Ok(T::extract(request))
     }
-} 
+}
 
 impl<T: Extract, U: Extract> Extract for (T, U) {
     fn extract(request: &cgi::Request) -> GreaseResult<Self> {

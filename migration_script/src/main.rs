@@ -3,6 +3,7 @@
 extern crate chrono;
 extern crate mysql;
 extern crate structopt;
+extern crate url;
 
 mod error;
 mod migrate;
@@ -101,14 +102,23 @@ pub fn run_migration(passwords: &Passwords) -> MigrateResult<()> {
     let (_old_event_types, _new_event_types) = NewEventType::migrate(&old_db, &new_db, &())?;
 
     println!("Migrating events...");
-    let (_old_events, _new_events) = NewEvent::migrate(&old_db, &new_db, &old_section_types)?;
+    let (old_events, _new_events) = NewEvent::migrate(&old_db, &new_db, &old_section_types)?;
+
+    println!("Migrating uniforms...");
+    let (old_uniforms, _new_uniforms) = NewUniform::migrate(&old_db, &new_db, &())?;
+
+    println!("Migrating gigs...");
+    let (_old_gigs, _new_gigs) = NewGig::migrate(&old_db, &new_db, &old_uniforms)?;
+
+    println!("Migrating gig requests...");
+    let (_old_gig_requests, _new_gig_requests) = NewGigRequest::migrate(&old_db, &new_db, &())?;
 
     println!("Migrating absence requests...");
     let (_old_absence_requests, _new_absence_requests) =
         NewAbsenceRequest::migrate(&old_db, &new_db, &())?;
 
     println!("Migrating active semesters...");
-    let (_old_active_semesters, _new_active_semesters) =
+    let (old_active_semesters, _new_active_semesters) =
         NewActiveSemester::migrate(&old_db, &new_db, &old_section_types)?;
 
     println!("Migrating announcements...");
@@ -116,7 +126,8 @@ pub fn run_migration(passwords: &Passwords) -> MigrateResult<()> {
         NewAnnouncement::migrate(&old_db, &new_db, &old_semesters)?;
 
     println!("Migrating attendance...");
-    let (_old_attendance, _new_attendance) = NewAttendance::migrate(&old_db, &new_db, &())?;
+    let (_old_attendance, _new_attendance) =
+        NewAttendance::migrate(&old_db, &new_db, &(old_active_semesters, old_events))?;
 
     println!("Migrating carpools...");
     let (_old_carpools, _new_carpools) = NewCarpool::migrate(&old_db, &new_db, &())?;
