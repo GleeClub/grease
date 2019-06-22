@@ -7,10 +7,22 @@ pub mod models;
 pub mod traits;
 
 impl Extract for Conn {
+    #[cfg(not(test))]
     fn extract(_request: &cgi::Request) -> GreaseResult<Self> {
         dotenv::var("DATABASE_URL")
             .map_err(|_err| GreaseError::ServerError("Database url missing".to_owned()))
             .and_then(|db_url| Conn::new(db_url).map_err(GreaseError::DbError))
+    }
+
+    #[cfg(test)]
+    fn extract(_request: &cgi::Request) -> GreaseResult<Self> {
+        dotenv::var("TEST_DATABASE_URL")
+            .map_err(|_err| GreaseError::ServerError("Database url missing".to_owned()))
+            .and_then(|db_url| {
+                let mut conn = Conn::new(db_url).map_err(GreaseError::DbError)?;
+                conn.query("START TRANSACTION;").map_err(GreaseError::DbError)?;
+                Ok(conn)
+            })
     }
 }
 
