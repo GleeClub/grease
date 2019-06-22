@@ -2,12 +2,12 @@ use super::basic_success;
 use crate::check_for_permission;
 use auth::User;
 use db::models::attendance::AttendanceForm;
-use db::traits::{Queryable, Insertable};
 use db::models::*;
+use db::traits::{Insertable, Queryable};
 use error::{GreaseError, GreaseResult};
-use serde_json::{json, Value};
-use pinto::query_builder::Order;
 use mysql::Conn;
+use pinto::query_builder::Order;
+use serde_json::{json, Value};
 
 pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseResult<Value> {
     Event::load(event_id, &mut user.conn).and_then(|event_with_gig| {
@@ -19,9 +19,17 @@ pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseRes
     })
 }
 
-pub fn get_events(full: Option<bool>, event_type: Option<String>, mut user: User) -> GreaseResult<Value> {
+pub fn get_events(
+    full: Option<bool>,
+    event_type: Option<String>,
+    mut user: User,
+) -> GreaseResult<Value> {
     let events_with_gigs = if let Some(event_type) = event_type {
-        let event_type = EventType::first(&format!("name = '{}'", event_type), &mut user.conn, format!("no event type named {}", event_type))?;
+        let event_type = EventType::first(
+            &format!("name = '{}'", event_type),
+            &mut user.conn,
+            format!("no event type named {}", event_type),
+        )?;
         Event::load_all_of_type_for_current_semester(&event_type.name, &mut user.conn)
     } else {
         Event::load_all_for_current_semester(&mut user.conn)
@@ -43,13 +51,13 @@ pub fn get_events(full: Option<bool>, event_type: Option<String>, mut user: User
 }
 
 pub fn new_event((new_event, mut user): (NewEvent, User)) -> GreaseResult<Value> {
-    Event::create(new_event, None, &mut user.conn)
-        .map(|new_id| json!({
-            "id": new_id
-        }))
+    Event::create(new_event, None, &mut user.conn).map(|new_id| json!({ "id": new_id }))
 }
 
-pub fn update_event(event_id: i32, (updated_event, mut user): (EventUpdate, User)) -> GreaseResult<Value> {
+pub fn update_event(
+    event_id: i32,
+    (updated_event, mut user): (EventUpdate, User),
+) -> GreaseResult<Value> {
     Event::update(event_id, updated_event, &mut user.conn).map(|_| basic_success())
 }
 
@@ -104,12 +112,20 @@ pub fn get_member_attendance(event_id: i32, member: String, mut user: User) -> G
 
 pub fn get_member_attendance_for_semester(member: String, mut user: User) -> GreaseResult<Value> {
     let current_semester = Semester::load_current(&mut user.conn)?;
-    Attendance::load_for_member_at_all_events(&member, &current_semester.name, &mut user.conn).map(|event_attendance_pairs|
-        event_attendance_pairs.into_iter().map(|(event, attendance)| json!({
-            "event": event,
-            "attendance": attendance
-        })).collect::<Vec<_>>()
-        .into())
+    Attendance::load_for_member_at_all_events(&member, &current_semester.name, &mut user.conn).map(
+        |event_attendance_pairs| {
+            event_attendance_pairs
+                .into_iter()
+                .map(|(event, attendance)| {
+                    json!({
+                        "event": event,
+                        "attendance": attendance
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into()
+        },
+    )
 }
 
 pub fn update_attendance(
@@ -206,11 +222,13 @@ pub fn deny_absence_request(event_id: i32, member: String, mut user: User) -> Gr
 }
 
 pub fn get_event_types(mut user: User) -> GreaseResult<Value> {
-    EventType::query_all_in_order(vec![("name", Order::Asc)], &mut user.conn).map(|types| json!(types))
+    EventType::query_all_in_order(vec![("name", Order::Asc)], &mut user.conn)
+        .map(|types| json!(types))
 }
 
 pub fn get_section_types(mut user: User) -> GreaseResult<Value> {
-    SectionType::query_all_in_order(vec![("name", Order::Asc)], &mut user.conn).map(|types| json!(types))
+    SectionType::query_all_in_order(vec![("name", Order::Asc)], &mut user.conn)
+        .map(|types| json!(types))
 }
 
 pub fn get_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {
@@ -228,29 +246,33 @@ pub fn get_gig_requests(all: Option<bool>, mut user: User) -> GreaseResult<Value
 }
 
 pub fn new_gig_request((new_request, mut conn): (NewGigRequest, Conn)) -> GreaseResult<Value> {
-    new_request.insert_returning_id("id", &mut conn)
-        .map(|new_id: i32| json!({
-            "id": new_id
-        }))
+    new_request
+        .insert_returning_id("id", &mut conn)
+        .map(|new_id: i32| json!({ "id": new_id }))
 }
 
 pub fn dismiss_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {
-    GigRequest::set_status(request_id, GigRequestStatus::Dismissed, &mut user.conn).map(|_| basic_success())
+    GigRequest::set_status(request_id, GigRequestStatus::Dismissed, &mut user.conn)
+        .map(|_| basic_success())
 }
 
 pub fn reopen_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {
-    GigRequest::set_status(request_id, GigRequestStatus::Pending, &mut user.conn).map(|_| basic_success())
+    GigRequest::set_status(request_id, GigRequestStatus::Pending, &mut user.conn)
+        .map(|_| basic_success())
 }
 
-pub fn create_event_from_gig_request(request_id: i32, (form, mut user): (GigRequestForm, User)) -> GreaseResult<Value> {
+pub fn create_event_from_gig_request(
+    request_id: i32,
+    (form, mut user): (GigRequestForm, User),
+) -> GreaseResult<Value> {
     let request = GigRequest::load(request_id, &mut user.conn)?;
     if request.status != GigRequestStatus::Pending {
-        Err(GreaseError::BadRequest("The gig request must be pending to create an event for it.".to_owned()))
+        Err(GreaseError::BadRequest(
+            "The gig request must be pending to create an event for it.".to_owned(),
+        ))
     } else {
         Event::create(form.event, Some((request, form.gig)), &mut user.conn)
-            .map(|new_id| json!({
-                "id": new_id
-            }))
+            .map(|new_id| json!({ "id": new_id }))
     }
 }
 

@@ -2,7 +2,7 @@ use chrono::Local;
 use db::models::*;
 use db::traits::*;
 use error::*;
-use mysql::{Conn, prelude::GenericConnection};
+use mysql::{prelude::GenericConnection, Conn};
 use pinto::query_builder::{self, Join, Order};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -330,7 +330,10 @@ impl MemberForSemester {
         }
     }
 
-    pub fn load_all<G: GenericConnection>(given_semester: &str, conn: &mut G) -> GreaseResult<Vec<MemberForSemester>> {
+    pub fn load_all<G: GenericConnection>(
+        given_semester: &str,
+        conn: &mut G,
+    ) -> GreaseResult<Vec<MemberForSemester>> {
         let query = query_builder::select(Member::table_name())
             .join(ActiveSemester::table_name(), "email", "member", Join::Inner)
             .fields(MemberForSemesterRow::field_names())

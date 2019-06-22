@@ -5,7 +5,7 @@ use crate::util::random_base64;
 use db::models::*;
 use mysql::prelude::ToValue;
 use mysql::Conn;
-use pinto::query_builder::{self, Order, Join};
+use pinto::query_builder::{self, Join, Order};
 use serde::Deserialize;
 
 impl GoogleDoc {
@@ -390,7 +390,12 @@ impl Todo {
 }
 
 impl RolePermission {
-    pub fn enable(role: &str, permission: &str, event_type: &Option<String>, conn: &mut Conn) -> GreaseResult<()> {
+    pub fn enable(
+        role: &str,
+        permission: &str,
+        event_type: &Option<String>,
+        conn: &mut Conn,
+    ) -> GreaseResult<()> {
         let query = query_builder::insert(RolePermission::table_name())
             .set("role", &format!("'{}'", role))
             .set("permission", &format!("'{}'", permission))
@@ -401,11 +406,19 @@ impl RolePermission {
         Ok(())
     }
 
-    pub fn disable(role: &str, permission: &str, event_type: &Option<String>, conn: &mut Conn) -> GreaseResult<()> {
+    pub fn disable(
+        role: &str,
+        permission: &str,
+        event_type: &Option<String>,
+        conn: &mut Conn,
+    ) -> GreaseResult<()> {
         let query = query_builder::delete(RolePermission::table_name())
             .filter(&format!("role = '{}'", role))
             .filter(&format!("permission = '{}'", permission))
-            .filter(&format!("event_type = {}", event_type.to_value().as_sql(false)))
+            .filter(&format!(
+                "event_type = {}",
+                event_type.to_value().as_sql(false)
+            ))
             .build();
         conn.query(query).map_err(GreaseError::DbError)?;
 

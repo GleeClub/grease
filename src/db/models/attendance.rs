@@ -3,7 +3,7 @@ use db::models::member::MemberForSemester;
 use db::models::*;
 use db::traits::*;
 use error::*;
-use mysql::{Conn, prelude::GenericConnection};
+use mysql::{prelude::GenericConnection, Conn};
 use pinto::query_builder::{self, Join, Order};
 use std::collections::HashMap;
 
@@ -197,7 +197,10 @@ impl Attendance {
             .collect::<GreaseResult<()>>()
     }
 
-    pub fn create_for_new_event<G: GenericConnection>(given_event_id: i32, conn: &mut G) -> GreaseResult<()> {
+    pub fn create_for_new_event<G: GenericConnection>(
+        given_event_id: i32,
+        conn: &mut G,
+    ) -> GreaseResult<()> {
         let event = Event::load(given_event_id, conn)?.event;
         let semester_members = MemberForSemester::load_all(&event.semester, conn)?;
 
