@@ -7,14 +7,6 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 impl Carpool {
-    pub fn load(given_carpool_id: i32, conn: &mut Conn) -> GreaseResult<Carpool> {
-        Self::first(
-            &format!("id = {}", given_carpool_id),
-            conn,
-            format!("carpool with id {} doesn't exist", given_carpool_id),
-        )
-    }
-
     pub fn load_for_event(given_event_id: i32, conn: &mut Conn) -> GreaseResult<Vec<EventCarpool>> {
         let mut transaction = conn
             .start_transaction(false, None, None)

@@ -2,6 +2,7 @@ use chrono::Datelike;
 use chrono::{Duration, Local};
 use db::models::*;
 use db::traits::*;
+use db::to_value;
 use error::*;
 use mysql::{prelude::{GenericConnection, ToValue}, Conn};
 use pinto::query_builder::{self, Join, Order};
@@ -52,24 +53,6 @@ impl Event {
 
         crate::db::load::<EventWithGigRow, _>(&query, conn)
             .map(|rows| rows.into_iter().map(|row| row.into()).collect())
-    }
-
-    pub fn load_all_for_semester_until_now(
-        semester: &str,
-        conn: &mut Conn,
-    ) -> GreaseResult<Vec<Event>> {
-        let now = Local::now().naive_local();
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .filter(&format!(
-                "semester = '{}' AND release_time < {}",
-                semester,
-                now.to_value().as_sql(false)
-            ))
-            .order_by("call_time", Order::Asc)
-            .build();
-
-        crate::db::load(&query, conn)
     }
 
     pub fn load_all_of_type_for_current_semester(
@@ -163,7 +146,7 @@ impl Event {
         })
     }
 
-    pub fn create(new_event: NewEvent, conn: &mut Conn) -> GreaseResult<i32> {
+    pub fn create(new_event: NewEvent, from_request: Option<(GigRequest, NewGig)>, conn: &mut Conn) -> GreaseResult<i32> {
         if new_event.release_time.is_some() && new_event.release_time.unwrap() <= new_event.call_time {
             return Err(GreaseError::BadRequest("release time must be after call time if it is supplied.".to_owned()));
         }
@@ -201,6 +184,7 @@ impl Event {
                         let days = match call_time.month() {
                             1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
                             4 | 6 | 9 | 11 => 30,
+                            // leap year check
                             2 => if NaiveDate::from_ymd_opt(call_time.year(), 2, 29).is_some() {
                                 29
                             } else {
@@ -239,6 +223,7 @@ impl Event {
                 .set("comments", &new_event.comments.to_value().as_sql(false))
                 .set("location", &new_event.location.to_value().as_sql(false))
                 .set("default_attend", &new_event.default_attend.to_value().as_sql(false))
+                .set("gig_count", &new_event.gig_count.unwrap_or(true).to_value().as_sql(false))
                 .build();
             transaction.query(query).map_err(GreaseError::DbError)?;
         }
@@ -249,22 +234,31 @@ impl Event {
             .limit(num_events)
             .build();
         let new_ids = crate::db::load(&id_query, &mut transaction)?;
+        let first_id = *new_ids.iter().nth(num_events - 1).ok_or(GreaseError::ServerError(
+            "error inserting new event into database".to_owned(),
+        ))?;
 
-        if let Some(new_id) = new_ids.into_iter().nth(num_events) {
-            transaction.commit().map_err(GreaseError::DbError)?;
-            Ok(new_id)
-        } else {
-            Err(GreaseError::ServerError(
-                "error inserting new event into database".to_owned(),
-            ))
+        for new_id in &new_ids {
+            Attendance::create_for_new_event(*new_id, &mut transaction)?;
         }
+
+        if let Some((gig_request, new_gig)) = from_request {
+            for new_id in new_ids {
+                Gig::insert(new_id, &new_gig, &mut transaction)?;
+            }
+            let add_event_to_request_query = query_builder::update(GigRequest::table_name())
+                .filter(&format!("id = '{}'", gig_request.id))
+                .set("event", &first_id.to_string())
+                .build();
+            transaction.query(add_event_to_request_query).map_err(GreaseError::DbError)?;
+            GigRequest::set_status(gig_request.id, GigRequestStatus::Accepted, &mut transaction)?;
+        }
+
+        transaction.commit().map_err(GreaseError::DbError)?;
+        Ok(first_id)
     }
 
     pub fn update(event_id: i32, event_update: EventUpdate, conn: &mut Conn) -> GreaseResult<()> {
-        fn to_value<'a, T: ToValue>(t: T) -> String {
-            t.to_value().as_sql(false)
-        }
-
         let mut transaction = conn.start_transaction(false, None, None).map_err(GreaseError::DbError)?;
         let event = Event::load(event_id, &mut transaction)?;
         if let Some(_gig) = event.gig {
@@ -343,8 +337,22 @@ impl Event {
 }
 
 impl Gig {
-    pub fn load(given_event_id: i32, conn: &mut Conn) -> GreaseResult<Option<Gig>> {
-        Gig::first_opt(&format!("event = {}", given_event_id), conn)
+    pub fn insert<G: GenericConnection>(event_id: i32, new_gig: &NewGig, conn: &mut G) -> GreaseResult<()> {
+        let query = query_builder::insert(Self::table_name())
+            .set("event", &to_value(event_id))
+            .set("performance_time", &to_value(new_gig.performance_time))
+            .set("uniform", &to_value(&new_gig.uniform))
+            .set("contact_name", &to_value(&new_gig.contact_name))
+            .set("contact_email", &to_value(&new_gig.contact_email))
+            .set("contact_phone", &to_value(&new_gig.contact_phone))
+            .set("price", &to_value(new_gig.price))
+            .set("public", &to_value(new_gig.public))
+            .set("summary", &to_value(&new_gig.summary))
+            .set("description", &to_value(&new_gig.description))
+            .build();
+        conn.query(query).map_err(GreaseError::DbError)?;
+
+        Ok(())
     }
 }
 
@@ -398,8 +406,53 @@ impl EventWithGig {
     }
 }
 
+impl GigRequest {
+    pub fn load<G: GenericConnection>(id: i32, conn: &mut G) -> GreaseResult<GigRequest> {
+        Self::first(&format!("id = {}", id), conn, format!("no gig request with id {}", id))
+    }
+
+    pub fn load_all(conn: &mut Conn) -> GreaseResult<Vec<GigRequest>> {
+        Self::query_all_in_order(vec![("time", Order::Desc)], conn)
+    }
+
+    pub fn load_all_for_semester_and_pending(conn: &mut Conn) -> GreaseResult<Vec<GigRequest>> {
+        let current_semester = Semester::load_current(conn)?;
+        let query = query_builder::select(Self::table_name())
+            .fields(Self::field_names())
+            .filter(&format!("time > {} OR status = '{}'", &current_semester.start_date.to_value().as_sql(false), GigRequestStatus::Pending))
+            .order_by("time", Order::Desc)
+            .build();
+
+        crate::db::load(&query, conn)
+    }
+
+    pub fn set_status<G: GenericConnection>(request_id: i32, status: GigRequestStatus, conn: &mut G) -> GreaseResult<()> {
+        use self::GigRequestStatus::*;
+        let request = GigRequest::load(request_id, conn)?;
+
+        match (&request.status, &status) {
+            (Pending, Pending) | (Dismissed, Dismissed) | (Accepted, Accepted) => Ok(()),
+            (Accepted, _other) => Err(GreaseError::BadRequest("Cannot change the status of an accepted gig request.".to_owned())),
+            (Dismissed, Accepted) => Err(GreaseError::BadRequest("Cannot directly accept a gig request if it is dismissed. Please reopen it first.".to_owned())),
+            _allowed_change => {
+                if request.status == Pending && status == Accepted && request.event.is_none() {
+                    Err(GreaseError::BadRequest("Must create the event for the gig request first before marking it as accepted.".to_owned()))
+                } else {
+                    let query = query_builder::update(Self::table_name())
+                        .filter(&format!("id = {}", request_id))
+                        .set("status", &format!("'{}'", status))
+                        .build();
+                    conn.query(query).map_err(GreaseError::DbError)?;
+
+                    Ok(())
+                }
+            }
+        }
+    }
+}
+
 #[derive(grease_derive::FromRow, grease_derive::FieldNames)]
-pub struct EventWithGigRow {
+struct EventWithGigRow {
     // event fields
     pub id: i32,
     pub name: String,

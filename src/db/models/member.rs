@@ -381,29 +381,6 @@ impl MemberForSemester {
         }
     }
 
-    pub fn num_volunteer_gigs(&self, conn: &mut Conn) -> GreaseResult<usize> {
-        Attendance::load_for_member_at_all_events_of_type(&self.member.email, "volunteer", conn)
-            .map(|attendance_pairs| {
-                attendance_pairs
-                    .iter()
-                    .filter(|(_event, attendance)| attendance.did_attend)
-                    .count()
-            })
-    }
-
-    pub fn has_permission(
-        &self,
-        permission: &MemberPermission,
-        conn: &mut Conn,
-    ) -> GreaseResult<bool> {
-        self.permissions(conn).map(|permissions| {
-            permissions
-                .iter()
-                .find(|found_permission| found_permission == &permission)
-                .is_some()
-        })
-    }
-
     pub fn permissions(&self, conn: &mut Conn) -> GreaseResult<Vec<MemberPermission>> {
         let query = query_builder::select(MemberRole::table_name())
             .join(

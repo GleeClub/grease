@@ -57,7 +57,7 @@ impl AbsenceRequest {
     }
 
     pub fn approve(member: &str, event_id: i32, conn: &mut Conn) -> GreaseResult<()> {
-        let request = AbsenceRequest::load(member, event_id, conn)?;
+        let _request = AbsenceRequest::load(member, event_id, conn)?;
         let query = query_builder::update(Self::table_name())
             .filter(&format!("event = {} AND member = '{}'", event_id, member))
             .set("state", &format!("'{}'", AbsenceRequestState::Approved))
@@ -68,7 +68,7 @@ impl AbsenceRequest {
     }
 
     pub fn deny(member: &str, event_id: i32, conn: &mut Conn) -> GreaseResult<()> {
-        let request = AbsenceRequest::load(member, event_id, conn)?;
+        let _request = AbsenceRequest::load(member, event_id, conn)?;
         let query = query_builder::update(Self::table_name())
             .filter(&format!("event = {} AND member = '{}'", event_id, member))
             .set("state", &format!("'{}'", AbsenceRequestState::Denied))

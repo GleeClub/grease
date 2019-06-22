@@ -1,6 +1,6 @@
 use crate::error::{GreaseError, GreaseResult};
 use crate::extract::Extract;
-use mysql::prelude::FromRow;
+use mysql::prelude::{FromRow, ToValue};
 use mysql::{prelude::GenericConnection, Conn};
 
 pub mod models;
@@ -25,4 +25,8 @@ pub fn load<T: FromRow, G: GenericConnection>(query: &str, conn: &mut G) -> Grea
                 })
                 .collect::<GreaseResult<Vec<T>>>()
         })
+}
+
+pub fn to_value<'a, T: ToValue>(t: T) -> String {
+    t.to_value().as_sql(false)
 }

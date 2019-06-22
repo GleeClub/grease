@@ -125,3 +125,27 @@ pub fn get_members(
             .map(|members| json!(members))
     })
 }
+
+pub fn register_for_semester(member: String, mut user: User) -> GreaseResult<Value> {
+    unimplemented!()
+}
+
+pub fn update_member_semester(member: String, mut user: User) -> GreaseResult<Value> {
+    unimplemented!()
+}
+
+pub fn new_member(member: String, mut user: User) -> GreaseResult<Value> {
+    unimplemented!()
+}
+
+pub fn update_member_profile(member: String, mut user: User) -> GreaseResult<Value> {
+    unimplemented!()
+}
+
+pub fn update_member_as_officer(member: String, mut user: User) -> GreaseResult<Value> {
+    unimplemented!()
+}
+
+pub fn login_as_member(member: String, mut user: User) -> GreaseResult<Value> {
+    unimplemented!()
+}

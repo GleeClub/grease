@@ -92,6 +92,7 @@ fn handle(request: &cgi::Request, uri: String) -> GreaseResult<Value> {
         (GET)    [/members/(email: String)?(grades: Option<bool>)?(details: Option<bool>)] => get_member,
         (GET)    [/members/(email: String)/attendance] => get_member_attendance_for_semester,
         (GET)    [/members?(grades: Option<bool>)?(include: Option<String>)] => get_members,
+        // (POST)   [/members/(email: String)/semesters/(semester: String)] => update_member_semester,
         // events
         (GET)    [/events/(id: i32)?(full: Option<bool>)] => get_event,
         (GET)    [/events?(full: Option<bool>)?(event_type: Option<String>)] => get_events,
@@ -114,6 +115,13 @@ fn handle(request: &cgi::Request, uri: String) -> GreaseResult<Value> {
         (POST)   [/absence_requests/(event_id: i32)/(member: String)/approve] => approve_absence_request,
         (POST)   [/absence_requests/(event_id: i32)/(member: String)/deny] => deny_absence_request,
         (POST)   [/absence_requests/(event_id: i32)] => submit_absence_request,
+        // gig requests
+        (GET)    [/gig_requests?(id: i32)] => get_gig_request,
+        (GET)    [/gig_requests?(all: Option<bool>)] => get_gig_requests,
+        (POST)   [/gig_requests] => new_gig_request,
+        (POST)   [/gig_requests/(id: i32)/dismiss] => dismiss_gig_request,
+        (POST)   [/gig_requests/(id: i32)/reopen] => reopen_gig_request,
+        (POST)   [/gig_requests/(id: i32)/create_event] => create_event_from_gig_request,
         // variables
         (GET)    [/variable/(key: String)] => get_variable,
         (POST)   [/variable/(key: String)/(value: String)] => set_variable,
@@ -196,5 +204,4 @@ fn basic_success() -> Value {
 }
 
 // ActiveSemester
-// GigRequest
 // Member

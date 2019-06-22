@@ -206,6 +206,8 @@ pub struct NewEvent {
     pub comments: Option<String>,
     #[serde(deserialize_with = "deserialize_optional_string")]
     pub location: Option<String>,
+    #[serde(default)]
+    pub gig_count: Option<bool>,
     pub default_attend: bool,
     pub repeat: String,
     pub repeat_until: Option<NaiveDate>,
@@ -468,6 +470,25 @@ pub struct Gig {
     pub description: Option<String>,
 }
 
+#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract)]
+#[table_name = "gig"]
+pub struct NewGig {
+    pub performance_time: NaiveDateTime,
+    pub uniform: String,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub contact_name: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub contact_email: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub contact_phone: Option<String>,
+    pub price: Option<i32>,
+    pub public: bool,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub summary: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub description: Option<String>,
+}
+
 // CREATE TABLE gig_request (
 //   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
 //   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -500,6 +521,28 @@ pub struct GigRequest {
     #[serde(deserialize_with = "deserialize_optional_string")]
     pub comments: Option<String>,
     pub status: GigRequestStatus,
+}
+
+#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract, Insertable)]
+#[table_name = "gig_request"]
+pub struct NewGigRequest {
+    pub name: String,
+    pub organization: String,
+    pub contact_name: String,
+    pub contact_email: String,
+    pub contact_phone: String,
+    pub start_time: NaiveDateTime,
+    pub location: String,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub comments: Option<String>,
+}
+
+#[derive(Deserialize, Extract)]
+pub struct GigRequestForm {
+    #[serde(flatten)]
+    pub event: NewEvent,
+    #[serde(flatten)]
+    pub gig: NewGig,
 }
 
 #[derive(Debug, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
