@@ -6,7 +6,6 @@ use db::models::*;
 use mysql::prelude::ToValue;
 use mysql::Conn;
 use pinto::query_builder::{self, Join, Order};
-use serde::Deserialize;
 
 impl GoogleDoc {
     pub fn load(doc_name: &str, conn: &mut Conn) -> GreaseResult<GoogleDoc> {

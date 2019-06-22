@@ -45,7 +45,7 @@ impl Semester {
     }
 
     pub fn set_current(name: &str, conn: &mut Conn) -> GreaseResult<()> {
-        let semester = Semester::load(name, conn)?;
+        let _semester = Semester::load(name, conn)?;
         let mut transaction = conn
             .start_transaction(false, None, None)
             .map_err(GreaseError::DbError)?;

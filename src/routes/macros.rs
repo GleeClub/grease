@@ -1,10 +1,10 @@
 #[macro_export]
 macro_rules! router {
-    ($request:expr, $uri:expr, $( ($method:ident) [ $( $path:tt )* ] => $callback:ident, )* ) => {{
+    ($request:expr, $( ($method:ident) [ $( $path:tt )* ] => $callback:ident, )* ) => {{
         use crate::routes::from_url::{FromUrlStr, parse_url};
         use crate::extract::Extract;
 
-        let (segments, params) = parse_url($uri)?;
+        let (segments, params) = parse_url(&$request.uri().to_string())?;
 
         $({
             if $request.method() == stringify!($method) {

@@ -7,7 +7,6 @@ use grease_derive::Extract;
 use mysql::Conn;
 use serde::Deserialize;
 use serde_json::{json, Value};
-// use crate::db::models::member::MemberForSemester;
 use std::collections::HashSet;
 
 #[derive(Deserialize, Extract)]
@@ -126,26 +125,26 @@ pub fn get_members(
     })
 }
 
-pub fn register_for_semester(member: String, mut user: User) -> GreaseResult<Value> {
-    unimplemented!()
-}
+// pub fn register_for_semester(member: String, mut user: User) -> GreaseResult<Value> {
+//     unimplemented!()
+// }
 
-pub fn update_member_semester(member: String, mut user: User) -> GreaseResult<Value> {
-    unimplemented!()
-}
+// pub fn update_member_semester(member: String, mut user: User) -> GreaseResult<Value> {
+//     unimplemented!()
+// }
 
-pub fn new_member(member: String, mut user: User) -> GreaseResult<Value> {
-    unimplemented!()
-}
+// pub fn new_member(member: String, mut user: User) -> GreaseResult<Value> {
+//     unimplemented!()
+// }
 
-pub fn update_member_profile(member: String, mut user: User) -> GreaseResult<Value> {
-    unimplemented!()
-}
+// pub fn update_member_profile(member: String, mut user: User) -> GreaseResult<Value> {
+//     unimplemented!()
+// }
 
-pub fn update_member_as_officer(member: String, mut user: User) -> GreaseResult<Value> {
-    unimplemented!()
-}
+// pub fn update_member_as_officer(member: String, mut user: User) -> GreaseResult<Value> {
+//     unimplemented!()
+// }
 
-pub fn login_as_member(member: String, mut user: User) -> GreaseResult<Value> {
-    unimplemented!()
-}
+// pub fn login_as_member(member: String, mut user: User) -> GreaseResult<Value> {
+//     unimplemented!()
+// }

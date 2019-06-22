@@ -35,7 +35,7 @@ macro_rules! check_for_permission {
     };
 }
 
-pub(super) fn handle_request(mut request: cgi::Request) -> cgi::Response {
+pub fn handle_request(mut request: cgi::Request) -> cgi::Response {
     let mut response = None;
 
     let result = {
@@ -60,7 +60,7 @@ pub(super) fn handle_request(mut request: cgi::Request) -> cgi::Response {
             };
 
             *request.uri_mut() = uri.parse().unwrap();
-            let (status, json_val) = match handle(&request, uri) {
+            let (status, json_val) = match handle(&request) {
                 Ok(json_val) => (200, json_val),
                 Err(error) => error.as_response(),
             };
@@ -83,8 +83,8 @@ pub(super) fn handle_request(mut request: cgi::Request) -> cgi::Response {
     }
 }
 
-fn handle(request: &cgi::Request, uri: String) -> GreaseResult<Value> {
-    router!(request, &uri,
+pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
+    router!(request,
         // authorization
         (POST)   [/login]  => login,
         (GET)    [/logout] => logout,
@@ -199,7 +199,7 @@ fn handle(request: &cgi::Request, uri: String) -> GreaseResult<Value> {
     )
 }
 
-fn basic_success() -> Value {
+pub fn basic_success() -> Value {
     json!({ "message": "success!" })
 }
 
