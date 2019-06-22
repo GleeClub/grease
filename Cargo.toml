@@ -33,3 +33,10 @@ glob = "0.3"
 
 [profile.release]
 panic = "unwind"
+
+[dev-dependencies]
+speculate = "0.1"
+
+[[bin]]
+name = "api"
+path = "src/main.rs"
