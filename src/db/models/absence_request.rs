@@ -1,81 +1,61 @@
-use db::models::*;
-use db::traits::*;
+use db::*;
 use error::*;
-use mysql::Conn;
-use pinto::query_builder::{self, Join, Order};
+use pinto::query_builder::*;
+use chrono::NaiveDateTime;
 
 impl AbsenceRequest {
-    pub fn load(
+    pub fn load<C: Connection>(
         member: &str,
         event_id: i32,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<Option<AbsenceRequest>> {
-        Self::first_opt(
-            &format!("event = {} AND member = '{}'", event_id, member),
-            conn,
+        conn.first_opt(&Self::filter(&format!("event = {} AND member = '{}'", event_id, member)))
+    }
+
+    pub fn load_all_for_this_semester<C: Connection>(
+        conn: &mut C,
+    ) -> GreaseResult<Vec<(AbsenceRequest, Event)>> {
+        let current_semester = Semester::load_current(conn)?;
+        conn.load_as::<AbsenceRequestEventRow, _>(
+            Select::new(Self::table_name())
+                .join(Event::table_name(), "event", "id", Join::Inner)
+                .fields(AbsenceRequestEventRow::field_names())
+                .filter(&format!("semester = '{}'", &current_semester.name))
+                .order_by("`time`", Order::Desc)
         )
     }
 
-    pub fn load_all_for_this_semester(
-        conn: &mut Conn,
-    ) -> GreaseResult<Vec<(AbsenceRequest, Event)>> {
-        let current_semester = Semester::load_current(conn)?;
-        let query = query_builder::select(Self::table_name())
-            .join(Event::table_name(), "event", "id", Join::Inner)
-            .fields(AbsenceRequestEventRow::field_names())
-            .filter(&format!("semester = '{}'", &current_semester.name))
-            .order_by("`time`", Order::Desc)
-            .build();
-
-        crate::db::load::<AbsenceRequestEventRow, _>(&query, conn)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect())
+    pub fn excused_for_event<C: Connection>(member: &str, event_id: i32, conn: &mut C) -> GreaseResult<bool> {
+        conn.first_opt(&Self::filter(&format!("event = {} AND member = '{}'", event_id, member))).map(|request: Option<AbsenceRequest>| request.map(|r| r.state == AbsenceRequestState::Approved).unwrap_or(false))
     }
 
-    pub fn excused_for_event(member: &str, event_id: i32, conn: &mut Conn) -> GreaseResult<bool> {
-        let query = query_builder::select(Self::table_name())
-            .fields(&["state"])
-            .filter(&format!("event = {} AND member = '{}'", event_id, member))
-            .build();
-
-        conn.first::<_, AbsenceRequestState>(query)
-            .map_err(GreaseError::DbError)
-            .map(|maybe_state| match maybe_state {
-                Some(state) => state == AbsenceRequestState::Approved,
-                None => false,
-            })
+    pub fn create<C: Connection>(member: &str, event_id: i32, reason: &str, conn: &mut C) -> GreaseResult<()> {
+        conn.insert(
+            Insert::new(Self::table_name())
+                .set("member", &format!("'{}'", member))
+                .set("event", &event_id.to_string())
+                .set("reason", &format!("'{}'", reason))
+        )
     }
 
-    pub fn create(member: &str, event_id: i32, reason: &str, conn: &mut Conn) -> GreaseResult<()> {
-        let query = query_builder::insert(Self::table_name())
-            .set("member", &format!("'{}'", member))
-            .set("event", &event_id.to_string())
-            .set("reason", &format!("'{}'", reason))
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
-
-        Ok(())
-    }
-
-    pub fn approve(member: &str, event_id: i32, conn: &mut Conn) -> GreaseResult<()> {
+    pub fn approve<C: Connection>(member: &str, event_id: i32, conn: &mut C) -> GreaseResult<()> {
         let _request = AbsenceRequest::load(member, event_id, conn)?;
-        let query = query_builder::update(Self::table_name())
-            .filter(&format!("event = {} AND member = '{}'", event_id, member))
-            .set("state", &format!("'{}'", AbsenceRequestState::Approved))
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
 
-        Ok(())
+        conn.update_opt(
+            Update::new(Self::table_name())
+                .filter(&format!("event = {} AND member = '{}'", event_id, member))
+                .set("state", &format!("'{}'", AbsenceRequestState::Approved))
+        )
     }
 
-    pub fn deny(member: &str, event_id: i32, conn: &mut Conn) -> GreaseResult<()> {
+    pub fn deny<C: Connection>(member: &str, event_id: i32, conn: &mut C) -> GreaseResult<()> {
         let _request = AbsenceRequest::load(member, event_id, conn)?;
-        let query = query_builder::update(Self::table_name())
-            .filter(&format!("event = {} AND member = '{}'", event_id, member))
-            .set("state", &format!("'{}'", AbsenceRequestState::Denied))
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
 
-        Ok(())
+        conn.update_opt(
+            Update::new(Self::table_name())
+                .filter(&format!("event = {} AND member = '{}'", event_id, member))
+                .set("state", &format!("'{}'", AbsenceRequestState::Denied))
+        )
     }
 }
 

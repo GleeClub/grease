@@ -3,10 +3,9 @@ use crate::check_for_permission;
 use auth::User;
 use db::models::member::{MemberForSemester, MemberPermission};
 use db::models::minutes::NewMeetingMinutes;
-use db::models::*;
-use db::traits::{Insertable, Queryable, TableName};
-use error::{GreaseError, GreaseResult};
-use pinto::query_builder::{self, Order};
+use db::*;
+use error::*;
+use pinto::query_builder::*;
 use serde_json::{json, Value};
 
 pub fn get_announcement(id: i32, mut user: User) -> GreaseResult<Value> {
@@ -140,7 +139,9 @@ pub fn get_uniforms(mut user: User) -> GreaseResult<Value> {
 pub fn new_uniform((mut user, new_uniform): (User, Uniform)) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-uniforms");
     new_uniform.validate()?;
-    new_uniform.insert(&mut user.conn).map(|_| basic_success())
+    new_uniform.insert(&mut user.conn)?;
+
+    Ok(basic_success())
 }
 
 pub fn modify_uniform(
@@ -192,12 +193,13 @@ pub fn delete_semester(name: String, confirm: Option<bool>, mut user: User) -> G
 }
 
 pub fn get_permissions(mut user: User) -> GreaseResult<Value> {
-    Permission::query_all_in_order(vec![("name", Order::Asc)], &mut user.conn)
+    user.conn.load::<Permission>(&Permission::select_all_in_order("name", Order::Asc))
         .map(|permissions| json!(permissions))
 }
 
 pub fn get_roles(mut user: User) -> GreaseResult<Value> {
-    Role::query_all_in_order(vec![("rank", Order::Asc)], &mut user.conn).map(|roles| json!(roles))
+    user.conn.load::<Role>(&Role::select_all_in_order("rank", Order::Asc))
+        .map(|roles| json!(roles))
 }
 
 pub fn get_current_officers(mut user: User) -> GreaseResult<Value> {
@@ -228,7 +230,7 @@ pub fn member_permissions(member: String, mut user: User) -> GreaseResult<Value>
 }
 
 pub fn get_current_role_permissions(mut user: User) -> GreaseResult<Value> {
-    RolePermission::query_all_in_order(vec![("id", Order::Asc)], &mut user.conn)
+    user.conn.load::<RolePermission>(&RolePermission::select_all())
         .map(|role_permissions| json!(role_permissions))
 }
 
@@ -262,10 +264,9 @@ pub fn remove_permission_for_role(
 
 pub fn add_officership((member_role, mut user): (MemberRole, User)) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-officers");
-    let given_role = Role::first(
-        &format!("name = '{}'", &member_role.role),
-        &mut user.conn,
-        format!("no role with name '{}'", &member_role.role),
+    let given_role = user.conn.first::<Role>(
+        &Role::filter(&format!("name = '{}'", &member_role.role)),
+        format!("No role with name {}.", &member_role.role),
     )?;
     let member_role_pairs = MemberRole::load_all(&mut user.conn)?;
     if member_role_pairs
@@ -287,36 +288,24 @@ pub fn add_officership((member_role, mut user): (MemberRole, User)) -> GreaseRes
             given_role.name, given_role.max_quantity
         )))
     } else {
-        member_role.insert(&mut user.conn).map(|_| basic_success())
+        member_role.insert(&mut user.conn)?;
+
+        Ok(basic_success())
     }
 }
 
 pub fn remove_officership((member_role, mut user): (MemberRole, User)) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-officers");
-    let _given_role = Role::first(
-        &format!("name = '{}'", &member_role.role),
-        &mut user.conn,
-        format!("no role with name '{}'", &member_role.role),
-    )?;
-    let member_role_pairs = MemberRole::load_all(&mut user.conn)?;
-    if !member_role_pairs
-        .iter()
-        .any(|(member, role)| role.name == member_role.role && member.email == member_role.member)
-    {
-        Err(GreaseError::BadRequest(format!(
-            "member {} doesn't hold that position",
-            &member_role.member
-        )))
-    } else {
-        let query = query_builder::delete(MemberRole::table_name())
+    user.conn.delete(
+        Delete::new(MemberRole::table_name())
             .filter(&format!(
-                "member = '{}' AND role = '{}'",
-                member_role.member, member_role.role
-            ))
-            .build();
-        user.conn.query(query).map_err(GreaseError::DbError)?;
-        Ok(basic_success())
-    }
+            "member = '{}' AND role = '{}'",
+            member_role.member, member_role.role
+        )),
+        format!("Member {} does not hold the {} position.", member_role.member, member_role.role),
+    )?;
+
+    Ok(basic_success())
 }
 
 pub fn get_member_transactions(email: String, mut user: User) -> GreaseResult<Value> {
@@ -330,18 +319,18 @@ pub fn add_transactions(
     (new_transactions, mut user): (Vec<NewTransaction>, User),
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-transaction");
-    let mut db_transaction = user
-        .conn
-        .start_transaction(false, None, None)
-        .map_err(GreaseError::DbError)?;
-    for new_transaction in new_transactions {
-        new_transaction.insert(&mut db_transaction)?;
-    }
-    Ok(basic_success())
+
+    user.conn.transaction(|transaction| {
+        for new_transaction in new_transactions {
+            new_transaction.insert(transaction)?;
+        }
+
+        Ok(basic_success())
+    })
 }
 
 pub fn get_transaction_types(mut user: User) -> GreaseResult<Value> {
-    TransactionType::query_all_in_order(vec![("name", Order::Asc)], &mut user.conn)
+    user.conn.load::<TransactionType>(&TransactionType::select_all_in_order("name", Order::Asc))
         .map(|types| json!(types))
 }
 

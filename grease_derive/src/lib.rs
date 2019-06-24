@@ -215,8 +215,6 @@ pub fn insertable(input: TokenStream) -> TokenStream {
     let struct_ast: DeriveInput = syn::parse(input).unwrap();
 
     let trait_name = quote!(crate::db::traits::Insertable);
-    let result = quote!(crate::error::GreaseResult);
-    let error = quote!(crate::error::GreaseError);
     let name = &struct_ast.ident;
     let fields = match &struct_ast.data {
         syn::Data::Struct(syn::DataStruct {
@@ -265,16 +263,30 @@ pub fn insertable(input: TokenStream) -> TokenStream {
 
     let gen = quote! {
         impl #trait_name for #name {
-            fn insert<G: mysql::prelude::GenericConnection>(&self, conn: &mut G) -> #result<()> {
-                use mysql::prelude::ToValue;
+            fn insert<C: crate::db::connection::Connection>(&self, conn: &mut C) -> crate::error::GreaseResult<()> {
                 use crate::db::traits::TableName;
 
-                let query = pinto::query_builder::insert(Self::table_name())
-                    #field_sets
-                    .build();
-                conn.query(query).map_err(#error::DbError)?;
+                conn.insert(
+                    &pinto::query_builder::Insert::new(Self::table_name())
+                        #field_sets
+                )
+            }
+
+            fn insert_multiple<C: crate::db::connection::Connection>(to_insert: &[Self], conn: &mut C) -> crate::error::GreaseResult<()> {
+                for item in to_insert {
+                    item.insert(conn)?;
+                }
 
                 Ok(())
+            }
+
+            fn insert_returning_id<C: crate::db::connection::Connection>(&self, conn: &mut C) -> crate::error::GreaseResult<i32> {
+                use crate::db::traits::TableName;
+
+                conn.insert_returning_id(
+                    &pinto::query_builder::Insert::new(Self::table_name())
+                        #field_sets
+                )
             }
         }
     };

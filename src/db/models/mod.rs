@@ -6,11 +6,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 use strum_macros::{Display, EnumString};
 
 pub mod absence_request;
-pub mod announcement;
 pub mod attendance;
 pub mod carpool;
 pub mod event;
-pub mod fee;
 pub mod member;
 pub mod minutes;
 pub mod misc;
@@ -276,7 +274,7 @@ pub struct NewAbsenceRequest {
     pub reason: String,
 }
 
-#[derive(Debug, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
+#[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum AbsenceRequestState {
     #[strum(serialize = "approved")]
     Approved,
@@ -307,7 +305,7 @@ pub struct ActiveSemester {
     pub section: Option<String>,
 }
 
-#[derive(Debug, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString, Clone)]
+#[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum Enrollment {
     #[strum(serialize = "class")]
     Class,
@@ -545,7 +543,7 @@ pub struct GigRequestForm {
     pub gig: NewGig,
 }
 
-#[derive(Debug, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
+#[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum GigRequestStatus {
     #[strum(serialize = "pending")]
     Pending,
@@ -588,7 +586,7 @@ pub struct NewSong {
     pub info: Option<String>,
 }
 
-#[derive(Debug, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
+#[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum Key {
     #[serde(rename = "A♭")]
     #[strum(serialize = "A♭")]
@@ -655,7 +653,7 @@ pub enum Key {
     GSharp,
 }
 
-#[derive(Debug, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
+#[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum SongMode {
     #[strum(serialize = "major")]
     Major,
@@ -708,7 +706,7 @@ pub struct MediaType {
     pub storage: StorageType,
 }
 
-#[derive(Debug, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
+#[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum StorageType {
     #[strum(serialize = "local")]
     Local,
@@ -751,7 +749,7 @@ pub struct Permission {
     pub type_: PermissionType,
 }
 
-#[derive(Debug, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
+#[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum PermissionType {
     #[strum(serialize = "static")]
     Static,

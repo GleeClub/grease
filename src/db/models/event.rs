@@ -1,83 +1,62 @@
-use chrono::Datelike;
-use chrono::{Duration, Local};
-use db::models::*;
-use db::to_value;
-use db::traits::*;
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, Local};
+use db::*;
 use error::*;
-use mysql::{
-    prelude::{GenericConnection, ToValue},
-    Conn,
-};
-use pinto::query_builder::{self, Join, Order};
+use pinto::query_builder::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 impl Event {
-    pub fn load<G: GenericConnection>(
-        given_event_id: i32,
-        conn: &mut G,
+    pub fn load<C: Connection>(
+        event_id: i32,
+        conn: &mut C,
     ) -> GreaseResult<EventWithGig> {
-        let query = query_builder::select(Self::table_name())
-            .join(Gig::table_name(), "id", "event", Join::Left)
-            .fields(EventWithGigRow::field_names())
-            .filter(&format!("id = {}", given_event_id))
-            .build();
-
-        match conn
-            .first::<_, EventWithGigRow>(query)
-            .map_err(GreaseError::DbError)?
-        {
-            Some(row) => Ok(row.into()),
-            None => Err(GreaseError::BadRequest(format!(
-                "event with id {} doesn't exist",
-                given_event_id
-            ))),
-        }
+        conn.first(
+            Select::new(Self::table_name())
+                .join(Gig::table_name(), "id", "event", Join::Left)
+                .fields(EventWithGigRow::field_names())
+                .filter(&format!("id = {}", event_id)),
+            format!("No event with id {}.", event_id)
+        )
+        .map(|row: EventWithGigRow| row.into())
     }
 
-    pub fn load_all(conn: &mut Conn) -> GreaseResult<Vec<EventWithGig>> {
-        let query = query_builder::select(Self::table_name())
-            .join(Gig::table_name(), "id", "event", Join::Left)
-            .fields(EventWithGigRow::field_names())
-            .order_by("call_time", Order::Desc)
-            .build();
-
-        crate::db::load::<EventWithGigRow, _>(&query, conn)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect())
+    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<EventWithGig>> {
+        conn.load_as::<EventWithGigRow, EventWithGig>(
+            Select::new(Self::table_name())
+                .join(Gig::table_name(), "id", "event", Join::Left)
+                .fields(EventWithGigRow::field_names())
+                .order_by("call_time", Order::Desc)
+        )
     }
 
-    pub fn load_all_for_current_semester<G: GenericConnection>(
-        conn: &mut G,
+    pub fn load_all_for_current_semester<C: Connection>(
+        conn: &mut C,
     ) -> GreaseResult<Vec<EventWithGig>> {
         let current_semester = Semester::load_current(conn)?;
-        let query = query_builder::select(Self::table_name())
-            .join(Gig::table_name(), "id", "event", Join::Left)
-            .fields(EventWithGigRow::field_names())
-            .filter(&format!("semester = '{}'", &current_semester.name))
-            .order_by("call_time", Order::Desc)
-            .build();
 
-        crate::db::load::<EventWithGigRow, _>(&query, conn)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect())
+        conn.load_as::<EventWithGigRow, EventWithGig>(
+            Select::new(Self::table_name())
+                .join(Gig::table_name(), "id", "event", Join::Left)
+                .fields(EventWithGigRow::field_names())
+                .filter(&format!("semester = '{}'", &current_semester.name))
+                .order_by("call_time", Order::Desc)
+        )
     }
 
-    pub fn load_all_of_type_for_current_semester(
-        given_event_type: &str,
-        conn: &mut Conn,
+    pub fn load_all_of_type_for_current_semester<C: Connection>(
+        event_type: &str,
+        conn: &mut C,
     ) -> GreaseResult<Vec<EventWithGig>> {
         let current_semester = Semester::load_current(conn)?;
-        let query = query_builder::select(Self::table_name())
-            .join(Gig::table_name(), "id", "event", Join::Left)
-            .fields(EventWithGigRow::field_names())
-            .filter(&format!(
-                "semester = '{}' AND type = '{}'",
-                &current_semester.name, given_event_type
-            ))
-            .order_by("call_time", Order::Desc)
-            .build();
 
-        crate::db::load::<EventWithGigRow, _>(&query, conn)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect())
+        conn.load_as::<EventWithGigRow, EventWithGig>(
+            Select::new(Self::table_name())
+                .join(Gig::table_name(), "id", "event", Join::Left)
+                .fields(EventWithGigRow::field_names())
+                .filter(&format!("semester = '{}'", &current_semester.name))
+                .filter(&format!("type = '{}'", event_type))
+                .order_by("call_time", Order::Desc)
+        )
     }
 
     pub fn went_to_event_type_during_week_of(
@@ -122,27 +101,20 @@ impl Event {
     }
 
     // TODO: fix for weekend sectionals?
-    pub fn load_sectionals_the_week_of(&self, conn: &mut Conn) -> GreaseResult<Vec<Event>> {
+    pub fn load_sectionals_the_week_of<C: Connection>(&self, conn: &mut C) -> GreaseResult<Vec<Event>> {
         let days_since_sunday = self.call_time.date().weekday().num_days_from_sunday() as i64;
         let last_sunday = self.call_time - Duration::days(days_since_sunday);
         let next_sunday = last_sunday + Duration::days(7);
 
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .filter("type = 'sectional'")
-            .filter(&format!("semester = '{}'", &self.semester))
-            .filter(&format!(
-                "call_time > {}",
-                last_sunday.to_value().as_sql(true)
-            ))
-            .filter(&format!(
-                "release_time < {}",
-                next_sunday.to_value().as_sql(true)
-            ))
-            .order_by("call_time", Order::Asc)
-            .build();
-
-        crate::db::load(&query, conn)
+        conn.load(
+            Select::new(Self::table_name())
+                .fields(Self::field_names())
+                .filter("type = 'sectional'")
+                .filter(&format!("semester = '{}'", &self.semester))
+                .filter(&format!("call_time > {}", to_value(last_sunday)))
+                .filter(&format!("release_time > {}", to_value(next_sunday)))
+                .order_by("call_time", Order::Asc)
+        )
     }
 
     pub fn minimal(&self) -> Value {
@@ -155,7 +127,7 @@ impl Event {
     pub fn create(
         new_event: NewEvent,
         from_request: Option<(GigRequest, NewGig)>,
-        conn: &mut Conn,
+        conn: &mut DbConn,
     ) -> GreaseResult<i32> {
         if new_event.release_time.is_some()
             && new_event.release_time.unwrap() <= new_event.call_time
@@ -165,68 +137,14 @@ impl Event {
             ));
         }
 
-        let call_and_release_time_pairs = if &new_event.repeat == "no" {
-            vec![(new_event.call_time, new_event.release_time)]
-        } else {
-            enum Period {
-                Daily,
-                Weekly,
-                BiWeekly,
-                Monthly,
-                Yearly,
-            }
-            let given_duration = match new_event.repeat.as_str() {
-                "daily" => Period::Daily,
-                "weekly" => Period::Weekly,
-                "biweekly" => Period::BiWeekly,
-                "monthly" => Period::Monthly,
-                "yearly" => Period::Yearly,
-                other => {
-                    return Err(GreaseError::BadRequest(format!(
-                        "The repeat value '{}' is not allowed. The only allowed values \
-                         are 'no', 'daily', 'weekly', 'biweekly', 'monthly', or 'yearly'.",
-                        other
-                    )))
-                }
-            };
+        let call_and_release_time_pairs = if let Some(period) = Period::parse(&new_event.repeat)? {
             let until = new_event.repeat_until.ok_or(GreaseError::BadRequest(
                 "Must supply a repeat until time if repeat is supplied.".to_owned(),
             ))?;
 
-            std::iter::successors(
-                Some((new_event.call_time, new_event.release_time)),
-                |(call_time, release_time)| {
-                    let duration = match given_duration {
-                        Period::Daily => Duration::days(1),
-                        Period::Weekly => Duration::weeks(1),
-                        Period::BiWeekly => Duration::weeks(2),
-                        Period::Yearly => Duration::days(365),
-                        Period::Monthly => {
-                            let days = match call_time.month() {
-                                1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-                                4 | 6 | 9 | 11 => 30,
-                                // leap year check
-                                2 => {
-                                    if NaiveDate::from_ymd_opt(call_time.year(), 2, 29).is_some() {
-                                        29
-                                    } else {
-                                        28
-                                    }
-                                }
-                                _ => unreachable!(),
-                            };
-                            Duration::days(days)
-                        }
-                    };
-
-                    Some((
-                        *call_time + duration,
-                        release_time.as_ref().map(|time| *time + duration),
-                    ))
-                    .filter(|(call_time, _release_time)| call_time.date() < until)
-                },
-            )
-            .collect::<Vec<_>>()
+            Self::repeat_event_times(new_event.call_time, new_event.release_time, period, until)
+        } else {
+            vec![(new_event.call_time, new_event.release_time)]
         };
         let num_events = call_and_release_time_pairs.len();
         if num_events == 0 {
@@ -236,207 +154,244 @@ impl Event {
             ));
         }
 
-        let mut transaction = conn
-            .start_transaction(false, None, None)
-            .map_err(GreaseError::DbError)?;
+        conn.transaction(|transaction| {
+            let new_ids = call_and_release_time_pairs.iter().map(|(call_time, release_time)| {
+                let new_id = transaction.insert_returning_id(
+                    Insert::new(Self::table_name())
+                        .set("name", &to_value(&new_event.name))
+                        .set("semester", &to_value(&new_event.semester))
+                        .set("`type`", &to_value(&new_event.type_))
+                        .set("call_time", &to_value(&call_time))
+                        .set("release_time", &to_value(&release_time))
+                        .set("points", &to_value(&new_event.points))
+                        .set("comments", &to_value(&new_event.comments))
+                        .set("location", &to_value(&new_event.location))
+                        .set("default_attend", &to_value(&new_event.default_attend))
+                        .set("gig_count", &to_value(&new_event.gig_count))
+                )?;
+                Attendance::create_for_new_event(new_id, transaction)?;
 
-        for (call_time, release_time) in call_and_release_time_pairs {
-            let query = query_builder::insert(Self::table_name())
-                .set("name", &format!("'{}'", &new_event.name))
-                .set("semester", &format!("'{}'", &new_event.semester))
-                .set("`type`", &format!("'{}'", &new_event.type_))
-                .set("call_time", &call_time.to_value().as_sql(false))
-                .set("release_time", &release_time.to_value().as_sql(false))
-                .set("points", &new_event.points.to_string())
-                .set("comments", &new_event.comments.to_value().as_sql(false))
-                .set("location", &new_event.location.to_value().as_sql(false))
-                .set(
-                    "default_attend",
-                    &new_event.default_attend.to_value().as_sql(false),
-                )
-                .set(
-                    "gig_count",
-                    &new_event.gig_count.unwrap_or(true).to_value().as_sql(false),
-                )
-                .build();
-            transaction.query(query).map_err(GreaseError::DbError)?;
-        }
+                if let Some((ref _gig_request, ref new_gig)) = from_request.as_ref() {
+                    Gig::insert(new_id, &new_gig, transaction)?;
+                }
 
-        let id_query = query_builder::select(Self::table_name())
-            .fields(&["id"])
-            .order_by("id", Order::Desc)
-            .limit(num_events)
-            .build();
-        let new_ids = crate::db::load(&id_query, &mut transaction)?;
-        let first_id = *new_ids
-            .iter()
-            .nth(num_events - 1)
-            .ok_or(GreaseError::ServerError(
-                "error inserting new event into database".to_owned(),
-            ))?;
+                Ok(new_id)
+            })
+            .collect::<GreaseResult<Vec<i32>>>()?;
 
-        for new_id in &new_ids {
-            Attendance::create_for_new_event(*new_id, &mut transaction)?;
-        }
+            let first_id = *new_ids
+                .iter()
+                .nth(num_events - 1)
+                .ok_or(GreaseError::ServerError(
+                    "error inserting new event into database".to_owned(),
+                ))?;
 
-        if let Some((gig_request, new_gig)) = from_request {
-            for new_id in new_ids {
-                Gig::insert(new_id, &new_gig, &mut transaction)?;
+            if let Some((ref gig_request, ref _new_gig)) = from_request.as_ref() {
+                transaction.update(
+                    Update::new(GigRequest::table_name())
+                        .filter(&format!("id = '{}'", &gig_request.id))
+                        .set("event", &to_value(first_id))
+                        .set("state", &to_value(GigRequestStatus::Accepted)),
+                    format!("Error updating gig request with id {} to mark it as accepted.", gig_request.id)
+                )?;
             }
-            let add_event_to_request_query = query_builder::update(GigRequest::table_name())
-                .filter(&format!("id = '{}'", gig_request.id))
-                .set("event", &first_id.to_string())
-                .build();
-            transaction
-                .query(add_event_to_request_query)
-                .map_err(GreaseError::DbError)?;
-            GigRequest::set_status(gig_request.id, GigRequestStatus::Accepted, &mut transaction)?;
-        }
 
-        transaction.commit().map_err(GreaseError::DbError)?;
-        Ok(first_id)
+            Ok(first_id)
+        })
     }
 
-    pub fn update(event_id: i32, event_update: EventUpdate, conn: &mut Conn) -> GreaseResult<()> {
-        let mut transaction = conn
-            .start_transaction(false, None, None)
-            .map_err(GreaseError::DbError)?;
-        let event = Event::load(event_id, &mut transaction)?;
-        if let Some(_gig) = event.gig {
-            let update_gig_query = query_builder::update(Gig::table_name())
-                .filter(&format!("event = {}", event_id))
-                .set(
-                    "performance_time",
-                    &to_value(
-                        event_update
-                            .performance_time
-                            .ok_or(GreaseError::BadRequest(
-                                "performance time is required on events that are gigs".to_owned(),
-                            ))?,
-                    ),
-                )
-                .set(
-                    "uniform",
-                    &to_value(event_update.uniform.ok_or(GreaseError::BadRequest(
-                        "uniform is required on events that are gigs".to_owned(),
-                    ))?),
-                )
-                .set("contact_name", &to_value(event_update.contact_name))
-                .set("contact_email", &to_value(event_update.contact_email))
-                .set("contact_phone", &to_value(event_update.contact_phone))
-                .set("price", &to_value(event_update.price))
-                .set(
-                    "uniform",
-                    &to_value(event_update.public.ok_or(GreaseError::BadRequest(
-                        "uniform is required on events that are gigs".to_owned(),
-                    ))?),
-                )
-                .set("summary", &to_value(event_update.summary))
-                .set("description", &to_value(event_update.description))
-                .build();
-            transaction
-                .query(update_gig_query)
-                .map_err(GreaseError::DbError)?;
-        } else if event_update.performance_time.is_some()
-            || event_update.uniform.is_some()
-            || event_update.contact_name.is_some()
-            || event_update.contact_email.is_some()
-            || event_update.contact_phone.is_some()
-            || event_update.price.is_some()
-            || event_update.public.is_some()
-            || event_update.summary.is_some()
-            || event_update.description.is_some()
-        {
-            let update_gig_query = query_builder::update(Gig::table_name())
-                .filter(&format!("event = {}", event_id))
-                .set(
-                    "performance_time",
-                    &to_value(
-                        event_update
-                            .performance_time
-                            .ok_or(GreaseError::BadRequest(
-                                "performance time is required on events that are gigs".to_owned(),
-                            ))?,
-                    ),
-                )
-                .set(
-                    "uniform",
-                    &to_value(event_update.uniform.ok_or(GreaseError::BadRequest(
-                        "uniform is required on events that are gigs".to_owned(),
-                    ))?),
-                )
-                .set("contact_name", &to_value(event_update.contact_name))
-                .set("contact_email", &to_value(event_update.contact_email))
-                .set("contact_phone", &to_value(event_update.contact_phone))
-                .set("price", &to_value(event_update.price))
-                .set(
-                    "uniform",
-                    &to_value(event_update.public.ok_or(GreaseError::BadRequest(
-                        "uniform is required on events that are gigs".to_owned(),
-                    ))?),
-                )
-                .set("summary", &to_value(event_update.summary))
-                .set("description", &to_value(event_update.description))
-                .build();
-            transaction
-                .query(update_gig_query)
-                .map_err(GreaseError::DbError)?;
-        }
+    pub fn repeat_event_times(call_time: NaiveDateTime, release_time: Option<NaiveDateTime>, period: Period, until: NaiveDate) -> Vec<(NaiveDateTime, Option<NaiveDateTime>)> {
+        std::iter::successors(
+            Some((call_time, release_time)),
+            |(call_time, release_time)| {
+                let duration = match period {
+                    Period::Daily => Duration::days(1),
+                    Period::Weekly => Duration::weeks(1),
+                    Period::BiWeekly => Duration::weeks(2),
+                    Period::Yearly => Duration::days(365),
+                    Period::Monthly => {
+                        let days = match call_time.month() {
+                            1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+                            4 | 6 | 9 | 11 => 30,
+                            // leap year check
+                            2 => {
+                                if NaiveDate::from_ymd_opt(call_time.year(), 2, 29).is_some() {
+                                    29
+                                } else {
+                                    28
+                                }
+                            }
+                            _ => unreachable!(),
+                        };
+                        Duration::days(days)
+                    }
+                };
 
-        let update_event_query = query_builder::update(Event::table_name())
-            .filter(&format!("id = {}", event_id))
-            .set("name", &to_value(event_update.name))
-            .set("semester", &to_value(event_update.semester))
-            .set("type", &to_value(event_update.type_))
-            .set("call_time", &to_value(event_update.call_time))
-            .set("release_time", &to_value(event_update.release_time))
-            .set("points", &to_value(event_update.points))
-            .set("comments", &to_value(event_update.comments))
-            .set("location", &to_value(event_update.location))
-            .set("gig_count", &to_value(event_update.gig_count))
-            .set("default_attend", &to_value(event_update.default_attend))
-            .set("section", &to_value(event_update.section))
-            .build();
-        transaction
-            .query(update_event_query)
-            .map_err(GreaseError::DbError)?;
-
-        transaction.commit().map_err(GreaseError::DbError)?;
-
-        Ok(())
+                Some((
+                    *call_time + duration,
+                    release_time.as_ref().map(|time| *time + duration),
+                ))
+                .filter(|(call_time, _release_time)| call_time.date() < until)
+            },
+        )
+        .collect::<Vec<_>>()
     }
 
-    pub fn delete(event_id: i32, conn: &mut Conn) -> GreaseResult<()> {
-        let delete_query = query_builder::delete(Self::table_name())
-            .filter(&format!("id = {}", event_id))
-            .build();
-        conn.query(delete_query).map_err(GreaseError::DbError)?;
+    pub fn update(event_id: i32, event_update: EventUpdate, conn: &mut DbConn) -> GreaseResult<()> {
+        let event = Event::load(event_id, conn)?;
 
-        Ok(())
+        conn.transaction(move |transaction| {
+            if let Some(_gig) = &event.gig {
+                transaction.update(
+                    Update::new(Gig::table_name())
+                        .filter(&format!("event = {}", event_id))
+                        .set(
+                            "performance_time",
+                            &to_value(
+                                event_update
+                                    .performance_time
+                                    .ok_or(GreaseError::BadRequest(
+                                        "Performance time is required on events that are gigs.".to_owned(),
+                                    ))?,
+                            ),
+                        )
+                        .set(
+                            "uniform",
+                            &to_value(event_update.uniform.ok_or(GreaseError::BadRequest(
+                                "Uniform is required on events that are gigs.".to_owned(),
+                            ))?),
+                        )
+                        .set("contact_name", &to_value(event_update.contact_name))
+                        .set("contact_email", &to_value(event_update.contact_email))
+                        .set("contact_phone", &to_value(event_update.contact_phone))
+                        .set("price", &to_value(event_update.price))
+                        .set(
+                            "uniform",
+                            &to_value(event_update.public.ok_or(GreaseError::BadRequest(
+                                "Uniform is required on events that are gigs.".to_owned(),
+                            ))?),
+                        )
+                        .set("summary", &to_value(event_update.summary))
+                        .set("description", &to_value(event_update.description)),
+                    format!("No event with id {}.", event_id),
+                )?;
+            } else if event_update.performance_time.is_some()
+                || event_update.uniform.is_some()
+                || event_update.contact_name.is_some()
+                || event_update.contact_email.is_some()
+                || event_update.contact_phone.is_some()
+                || event_update.price.is_some()
+                || event_update.public.is_some()
+                || event_update.summary.is_some()
+                || event_update.description.is_some()
+            {
+                transaction.insert(
+                    Insert::new(Gig::table_name())
+                        .set("event", &to_value(event_id))
+                        .set(
+                            "performance_time",
+                            &to_value(
+                                event_update
+                                    .performance_time
+                                    .ok_or(GreaseError::BadRequest(
+                                        "Performance time is required on events that are gigs.".to_owned(),
+                                    ))?,
+                            ),
+                        )
+                        .set(
+                            "uniform",
+                            &to_value(event_update.uniform.ok_or(GreaseError::BadRequest(
+                                "Uniform is required on events that are gigs.".to_owned(),
+                            ))?),
+                        )
+                        .set("contact_name", &to_value(event_update.contact_name))
+                        .set("contact_email", &to_value(event_update.contact_email))
+                        .set("contact_phone", &to_value(event_update.contact_phone))
+                        .set("price", &to_value(event_update.price))
+                        .set(
+                            "uniform",
+                            &to_value(event_update.public.ok_or(GreaseError::BadRequest(
+                                "Uniform is required on events that are gigs.".to_owned(),
+                            ))?),
+                        )
+                        .set("summary", &to_value(event_update.summary))
+                        .set("description", &to_value(event_update.description))
+                )?;
+            }
+
+            transaction.update(
+                Update::new(Event::table_name())
+                    .filter(&format!("id = {}", event_id))
+                    .set("name", &to_value(event_update.name))
+                    .set("semester", &to_value(event_update.semester))
+                    .set("type", &to_value(event_update.type_))
+                    .set("call_time", &to_value(event_update.call_time))
+                    .set("release_time", &to_value(event_update.release_time))
+                    .set("points", &to_value(event_update.points))
+                    .set("comments", &to_value(event_update.comments))
+                    .set("location", &to_value(event_update.location))
+                    .set("gig_count", &to_value(event_update.gig_count))
+                    .set("default_attend", &to_value(event_update.default_attend))
+                    .set("section", &to_value(event_update.section)),
+                format!("No event with id {}.", event_id),
+            )
+        })
+    }
+
+    pub fn delete<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<()> {
+        conn.delete(
+            Delete::new(Self::table_name())
+                .filter(&format!("id = {}", event_id)),
+            format!("No event with id {}.", event_id),
+        )
     }
 }
 
 impl Gig {
-    pub fn insert<G: GenericConnection>(
+    pub fn insert<C: Connection>(
         event_id: i32,
         new_gig: &NewGig,
-        conn: &mut G,
+        conn: &mut C,
     ) -> GreaseResult<()> {
-        let query = query_builder::insert(Self::table_name())
-            .set("event", &to_value(event_id))
-            .set("performance_time", &to_value(new_gig.performance_time))
-            .set("uniform", &to_value(&new_gig.uniform))
-            .set("contact_name", &to_value(&new_gig.contact_name))
-            .set("contact_email", &to_value(&new_gig.contact_email))
-            .set("contact_phone", &to_value(&new_gig.contact_phone))
-            .set("price", &to_value(new_gig.price))
-            .set("public", &to_value(new_gig.public))
-            .set("summary", &to_value(&new_gig.summary))
-            .set("description", &to_value(&new_gig.description))
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
+        conn.insert(
+            Insert::new(Self::table_name())
+                .set("event", &to_value(event_id))
+                .set("performance_time", &to_value(new_gig.performance_time))
+                .set("uniform", &to_value(&new_gig.uniform))
+                .set("contact_name", &to_value(&new_gig.contact_name))
+                .set("contact_email", &to_value(&new_gig.contact_email))
+                .set("contact_phone", &to_value(&new_gig.contact_phone))
+                .set("price", &to_value(new_gig.price))
+                .set("public", &to_value(new_gig.public))
+                .set("summary", &to_value(&new_gig.summary))
+                .set("description", &to_value(&new_gig.description))
+        )
+    }
+}
 
-        Ok(())
+pub enum Period {
+    Daily,
+    Weekly,
+    BiWeekly,
+    Monthly,
+    Yearly,
+}
+
+impl Period {
+    pub fn parse(period: &str) -> GreaseResult<Option<Period>> {
+        match period {
+            "no" => Ok(None),
+            "daily" => Ok(Some(Period::Daily)),
+            "weekly" => Ok(Some(Period::Weekly)),
+            "biweekly" => Ok(Some(Period::BiWeekly)),
+            "monthly" => Ok(Some(Period::Monthly)),
+            "yearly" => Ok(Some(Period::Yearly)),
+            other => Err(GreaseError::BadRequest(format!(
+                "The repeat value '{}' is not allowed. The only allowed values \
+                 are 'no', 'daily', 'weekly', 'biweekly', 'monthly', or 'yearly'.",
+                other
+            ))),
+        }
     }
 }
 
@@ -473,7 +428,7 @@ impl EventWithGig {
         })
     }
 
-    pub fn to_json_full(&self, member: &Member, conn: &mut Conn) -> GreaseResult<Value> {
+    pub fn to_json_full<C: Connection>(&self, member: &Member, conn: &mut C) -> GreaseResult<Value> {
         let mut json_val = self.to_json();
 
         let uniform = if let Some(uniform) = self.gig.as_ref().map(|gig| &gig.uniform) {
@@ -483,7 +438,7 @@ impl EventWithGig {
         };
         json_val["uniform"] = json!(uniform);
 
-        let attendance = Attendance::load_for_member_at_event(&member.email, self.event.id, conn)?;
+        let attendance = Attendance::load(&member.email, self.event.id, conn)?;
         json_val["attendance"] = json!(attendance);
 
         Ok(json_val)
@@ -491,37 +446,31 @@ impl EventWithGig {
 }
 
 impl GigRequest {
-    pub fn load<G: GenericConnection>(id: i32, conn: &mut G) -> GreaseResult<GigRequest> {
-        Self::first(
-            &format!("id = {}", id),
-            conn,
-            format!("no gig request with id {}", id),
-        )
+    pub fn load<C: Connection>(id: i32, conn: &mut C) -> GreaseResult<GigRequest> {
+        conn.first(&Self::filter(&format!("id = {}", id)), format!("no gig request with id {}", id))
     }
 
-    pub fn load_all(conn: &mut Conn) -> GreaseResult<Vec<GigRequest>> {
-        Self::query_all_in_order(vec![("time", Order::Desc)], conn)
+    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<GigRequest>> {
+        conn.load(&Self::select_all_in_order("time", Order::Desc))
     }
 
-    pub fn load_all_for_semester_and_pending(conn: &mut Conn) -> GreaseResult<Vec<GigRequest>> {
+    pub fn load_all_for_semester_and_pending<C: Connection>(conn: &mut C) -> GreaseResult<Vec<GigRequest>> {
         let current_semester = Semester::load_current(conn)?;
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .filter(&format!(
+
+        conn.load(
+            Self::filter(&format!(
                 "time > {} OR status = '{}'",
                 &current_semester.start_date.to_value().as_sql(false),
                 GigRequestStatus::Pending
             ))
             .order_by("time", Order::Desc)
-            .build();
-
-        crate::db::load(&query, conn)
+        )
     }
 
-    pub fn set_status<G: GenericConnection>(
+    pub fn set_status<C: Connection>(
         request_id: i32,
         status: GigRequestStatus,
-        conn: &mut G,
+        conn: &mut C,
     ) -> GreaseResult<()> {
         use self::GigRequestStatus::*;
         let request = GigRequest::load(request_id, conn)?;
@@ -539,13 +488,11 @@ impl GigRequest {
                 if request.status == Pending && status == Accepted && request.event.is_none() {
                     Err(GreaseError::BadRequest("Must create the event for the gig request first before marking it as accepted.".to_owned()))
                 } else {
-                    let query = query_builder::update(Self::table_name())
-                        .filter(&format!("id = {}", request_id))
-                        .set("status", &format!("'{}'", status))
-                        .build();
-                    conn.query(query).map_err(GreaseError::DbError)?;
-
-                    Ok(())
+                    conn.update_opt(
+                        Update::new(Self::table_name())
+                            .filter(&format!("id = {}", request_id))
+                            .set("status", &format!("'{}'", status)),
+                    )
                 }
             }
         }

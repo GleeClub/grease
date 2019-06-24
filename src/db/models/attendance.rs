@@ -1,96 +1,81 @@
-use chrono::Local;
-use db::models::member::MemberForSemester;
-use db::models::*;
-use db::traits::*;
+use chrono::{Local, NaiveDateTime};
+use db::*;
 use error::*;
-use mysql::{prelude::GenericConnection, Conn};
-use pinto::query_builder::{self, Join, Order};
+use db::models::member::MemberForSemester;
+use pinto::query_builder::*;
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 
 impl Attendance {
-    pub fn load(
-        given_member_email: &str,
-        given_event_id: i32,
-        conn: &mut Conn,
+    pub fn load<C: Connection>(
+        member: &str,
+        event_id: i32,
+        conn: &mut C,
     ) -> GreaseResult<Attendance> {
-        Self::first(
-            &format!(
-                "member = '{}' AND event = {}",
-                given_member_email, given_event_id
-            ),
-            conn,
-            format!(
-                "attendance for member {} for event {} not found",
-                given_member_email, given_event_id
-            ),
+        conn.first(
+            &Self::filter(&format!("member = '{}' AND event = {}", member, event_id)),
+            format!("Attendance for member {} for event {} not found.", member, event_id)
         )
     }
 
-    pub fn load_for_event(
-        given_event_id: i32,
-        conn: &mut Conn,
+    pub fn load_for_event<C: Connection>(
+        event_id: i32,
+        conn: &mut C,
     ) -> GreaseResult<Vec<(Attendance, MemberForSemester)>> {
         // to ensure that the event exists
-        let _found_event = Event::load(given_event_id, conn)?;
-        let query = query_builder::select(Self::table_name())
-            .join(
-                Member::table_name(),
-                &format!("{}.member", Self::table_name()),
-                "email",
-                Join::Inner,
-            )
-            .join(
-                ActiveSemester::table_name(),
-                &format!("{}.member", Self::table_name()),
-                &format!("{}.member", ActiveSemester::table_name()),
-                Join::Inner,
-            )
-            .fields(AttendanceMemberRow::field_names())
-            .filter(&format!("event = {}", given_event_id))
-            .order_by("last_name, first_name", Order::Asc)
-            .build();
+        let _found_event = Event::load(event_id, conn)?;
 
-        crate::db::load::<AttendanceMemberRow, _>(&query, conn)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect())
+        conn.load_as::<AttendanceMemberRow, (Attendance, MemberForSemester)>(
+            Select::new(Self::table_name())
+                .join(
+                    Member::table_name(),
+                    &format!("{}.member", Self::table_name()),
+                    "email",
+                    Join::Inner,
+                )
+                .join(
+                    ActiveSemester::table_name(),
+                    &format!("{}.member", Self::table_name()),
+                    &format!("{}.member", ActiveSemester::table_name()),
+                    Join::Inner,
+                )
+                .fields(AttendanceMemberRow::field_names())
+                .filter(&format!("event = {}", event_id))
+                .order_by("last_name, first_name", Order::Asc)
+        )
     }
 
-    pub fn load_for_event_for_section(
-        given_event_id: i32,
-        given_section: Option<&str>,
-        conn: &mut Conn,
+    pub fn load_for_event_for_section<C: Connection>(
+        event_id: i32,
+        section: Option<&str>,
+        conn: &mut C,
     ) -> GreaseResult<Vec<(Attendance, MemberForSemester)>> {
-        let _found_event = Event::load(given_event_id, conn)?;
-        let query = query_builder::select(Self::table_name())
-            .join(
-                Member::table_name(),
-                &format!("{}.member", Self::table_name()),
-                "email",
-                Join::Inner,
-            )
-            .join(
-                ActiveSemester::table_name(),
-                &format!("{}.member", Self::table_name()),
-                &format!("{}.member", ActiveSemester::table_name()),
-                Join::Inner,
-            )
-            .fields(AttendanceMemberRow::field_names())
-            .filter(&format!("event = {}", given_event_id))
-            .filter(&format!(
-                "section = {}",
-                given_section
-                    .map(|section| format! {"'{}'", section})
-                    .unwrap_or("NULL".to_owned())
-            ))
-            .order_by("last_name, first_name", Order::Asc)
-            .build();
+        let _found_event = Event::load(event_id, conn)?;
 
-        crate::db::load::<AttendanceMemberRow, _>(&query, conn)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect())
+        conn.load_as::<AttendanceMemberRow, (Attendance, MemberForSemester)>(
+            Select::new(Self::table_name())
+                .join(
+                    Member::table_name(),
+                    &format!("{}.member", Self::table_name()),
+                    "email",
+                    Join::Inner,
+                )
+                .join(
+                    ActiveSemester::table_name(),
+                    &format!("{}.member", Self::table_name()),
+                    &format!("{}.member", ActiveSemester::table_name()),
+                    Join::Inner,
+                )
+                .fields(AttendanceMemberRow::field_names())
+                .filter(&format!("event = {}", event_id))
+                .filter(&format!("section = {}", to_value(section)))
+                .order_by("last_name, first_name", Order::Asc)
+        )
     }
 
-    pub fn load_for_event_separate_by_section(
+    pub fn load_for_event_separate_by_section<C: Connection>(
         given_event_id: i32,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<HashMap<Option<String>, Vec<(Attendance, MemberForSemester)>>> {
         Attendance::load_for_event(given_event_id, conn).map(|pairs| {
             let mut section_attendance: HashMap<Option<String>, Vec<(_, _)>> = HashMap::new();
@@ -100,86 +85,44 @@ impl Attendance {
                     .or_default()
                     .push((member_attendance, member_for_semester));
             }
+
             section_attendance
         })
     }
 
-    pub fn load_for_member_at_event(
-        given_member_email: &str,
-        given_event_id: i32,
-        conn: &mut Conn,
-    ) -> GreaseResult<Attendance> {
-        if let Some(attendance) = Attendance::first_opt(
-            &format!(
-                "member = '{}' AND event = {}",
-                given_member_email, given_event_id
-            ),
-            conn,
-        )? {
-            Ok(attendance)
-        } else {
-            let event = Event::load(given_event_id, conn)?;
-            if let Some(_active_semester) =
-                ActiveSemester::load(given_member_email, &event.event.semester, conn)?
-            {
-                let new_attendance = NewAttendance {
-                    event: given_event_id,
-                    should_attend: false,
-                    member: given_member_email.to_owned(),
-                };
-                new_attendance.insert(conn)?;
-
-                Attendance::first_opt(
-                    &format!(
-                        "member = '{}' AND event = {}",
-                        given_member_email, given_event_id
-                    ),
-                    conn,
-                )?.ok_or(GreaseError::ServerError(format!(
-                    "error creating new default attendance for member {} missing attendance to event with id {}", given_member_email, given_event_id)))
-            } else {
-                Err(GreaseError::BadRequest(format!("no attendance exists for member {} at event with id {} (not active that semester)", given_member_email, given_event_id)))
-            }
-        }
-    }
-
-    pub fn load_for_member_at_all_events(
+    pub fn load_for_member_at_all_events<C: Connection>(
         member: &str,
         semester: &str,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<Vec<(Event, Attendance)>> {
-        let query = query_builder::select(Event::table_name())
-            .join(Attendance::table_name(), "id", "event", Join::Inner)
-            .fields(EventAttendanceRow::field_names())
-            .filter(&format!("member = '{}'", member))
-            .filter(&format!("semester = '{}'", semester))
-            .build();
-
-        crate::db::load::<EventAttendanceRow, _>(&query, conn)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect())
+        conn.load_as::<EventAttendanceRow, (Event, Attendance)>(
+            Select::new(Event::table_name())
+                .join(Attendance::table_name(), "id", "event", Join::Inner)
+                .fields(EventAttendanceRow::field_names())
+                .filter(&format!("member = '{}'", member))
+                .filter(&format!("semester = '{}'", semester))
+        )
     }
 
-    pub fn load_for_member_at_all_events_of_type(
-        given_member_email: &str,
+    pub fn load_for_member_at_all_events_of_type<C: Connection>(
+        member: &str,
         event_type: &str,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<Vec<(Event, Attendance)>> {
         let current_semester = Semester::load_current(conn)?;
-        let query = query_builder::select(Event::table_name())
-            .join(Attendance::table_name(), "id", "event", Join::Inner)
-            .fields(EventAttendanceRow::field_names())
-            .filter(&format!("member = '{}'", given_member_email))
-            .filter(&format!("semester = '{}'", &current_semester.name))
-            .filter(&format!("type = '{}'", event_type))
-            .build();
-
-        crate::db::load::<EventAttendanceRow, _>(&query, conn)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect())
+        conn.load_as::<EventAttendanceRow, (Event, Attendance)>(
+            Select::new(Event::table_name())
+                .join(Attendance::table_name(), "id", "event", Join::Inner)
+                .fields(EventAttendanceRow::field_names())
+                .filter(&format!("member = '{}'", member))
+                .filter(&format!("semester = '{}'", &current_semester.name))
+                .filter(&format!("type = '{}'", event_type))
+        )
     }
 
     pub fn create_for_new_member(
         given_member_email: &str,
-        conn: &mut mysql::Transaction,
+        conn: &mut DbTransaction,
     ) -> GreaseResult<()> {
         let now = Local::now().naive_local();
         Event::load_all_for_current_semester(conn)?
@@ -197,17 +140,17 @@ impl Attendance {
             .collect::<GreaseResult<()>>()
     }
 
-    pub fn create_for_new_event<G: GenericConnection>(
-        given_event_id: i32,
-        conn: &mut G,
+    pub fn create_for_new_event<C: Connection>(
+        event_id: i32,
+        conn: &mut C,
     ) -> GreaseResult<()> {
-        let event = Event::load(given_event_id, conn)?.event;
+        let event = Event::load(event_id, conn)?.event;
         let semester_members = MemberForSemester::load_all(&event.semester, conn)?;
 
         semester_members
             .into_iter()
             .map(|member_for_semester| NewAttendance {
-                event: given_event_id,
+                event: event_id,
                 member: member_for_semester.member.email,
                 should_attend: event.default_attend,
             })
@@ -215,51 +158,36 @@ impl Attendance {
             .collect::<GreaseResult<()>>()
     }
 
-    pub fn excuse_unconfirmed(event_id: i32, conn: &mut Conn) -> GreaseResult<()> {
-        let query = query_builder::update(Self::table_name())
-            .filter(&format!("event = {} AND confirmed = false", event_id))
-            .set("should_attend", "false")
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
-
-        Ok(())
+    pub fn excuse_unconfirmed<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<()> {
+        conn.update_opt(
+            Update::new(Self::table_name())
+                .filter(&format!("event = {} AND confirmed = false", event_id))
+                .set("should_attend", "false")
+        )
     }
 
-    pub fn update(
-        given_event_id: i32,
-        given_member_email: &str,
+    pub fn update<C: Connection>(
+        event_id: i32,
+        member: &str,
         attendance_form: &AttendanceForm,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<()> {
-        let query = query_builder::update(Self::table_name())
-            .filter(&format!("member = '{}'", given_member_email))
-            .filter(&format!("event = {}", given_event_id))
-            .set(
-                "should_attend",
-                &attendance_form.should_attend.to_value().as_sql(true),
-            )
-            .set(
-                "did_attend",
-                &attendance_form.did_attend.to_value().as_sql(true),
-            )
-            .set(
-                "minutes_late",
-                &attendance_form.minutes_late.to_value().as_sql(true),
-            )
-            .set(
-                "confirmed",
-                &attendance_form.confirmed.to_value().as_sql(true),
-            )
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
-
-        Ok(())
+        conn.update(
+            Update::new(Self::table_name())
+                .filter(&format!("member = '{}'", member))
+                .filter(&format!("event = {}", event_id))
+                .set("should_attend", &to_value(&attendance_form.should_attend))
+                .set("did_attend", &to_value(&attendance_form.did_attend))
+                .set("minutes_late", &to_value(&attendance_form.minutes_late))
+                .set("confirmed", &to_value(&attendance_form.confirmed)),
+            format!("No attendance exists for member {} at event {}. (Are they inactive?)", member, event_id)
+        )
     }
 
-    pub fn is_excused(&self, conn: &mut Conn) -> GreaseResult<bool> {
+    pub fn is_excused<C: Connection>(&self, conn: &mut C) -> GreaseResult<bool> {
         AbsenceRequest::load(&self.member, self.event, conn).map(|absence_request| {
             absence_request
-                .map(|ar| ar.state == AbsenceRequestState::Approved)
+                .map(|request| request.state == AbsenceRequestState::Approved)
                 .unwrap_or(false)
         })
     }

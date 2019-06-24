@@ -1,173 +1,107 @@
-use crate::db::load;
-use crate::db::traits::*;
-use crate::error::{GreaseError, GreaseResult};
-use crate::util::random_base64;
-use db::models::*;
-use mysql::prelude::ToValue;
-use mysql::Conn;
-use pinto::query_builder::{self, Join, Order};
+use db::*;
+use error::*;
+use pinto::query_builder::*;
+use util::random_base64;
 
 impl GoogleDoc {
-    pub fn load(doc_name: &str, conn: &mut Conn) -> GreaseResult<GoogleDoc> {
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .filter(&format!("name = '{}'", doc_name))
-            .build();
-
-        match conn.first(query) {
-            Ok(Some(doc)) => Ok(doc),
-            Ok(None) => Err(GreaseError::BadRequest(format!(
-                "no google doc named {}",
-                doc_name
-            ))),
-            Err(error) => Err(GreaseError::DbError(error)),
-        }
+    pub fn load<C: Connection>(doc_name: &str, conn: &mut C) -> GreaseResult<GoogleDoc> {
+        conn.first(&Self::filter(&format!("name = '{}'", doc_name)), format!("No google doc named '{}'.", doc_name))
     }
 
-    pub fn load_all(conn: &mut Conn) -> GreaseResult<Vec<GoogleDoc>> {
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .order_by("name", Order::Asc)
-            .build();
-
-        load(&query, conn)
+    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<GoogleDoc>> {
+        conn.load(&Self::select_all_in_order("name", Order::Asc))
     }
 
-    pub fn insert(new_doc: &GoogleDoc, conn: &mut Conn) -> GreaseResult<()> {
+    pub fn insert<C: Connection>(new_doc: &GoogleDoc, conn: &mut C) -> GreaseResult<()> {
         new_doc.insert(conn)
     }
 
-    pub fn update(old_name: &str, changed_doc: &GoogleDoc, conn: &mut Conn) -> GreaseResult<()> {
-        let query = query_builder::update(Self::table_name())
-            .filter(&format!("name = '{}'", old_name))
-            .set("name", &changed_doc.name.to_value().as_sql(true))
-            .set("url", &changed_doc.url.to_value().as_sql(true))
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
-
-        Ok(())
+    pub fn update<C: Connection>(old_name: &str, changed_doc: &GoogleDoc, conn: &mut C) -> GreaseResult<()> {
+        conn.update(
+            Update::new(Self::table_name())
+                .filter(&format!("name = '{}'", old_name))
+                .set("name", &to_value(&changed_doc.name))
+                .set("url", &to_value(&changed_doc.url)),
+            format!("No google doc named '{}'.", old_name),
+        )
     }
 
-    pub fn delete(name: &str, conn: &mut Conn) -> GreaseResult<()> {
-        let query = query_builder::delete(Self::table_name())
-            .filter(&format!("name = '{}'", name))
-            .build();
-
-        conn.query(query).map_err(GreaseError::DbError)?;
-        Ok(())
+    pub fn delete<C: Connection>(name: &str, conn: &mut C) -> GreaseResult<()> {
+        conn.delete(Delete::new(Self::table_name()).filter(&format!("name = '{}'", name)), format!("No google doc named '{}'.", name))
     }
 }
 
 impl Announcement {
-    pub fn load(given_id: i32, conn: &mut Conn) -> GreaseResult<Announcement> {
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .filter(&format!("id = {}", given_id))
-            .build();
-
-        match conn.first(query) {
-            Ok(Some(announcement)) => Ok(announcement),
-            Ok(None) => Err(GreaseError::BadRequest(format!(
-                "no announcement with id {}",
-                given_id
-            ))),
-            Err(error) => Err(GreaseError::DbError(error)),
-        }
+    pub fn load<C: Connection>(announcement_id: i32, conn: &mut C) -> GreaseResult<Announcement> {
+        conn.first(&Self::filter(&format!("id = {}", announcement_id)), format!("No announcement with id {}.", announcement_id))
     }
 
-    pub fn insert(
+    pub fn insert<C: Connection>(
         new_content: &str,
-        given_member: &str,
-        given_semester: &str,
-        conn: &mut Conn,
+        member: &str,
+        semester: &str,
+        conn: &mut C,
     ) -> GreaseResult<i32> {
-        let insert_query = query_builder::insert(Self::table_name())
-            .set("member", given_member)
-            .set("semester", given_semester)
-            .set("content", new_content)
-            .build();
-        conn.query(insert_query).map_err(GreaseError::DbError)?;
-
-        let id_query = query_builder::select(Self::table_name())
-            .fields(&["id"])
-            .order_by("id", Order::Desc)
-            .build();
-
-        match conn.first(id_query) {
-            Ok(Some(id)) => Ok(id),
-            Ok(None) => Err(GreaseError::ServerError(
-                "no announcement was actually inserted".to_owned(),
-            )),
-            Err(error) => Err(GreaseError::DbError(error)),
-        }
+        conn.insert_returning_id(
+            Insert::new(Self::table_name())
+                .set("member", &to_value(member))
+                .set("semester", &to_value(semester))
+                .set("content", &to_value(new_content))
+        )
     }
 
-    pub fn load_all(conn: &mut Conn) -> GreaseResult<Vec<Announcement>> {
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .order_by("time", Order::Desc)
-            .build();
-
-        crate::db::load(&query, conn)
+    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Announcement>> {
+        conn.load(&Self::select_all_in_order("time", Order::Desc))
     }
 
-    pub fn load_all_for_semester(
-        given_semester: &str,
-        conn: &mut Conn,
+    pub fn load_all_for_semester<C: Connection>(
+        semester: &str,
+        conn: &mut C,
     ) -> GreaseResult<Vec<Announcement>> {
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .filter(&format!("semester = '{}'", given_semester))
-            .filter("archived = false")
-            .order_by("time", Order::Desc)
-            .build();
-
-        crate::db::load(&query, conn)
+        conn.load(
+            Self::select_all()
+                .filter(&format!("semester = '{}'", semester))
+                .filter("archived = false")
+                .order_by("time", Order::Desc)
+        )
     }
 
-    pub fn archive(given_id: i32, conn: &mut Conn) -> GreaseResult<()> {
-        let query = query_builder::update(Self::table_name())
-            .filter(&format!("id = {}", given_id))
-            .set("archived", "true")
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
-
-        Ok(())
+    pub fn archive<C: Connection>(announcement_id: i32, conn: &mut C) -> GreaseResult<()> {
+        conn.update(
+            Update::new(Self::table_name())
+                .filter(&format!("id = {}", announcement_id))
+                .set("archived", "true"),
+            format!("No announcement with id {}.", announcement_id)
+        )
     }
 }
 
 impl Uniform {
-    pub fn load(name: &str, conn: &mut Conn) -> GreaseResult<Uniform> {
-        Self::first(
-            &format!("name = '{}'", name),
-            conn,
-            format!("no uniform with name {}", name),
+    pub fn load<C: Connection>(name: &str, conn: &mut C) -> GreaseResult<Uniform> {
+        conn.first(&Self::filter(&format!("name = '{}'", name)), format!("No uniform named {}.", name))
+    }
+
+    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Uniform>> {
+        conn.load(&Self::select_all_in_order("name", Order::Asc))
+    }
+
+    pub fn update<C: Connection>(old_name: &str, updated: &Uniform, conn: &mut C) -> GreaseResult<()> {
+        conn.update(
+            Update::new(Self::table_name())
+                .filter(&format!("name = '{}'", old_name))
+                .set("name", &to_value(&updated.name))
+                .set("color", &to_value(&updated.color))
+                .set("description", &to_value(&updated.description)),
+            format!("No uniform named {}.", old_name),
         )
     }
 
-    pub fn load_all(conn: &mut Conn) -> GreaseResult<Vec<Uniform>> {
-        Self::query_all_in_order(vec![("name", Order::Asc)], conn)
-    }
-
-    pub fn update(old_name: &str, updated: &Uniform, conn: &mut Conn) -> GreaseResult<()> {
-        let query = query_builder::update(Self::table_name())
-            .filter(&format!("name = '{}'", old_name))
-            .set("name", &updated.name)
-            .set("color", &updated.color.to_value().as_sql(false))
-            .set("description", &updated.description.to_value().as_sql(false))
-            .build();
-
-        conn.query(query).map_err(GreaseError::DbError)?;
-        Ok(())
-    }
-
-    pub fn delete(name: &str, conn: &mut Conn) -> GreaseResult<()> {
-        let query = query_builder::delete(Self::table_name())
-            .filter(&format!("name = '{}'", name))
-            .build();
-
-        conn.query(query).map_err(GreaseError::DbError)?;
-        Ok(())
+    pub fn delete<C: Connection>(name: &str, conn: &mut C) -> GreaseResult<()> {
+        conn.delete(
+            Delete::new(Self::table_name())
+                .filter(&format!("name = '{}'", name)),
+            format!("No uniform named {}.", name)
+        )
     }
 
     pub fn validate(&self) -> GreaseResult<()> {
@@ -191,103 +125,64 @@ impl Uniform {
 }
 
 impl MediaType {
-    pub fn load(type_name: &str, conn: &mut Conn) -> GreaseResult<MediaType> {
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .filter(&format!("name = '{}'", type_name))
-            .build();
-
-        match conn.first(query) {
-            Ok(Some(type_)) => Ok(type_),
-            Ok(None) => Err(GreaseError::BadRequest(format!(
-                "no media type named {}",
-                type_name
-            ))),
-            Err(error) => Err(GreaseError::DbError(error)),
-        }
+    pub fn load<C: Connection>(type_name: &str, conn: &mut C) -> GreaseResult<MediaType> {
+        conn.first(&Self::filter(&format!("name = '{}'", type_name)), format!("No media type named {}.", type_name))
     }
 
-    pub fn load_all(conn: &mut Conn) -> GreaseResult<Vec<MediaType>> {
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .order_by("`order`", Order::Desc)
-            .build();
-
-        crate::db::load(&query, conn)
+    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<MediaType>> {
+        conn.load(&Self::select_all_in_order("`order`", Order::Asc))
     }
 }
 
 impl Variable {
-    pub fn load(given_key: &str, conn: &mut Conn) -> GreaseResult<Option<String>> {
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .filter(&format!("`key` = {}", given_key.to_value().as_sql(true)))
-            .build();
-
-        match conn.first(query) {
-            Ok(maybe_var) => Ok(maybe_var.map(|var: Variable| var.value)),
-            Err(error) => Err(GreaseError::DbError(error)),
-        }
+    pub fn load<C: Connection>(key: &str, conn: &mut C) -> GreaseResult<Option<Variable>> {
+        conn.first_opt(&Self::filter(&format!("`key` = '{}'",  key)))
     }
 
-    pub fn set(
-        given_key: String,
-        new_value: String,
-        conn: &mut Conn,
+    pub fn set<C: Connection>(
+        key: String,
+        value: String,
+        conn: &mut C,
     ) -> GreaseResult<Option<String>> {
-        if let Some(val) = Variable::load(&given_key, conn)? {
-            let query = query_builder::update(Self::table_name())
-                .filter(&format!("`key` = '{}'", &given_key))
-                .set("`key`", &given_key)
-                .set("value", &new_value)
-                .build();
+        if let Some(variable) = Variable::load(&key, conn)? {
+            conn.update_opt(
+                Update::new(Self::table_name())
+                    .filter(&format!("`key` = '{}'", &key))
+                    .set("value", &value)
+            )?;
 
-            match conn.query(query) {
-                Ok(_result) => Ok(Some(val)),
-                Err(error) => Err(GreaseError::DbError(error)),
-            }
+            Ok(Some(variable.value))
         } else {
-            let new_var = Variable {
-                key: given_key,
-                value: new_value,
-            };
+            let new_var = Variable { key, value };
+            new_var.insert(conn)?;
 
-            new_var.insert(conn).map(|_| None)
+            Ok(None)
         }
     }
 
-    pub fn unset(given_key: &str, conn: &mut Conn) -> GreaseResult<()> {
-        let query = query_builder::delete(Self::table_name())
-            .filter(&format!("`key` = '{}'", given_key))
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
-
-        Ok(())
+    pub fn unset<C: Connection>(key: &str, conn: &mut C) -> GreaseResult<()> {
+        conn.delete(
+            Delete::new(Self::table_name())
+                .filter(&format!("`key` = '{}'", key)),
+            format!("No variable with key {}.", key)
+        )
     }
 }
 
 impl Session {
-    pub fn load(given_email: &str, conn: &mut Conn) -> GreaseResult<Option<Session>> {
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .filter(&format!("member = '{}'", given_email))
-            .build();
-
-        conn.first(query).map_err(GreaseError::DbError)
+    pub fn load<C: Connection>(email: &str, conn: &mut C) -> GreaseResult<Option<Session>> {
+        conn.first_opt(&Self::filter(&format!("member = '{}'", email)))
     }
 
-    pub fn delete(given_email: &str, conn: &mut Conn) -> GreaseResult<()> {
-        let query = query_builder::delete(Self::table_name())
-            .filter(&format!("member = '{}'", given_email))
-            .build();
-
-        match conn.query(query) {
-            Ok(_result) => Ok(()),
-            Err(error) => Err(GreaseError::DbError(error)),
-        }
+    pub fn delete<C: Connection>(email: &str, conn: &mut C) -> GreaseResult<()> {
+        conn.delete(
+            Delete::new(Self::table_name())
+                .filter(&format!("member = '{}'", email)),
+            format!("No session for member {}.", email)
+        )
     }
 
-    pub fn generate(given_email: &str, conn: &mut Conn) -> GreaseResult<String> {
+    pub fn generate<C: Connection>(given_email: &str, conn: &mut C) -> GreaseResult<String> {
         let new_session = Session {
             member: given_email.to_owned(),
             key: random_base64(32)?,
@@ -298,20 +193,14 @@ impl Session {
 }
 
 impl GigSong {
-    pub fn load_for_event(event_id: i32, conn: &mut Conn) -> GreaseResult<Vec<GigSong>> {
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .filter(&format!("event = {}", event_id))
-            .order_by("`order`", Order::Asc)
-            .build();
-
-        crate::db::load(&query, conn)
+    pub fn load_for_event<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<Vec<GigSong>> {
+        conn.load(&Self::filter(&format!("event = {}", event_id)).order_by("`order`", Order::Asc))
     }
 
     pub fn update_for_event(
         event_id: i32,
         updated_setlist: Vec<NewGigSong>,
-        conn: &mut Conn,
+        conn: &mut DbConn,
     ) -> GreaseResult<()> {
         let gig_songs = updated_setlist
             .into_iter()
@@ -323,118 +212,95 @@ impl GigSong {
             })
             .collect::<Vec<GigSong>>();
 
-        let mut transaction = conn
-            .start_transaction(false, None, None)
-            .map_err(GreaseError::DbError)?;
-        let delete_query = query_builder::delete(Self::table_name())
-            .filter(&format!("event = {}", event_id))
-            .build();
-        transaction
-            .query(delete_query)
-            .map_err(GreaseError::DbError)?;
+        conn.transaction(|transaction| {
+            transaction.delete_opt(&Delete::new(Self::table_name()).filter(&format!("event = {}", event_id)))?;
+            for gig_song in &gig_songs {
+                gig_song.insert(transaction)?;
+            }
 
-        for gig_song in gig_songs {
-            gig_song.insert(&mut transaction)?;
-        }
-        transaction.commit().map_err(GreaseError::DbError)?;
-
-        Ok(())
+            Ok(())
+        })
     }
 }
 
 impl Todo {
-    pub fn load(todo_id: i32, conn: &mut Conn) -> GreaseResult<Todo> {
-        Todo::first(
-            &format!("id = {}", todo_id),
-            conn,
-            format!("no todo with id {}", todo_id),
+    pub fn load<C: Connection>(todo_id: i32, conn: &mut C) -> GreaseResult<Todo> {
+        conn.first(&Self::filter(&format!("id = {}", todo_id)), format!("No todo with id {}.", todo_id))
+    }
+
+    pub fn load_all_for_member<C: Connection>(member: &str, conn: &mut C) -> GreaseResult<Vec<Todo>> {
+        conn.load(&Self::filter(&format!("member = '{}' AND completed = true", member)))
+    }
+
+    pub fn create(new_todo: NewTodo, conn: &mut DbConn) -> GreaseResult<()> {
+        conn.transaction(|transaction| {
+            for member in &new_todo.members {
+                transaction.insert(
+                    Insert::new(Self::table_name())
+                        .set("`text`", &to_value(&new_todo.text))
+                        .set("member", &to_value(&member)),
+                )?;
+            }
+
+            Ok(())
+        })
+    }
+
+    pub fn mark_complete<C: Connection>(todo_id: i32, conn: &mut C) -> GreaseResult<()> {
+        conn.update(
+            Update::new(Self::table_name())
+                .filter(&format!("id = {}", todo_id))
+                .set("completed", "true"),
+            format!("No todo with id {}.", todo_id),
         )
-    }
-
-    pub fn load_all_for_member(member: &str, conn: &mut Conn) -> GreaseResult<Vec<Todo>> {
-        let query = query_builder::select(Self::table_name())
-            .fields(Self::field_names())
-            .filter(&format!("member = '{}'", member))
-            .filter("completed = false")
-            .build();
-
-        crate::db::load(&query, conn)
-    }
-
-    pub fn create(new_todo: NewTodo, conn: &mut Conn) -> GreaseResult<()> {
-        let mut transaction = conn
-            .start_transaction(false, None, None)
-            .map_err(GreaseError::DbError)?;
-        for member in new_todo.members {
-            let query = query_builder::insert(Self::table_name())
-                .set("`text`", &format!("'{}'", new_todo.text))
-                .set("member", &format!("'{}'", member))
-                .build();
-            transaction.query(&query).map_err(GreaseError::DbError)?;
-        }
-        transaction.commit().map_err(GreaseError::DbError)?;
-
-        Ok(())
-    }
-
-    pub fn mark_complete(todo_id: i32, conn: &mut Conn) -> GreaseResult<()> {
-        let query = query_builder::update(Self::table_name())
-            .filter(&format!("id = {}", todo_id))
-            .set("completed", "true")
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
-
-        Ok(())
     }
 }
 
 impl RolePermission {
-    pub fn enable(
+    pub fn enable<C: Connection>(
         role: &str,
         permission: &str,
         event_type: &Option<String>,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<()> {
-        let query = query_builder::insert(RolePermission::table_name())
-            .set("role", &format!("'{}'", role))
-            .set("permission", &format!("'{}'", permission))
-            .set("event_type", &event_type.to_value().as_sql(false))
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
-
-        Ok(())
+        if conn.first_opt::<RolePermission>(&Self::filter(&format!(
+            "role = '{}' AND permission = '{}' AND event_type = '{}'",
+            role, permission, to_value(&event_type))))?.is_some()
+        {
+            Ok(())
+        } else {
+            conn.insert(
+                Insert::new(Self::table_name())
+                    .set("role", &to_value(role))
+                    .set("permission", &to_value(permission))
+                    .set("event_type", &to_value(event_type))
+            )
+        }
     }
 
-    pub fn disable(
+    pub fn disable<C: Connection>(
         role: &str,
         permission: &str,
         event_type: &Option<String>,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<()> {
-        let query = query_builder::delete(RolePermission::table_name())
-            .filter(&format!("role = '{}'", role))
-            .filter(&format!("permission = '{}'", permission))
-            .filter(&format!(
-                "event_type = {}",
-                event_type.to_value().as_sql(false)
-            ))
-            .build();
-        conn.query(query).map_err(GreaseError::DbError)?;
-
-        Ok(())
+        conn.delete_opt(
+            Delete::new(Self::table_name())
+                .filter(&format!("role = '{}'", role))
+                .filter(&format!("permission = '{}'", permission))
+                .filter(&format!("event_type = {}", to_value(event_type)))
+        )
     }
 }
 
 impl MemberRole {
-    pub fn load_all(conn: &mut Conn) -> GreaseResult<Vec<(Member, Role)>> {
-        let query = query_builder::select(MemberRole::table_name())
-            .join(Member::table_name(), "member", "email", Join::Inner)
-            .join(Role::table_name(), "role", "name", Join::Inner)
-            .fields(MemberWithRoleRow::field_names())
-            .build();
-
-        crate::db::load::<MemberWithRoleRow, _>(&query, conn)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect())
+    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<(Member, Role)>> {
+        conn.load_as::<MemberWithRoleRow, _>(
+            Select::new(MemberRole::table_name())
+                .join(Member::table_name(), "member", "email", Join::Inner)
+                .join(Role::table_name(), "role", "name", Join::Inner)
+                .fields(MemberWithRoleRow::field_names())
+        )
     }
 }
 

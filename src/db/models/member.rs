@@ -1,10 +1,8 @@
 use chrono::Local;
-use db::models::*;
-use db::traits::*;
+use db::*;
 use error::*;
-use mysql::{prelude::GenericConnection, Conn};
-use pinto::query_builder::{self, Join, Order};
-use serde::Serialize;
+use pinto::query_builder::*;
+use serde::{Serialize, Deserialize};
 use serde_json::{json, Value};
 
 pub struct MemberForSemester {
@@ -13,30 +11,20 @@ pub struct MemberForSemester {
 }
 
 impl Member {
-    pub fn load(given_email: &str, conn: &mut Conn) -> GreaseResult<Member> {
-        Self::first(
-            &format!("email = '{}'", given_email),
-            conn,
-            format!("No member with the email {}", given_email),
-        )
+    pub fn load<C: Connection>(email: &str, conn: &mut C) -> GreaseResult<Member> {
+        conn.first(&Self::filter(&format!("email = '{}'", email)), format!("No member with the email {}.", email))
     }
 
-    pub fn check_login(
-        given_email: &str,
-        given_pass_hash: &str,
-        conn: &mut Conn,
+    pub fn check_login<C: Connection>(
+        email: &str,
+        pass_hash: &str,
+        conn: &mut C,
     ) -> GreaseResult<Option<Member>> {
-        Self::first_opt(
-            &format!(
-                "email = '{}' AND pass_hash = '{}'",
-                given_email, given_pass_hash
-            ),
-            conn,
-        )
+        conn.first_opt(&Self::filter(&format!("email = '{}' AND pass_hash = '{}'", email, pass_hash)))
     }
 
-    pub fn load_all(conn: &mut Conn) -> GreaseResult<Vec<Member>> {
-        Self::query_all_in_order(vec![("last_name, first_name", Order::Asc)], conn)
+    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Member>> {
+        conn.load(&Self::select_all_in_order("last_name, first_name", Order::Asc))
     }
 
     pub fn full_name(&self) -> String {
@@ -69,10 +57,10 @@ impl Member {
         })
     }
 
-    pub fn to_json_full(
+    pub fn to_json_full<C: Connection>(
         &self,
         active_semester: Option<ActiveSemester>,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<Value> {
         let mut json_val = self.to_json();
         let semesters = if let Some(active_semester) = active_semester {
@@ -97,10 +85,10 @@ impl Member {
         Ok(json_val)
     }
 
-    pub fn to_json_with_grades(
+    pub fn to_json_with_grades<C: Connection>(
         &self,
         active_semester: Option<ActiveSemester>,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<Value> {
         let mut json_val = self.to_json();
         let grades = if let Some(ref active_semester) = active_semester {
@@ -115,10 +103,10 @@ impl Member {
         Ok(json_val)
     }
 
-    pub fn calc_grades(
+    pub fn calc_grades<C: Connection>(
         &self,
         active_semester: &ActiveSemester,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<Grades> {
         let now = Local::now().naive_local();
         let mut grade: f32 = 100.0;
@@ -130,18 +118,15 @@ impl Member {
         let semester_is_finished = Semester::load(&active_semester.semester, conn)?.end_date < now;
         let mut grade_items = Vec::new();
         let mut volunteer_gigs_attended = 0;
-        let semester_absence_requests = {
-            let query = query_builder::select(Event::table_name())
+        let semester_absence_requests = conn.load(
+            Select::new(Event::table_name())
                 .join(AbsenceRequest::table_name(), "id", "event", Join::Inner)
                 .fields(AbsenceRequest::field_names())
                 .filter(&format!(
                     "member = '{}' AND semester = '{}'",
                     self.email, active_semester.semester
                 ))
-                .build();
-
-            crate::db::load::<AbsenceRequest, _>(&query, conn)?
-        };
+        )?;
 
         for (event, attendance) in event_attendance_pairs
             .iter()
@@ -314,14 +299,14 @@ impl Member {
 }
 
 impl MemberForSemester {
-    pub fn load(
-        given_email: &str,
-        given_semester: &str,
-        conn: &mut Conn,
+    pub fn load<C: Connection>(
+        email: &str,
+        semester: &str,
+        conn: &mut C,
     ) -> GreaseResult<MemberForSemester> {
-        let found_member = Member::load(given_email, conn)?;
+        let found_member = Member::load(email, conn)?;
 
-        match ActiveSemester::load(given_email, given_semester, conn)? {
+        match ActiveSemester::load(email, semester, conn)? {
             Some(active_semester) => Ok(MemberForSemester {
                 member: found_member,
                 active_semester,
@@ -330,90 +315,72 @@ impl MemberForSemester {
         }
     }
 
-    pub fn load_all<G: GenericConnection>(
-        given_semester: &str,
-        conn: &mut G,
+    pub fn load_all<C: Connection>(
+        semester: &str,
+        conn: &mut C,
     ) -> GreaseResult<Vec<MemberForSemester>> {
-        let query = query_builder::select(Member::table_name())
-            .join(ActiveSemester::table_name(), "email", "member", Join::Inner)
-            .fields(MemberForSemesterRow::field_names())
-            .filter(&format!("semester = '{}'", given_semester))
-            .order_by("last_name, first_name", Order::Asc)
-            .build();
-
-        crate::db::load::<MemberForSemesterRow, _>(&query, conn)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect())
+        conn.load_as::<MemberForSemesterRow, MemberForSemester>(
+            Select::new(Member::table_name())
+                .join(ActiveSemester::table_name(), "email", "member", Join::Inner)
+                .fields(MemberForSemesterRow::field_names())
+                .filter(&format!("semester = '{}'", semester))
+                .order_by("last_name, first_name", Order::Asc)
+        )
     }
 
-    pub fn load_for_current_semester(
+    pub fn load_for_current_semester<C: Connection>(
         given_email: &str,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<MemberForSemester> {
         let current_semester = Semester::load_current(conn)?;
         MemberForSemester::load(given_email, &current_semester.name, conn)
     }
 
-    // TODO: make this one query
-    pub fn load_from_token(grease_token: &str, conn: &mut Conn) -> GreaseResult<MemberForSemester> {
-        if let Some(member_session) =
-            Session::first_opt(&format!("`key` = '{}'", grease_token), conn)?
-        {
+    pub fn load_from_token<C: Connection>(token: &str, conn: &mut C) -> GreaseResult<MemberForSemester> {
+        if let Some(member_session) = conn.first_opt::<Session>(&Session::filter(&format!("`key` = '{}'", token)))? {
             MemberForSemester::load_for_current_semester(&member_session.member, conn)
         } else {
             Err(GreaseError::Unauthorized)
         }
     }
 
-    pub fn create(new_member: MemberForSemester, conn: &mut Conn) -> GreaseResult<String> {
+    pub fn create(new_member: MemberForSemester, conn: &mut DbConn) -> GreaseResult<String> {
         if let Ok(existing_member) = Member::load(&new_member.member.email, conn) {
             Err(GreaseError::BadRequest(format!(
                 "A member with the email {} already exists.",
                 existing_member.email
             )))
         } else {
-            let mut transaction = conn
-                .start_transaction(false, None, None)
-                .map_err(GreaseError::DbError)?;
+            conn.transaction(move |transaction| {
+                new_member.member.insert(transaction)?;
+                new_member.active_semester.insert(transaction)?;
+                Attendance::create_for_new_member(&new_member.member.email, transaction)?;
 
-            new_member.member.insert(&mut transaction)?;
-            new_member.active_semester.insert(&mut transaction)?;
-            Attendance::create_for_new_member(&new_member.member.email, &mut transaction)?;
-            transaction.commit().map_err(GreaseError::DbError)?;
-
-            Ok(new_member.member.email)
+                Ok(new_member.member.email)
+            })
         }
     }
 
-    pub fn permissions(&self, conn: &mut Conn) -> GreaseResult<Vec<MemberPermission>> {
-        let query = query_builder::select(MemberRole::table_name())
-            .join(
-                RolePermission::table_name(),
-                &format!("{}.role", MemberRole::table_name()),
-                &format!("{}.role", RolePermission::table_name()),
-                Join::Inner,
-            )
-            .fields(&["permission", "event_type"])
-            .filter(&format!("member = '{}'", self.member.email))
-            .build();
-
-        crate::db::load::<(String, Option<String>), _>(&query, conn).map(|role_permissions| {
-            role_permissions
-                .into_iter()
-                .map(|(permission, event_type)| MemberPermission {
-                    name: permission,
-                    event_type,
-                })
-                .collect()
-        })
+    pub fn permissions<C: Connection>(&self, conn: &mut C) -> GreaseResult<Vec<MemberPermission>> {
+        conn.load_as::<(String, Option<String>), MemberPermission>(
+            Select::new(MemberRole::table_name())
+                .join(
+                    RolePermission::table_name(),
+                    &format!("{}.role", MemberRole::table_name()),
+                    &format!("{}.role", RolePermission::table_name()),
+                    Join::Inner,
+                )
+                .fields(&["permission", "event_type"])
+                .filter(&format!("member = '{}'", self.member.email))
+        )
     }
 
-    pub fn positions(&self, conn: &mut Conn) -> GreaseResult<Vec<String>> {
-        let query = query_builder::select(MemberRole::table_name())
-            .fields(&["role"])
-            .filter(&format!("member = '{}'", self.member.email))
-            .build();
-
-        crate::db::load(&query, conn)
+    pub fn positions<C: Connection>(&self, conn: &mut C) -> GreaseResult<Vec<String>> {
+        conn.load(
+            Select::new(MemberRole::table_name())
+                .fields(&["role"])
+                .filter(&format!("member = '{}'", self.member.email))
+        )
     }
 }
 
@@ -421,6 +388,15 @@ impl MemberForSemester {
 pub struct MemberPermission {
     pub name: String,
     pub event_type: Option<String>,
+}
+
+impl Into<MemberPermission> for (String, Option<String>) {
+    fn into(self) -> MemberPermission {
+        MemberPermission {
+            name: self.0,
+            event_type: self.1,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -441,37 +417,33 @@ pub struct GradeChange {
 }
 
 impl ActiveSemester {
-    pub fn load(
+    pub fn load<C: Connection>(
         email: &str,
         semester: &str,
-        conn: &mut Conn,
+        conn: &mut C,
     ) -> GreaseResult<Option<ActiveSemester>> {
-        Self::first_opt(
-            &format!("member = '{}' AND semester = '{}'", email, semester),
-            conn,
+        conn.first_opt(&Self::filter(&format!("member = '{}' AND semester = '{}'", email, semester)))
+    }
+
+    pub fn load_all_for_member<C: Connection>(
+        given_email: &str,
+        conn: &mut C,
+    ) -> GreaseResult<Vec<ActiveSemester>> {
+        conn.load(
+            Select::new(Self::table_name())
+                .join(
+                    Semester::table_name(),
+                    &format!("{}.semester", Self::table_name()),
+                    &format!("{}.name", Semester::table_name()),
+                    Join::Inner,
+                )
+                .fields(Self::field_names())
+                .filter(&format!("member = '{}'", given_email))
+                .order_by("start_date", Order::Desc)
         )
     }
 
-    pub fn load_all_for_member(
-        given_email: &str,
-        conn: &mut Conn,
-    ) -> GreaseResult<Vec<ActiveSemester>> {
-        let query = query_builder::select(Self::table_name())
-            .join(
-                Semester::table_name(),
-                &format!("{}.semester", Self::table_name()),
-                &format!("{}.name", Semester::table_name()),
-                Join::Inner,
-            )
-            .fields(Self::field_names())
-            .filter(&format!("member = '{}'", given_email))
-            .order_by("start_date", Order::Desc)
-            .build();
-
-        crate::db::load(&query, conn)
-    }
-
-    pub fn create(new_active_semester: &ActiveSemester, conn: &mut Conn) -> GreaseResult<()> {
+    pub fn create<C: Connection>(new_active_semester: &ActiveSemester, conn: &mut C) -> GreaseResult<()> {
         if let Some(_existing) = Self::load(
             &new_active_semester.member,
             &new_active_semester.semester,

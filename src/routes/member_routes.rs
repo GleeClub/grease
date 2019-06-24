@@ -1,10 +1,9 @@
 use super::basic_success;
 use crate::auth::User;
 use crate::check_for_permission;
-use crate::db::models::*;
+use crate::db::*;
 use crate::error::{GreaseError, GreaseResult};
 use grease_derive::Extract;
-use mysql::Conn;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -15,7 +14,7 @@ pub struct LoginInfo {
     pass_hash: String,
 }
 
-pub fn login((form, mut conn): (LoginInfo, Conn)) -> GreaseResult<Value> {
+pub fn login((form, mut conn): (LoginInfo, DbConn)) -> GreaseResult<Value> {
     if let Some(_member) = Member::check_login(&form.email, &form.pass_hash, &mut conn)? {
         if let Some(existing_session) = Session::load(&form.email, &mut conn)? {
             Err(GreaseError::AlreadyLoggedIn(existing_session.key))

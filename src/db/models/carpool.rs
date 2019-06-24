@@ -1,39 +1,30 @@
-use db::models::*;
-use db::traits::*;
+use db::*;
 use error::*;
-use mysql::Conn;
-use pinto::query_builder::{self, Join, Order};
+use pinto::query_builder::*;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
 impl Carpool {
-    pub fn load_for_event(given_event_id: i32, conn: &mut Conn) -> GreaseResult<Vec<EventCarpool>> {
-        let mut transaction = conn
-            .start_transaction(false, None, None)
-            .map_err(GreaseError::DbError)?;
+    pub fn load_for_event<C: Connection>(given_event_id: i32, conn: &mut C) -> GreaseResult<Vec<EventCarpool>> {
+        let carpool_driver_pairs = conn.load_as::<CarpoolMemberRow, (Carpool, Member)>(
+            Select::new(Self::table_name())
+                .join(Member::table_name(), "member", "email", Join::Inner)
+                .fields(CarpoolMemberRow::field_names())
+                .filter(&format!("event = {}", given_event_id))
+                .order_by("id", Order::Asc)
+        )?;
 
-        let query = query_builder::select(Carpool::table_name())
-            .join(Member::table_name(), "member", "email", Join::Inner)
-            .fields(CarpoolMemberRow::field_names())
-            .filter(&format!("event = {}", given_event_id))
-            .order_by("id", Order::Asc)
-            .build();
-        let carpool_driver_pairs = crate::db::load::<CarpoolMemberRow, _>(&query, &mut transaction)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect::<Vec<_>>())?;
-
-        let inner_query = query_builder::select(RidesIn::table_name())
-            .fields(&["id"])
-            .filter(&format!("event = {}", given_event_id))
-            .build();
-        let query = query_builder::select(RidesIn::table_name())
-            .join(Member::table_name(), "member", "email", Join::Inner)
-            .fields(RidesInMemberRow::field_names())
-            .filter(&format!("event = ({})", inner_query))
-            .build();
-        let passenger_pairs = crate::db::load::<RidesInMemberRow, _>(&query, &mut transaction)
-            .map(|rows| rows.into_iter().map(|row| row.into()).collect::<Vec<_>>())?;
-
-        transaction.commit().map_err(GreaseError::DbError)?;
+        let passenger_pairs = conn.load_as::<RidesInMemberRow, (RidesIn, Member)>(
+            Select::new(RidesIn::table_name())
+                .join(Member::table_name(), "member", "email", Join::Inner)
+                .fields(RidesInMemberRow::field_names())
+                .filter(&format!("event = ({})",
+                    Select::new(RidesIn::table_name())
+                        .fields(&["id"])
+                        .filter(&format!("event = {}", given_event_id))
+                        .build(),
+                ))
+        )?;
 
         let mut carpools = carpool_driver_pairs
             .into_iter()
@@ -43,7 +34,6 @@ impl Carpool {
                 passengers: Vec::new(),
             })
             .collect::<Vec<EventCarpool>>();
-
         for (rides_in, passenger) in passenger_pairs {
             carpools
                 .iter_mut()
@@ -57,7 +47,7 @@ impl Carpool {
     pub fn update_for_event(
         given_event_id: i32,
         mut updated_carpools: Vec<UpdatedCarpool>,
-        conn: &mut Conn,
+        conn: &mut DbConn,
     ) -> GreaseResult<()> {
         let (new_carpools, all_new_passengers): (Vec<NewCarpool>, Vec<Vec<String>>) =
             updated_carpools
@@ -99,82 +89,71 @@ impl Carpool {
                     },
                 );
 
-        let mut transaction = conn
-            .start_transaction(false, None, None)
-            .map_err(GreaseError::DbError)?;
+        conn.transaction(move |transaction| {
+            transaction.delete_opt(
+                Delete::new(RidesIn::table_name())
+                    .filter(&format!("carpool = ({})",
+                        Select::new(Carpool::table_name())
+                            .fields(&["id"])
+                            .build(),
+                    ))
+            )?;
 
-        let inner_ids_query = query_builder::select(Carpool::table_name())
-            .fields(&["id"])
-            .build();
-        let delete_query = query_builder::delete(RidesIn::table_name())
-            .filter(&format!("carpool = ({})", inner_ids_query))
-            .build();
-        transaction
-            .query(delete_query)
-            .map_err(GreaseError::DbError)?;
+            for new_carpool in &new_carpools {
+                new_carpool.insert(transaction)?;
+            }
+            let new_carpool_ids = transaction.load::<i32>(
+                Select::new(Carpool::table_name())
+                    .fields(&["id"])
+                    .order_by("id", Order::Desc)
+                    .limit(new_carpools.len())
+            )?;
 
-        new_carpools
-            .iter()
-            .map(|new_carpool| new_carpool.insert(&mut transaction))
-            .collect::<GreaseResult<()>>()?;
-        let new_carpool_id_query = query_builder::select(Carpool::table_name())
-            .fields(&["id"])
-            .order_by("id", Order::Desc)
-            .limit(new_carpools.len())
-            .build();
-        let new_carpool_ids = crate::db::load::<i32, _>(&new_carpool_id_query, &mut transaction)?;
+            updated_carpools
+                .iter()
+                .map(|updated_carpool| {
+                    transaction.update_opt(
+                        &Update::new(Carpool::table_name())
+                            .filter(&format!("id = {}", updated_carpool.id))
+                            .set("event", &updated_carpool.event.to_string())
+                            .set("driver", &format!("'{}'", &updated_carpool.driver)),
+                    )
+                })
+                .collect::<GreaseResult<()>>()?;
 
-        updated_carpools
-            .iter()
-            .map(|updated_carpool| {
-                let update_query = query_builder::update(Carpool::table_name())
-                    .filter(&format!("id = {}", updated_carpool.id))
-                    .set("event", &updated_carpool.event.to_string())
-                    .set("driver", &format!("'{}'", &updated_carpool.driver))
-                    .build();
+            let updated_rides_ins = new_carpool_ids
+                .into_iter()
+                .rev()
+                .chain(
+                    updated_carpools
+                        .into_iter()
+                        .map(|updated_carpool| updated_carpool.id),
+                )
+                .zip(
+                    all_new_passengers
+                        .into_iter()
+                        .chain(updated_passengers.into_iter()),
+                )
+                .flat_map(|(new_id, new_passengers)| {
+                    new_passengers
+                        .into_iter()
+                        .map(move |new_passenger| RidesIn {
+                            member: new_passenger,
+                            carpool: new_id,
+                        })
+                })
+                .collect::<Vec<RidesIn>>();
 
-                transaction
-                    .query(update_query)
-                    .map_err(GreaseError::DbError)?;
-                Ok(())
-            })
-            .collect::<GreaseResult<()>>()?;
-
-        let updated_rides_ins = new_carpool_ids
-            .into_iter()
-            .rev()
-            .chain(
-                updated_carpools
-                    .into_iter()
-                    .map(|updated_carpool| updated_carpool.id),
-            )
-            .zip(
-                all_new_passengers
-                    .into_iter()
-                    .chain(updated_passengers.into_iter()),
-            )
-            .flat_map(|(new_id, new_passengers)| {
-                new_passengers
-                    .into_iter()
-                    .map(move |new_passenger| RidesIn {
-                        member: new_passenger,
-                        carpool: new_id,
-                    })
-            })
-            .collect::<Vec<RidesIn>>();
-
-        updated_rides_ins
-            .into_iter()
-            .map(|updated_rides_in| updated_rides_in.insert(&mut transaction))
-            .collect::<GreaseResult<()>>()?;
-        transaction.commit().map_err(GreaseError::DbError)?;
-
-        Ok(())
+            updated_rides_ins
+                .into_iter()
+                .map(|updated_rides_in| updated_rides_in.insert(transaction))
+                .collect::<GreaseResult<()>>()
+        })
     }
 }
 
 // TODO: figure out group_by for this puppy
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct EventCarpool {
     pub driver: Member,
     pub carpool: Carpool,

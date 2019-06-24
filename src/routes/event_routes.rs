@@ -2,10 +2,8 @@ use super::basic_success;
 use crate::check_for_permission;
 use auth::User;
 use db::models::attendance::AttendanceForm;
-use db::models::*;
-use db::traits::{Insertable, Queryable};
-use error::{GreaseError, GreaseResult};
-use mysql::Conn;
+use db::*;
+use error::*;
 use pinto::query_builder::Order;
 use serde_json::{json, Value};
 
@@ -24,11 +22,10 @@ pub fn get_events(
     event_type: Option<String>,
     mut user: User,
 ) -> GreaseResult<Value> {
-    let events_with_gigs = if let Some(event_type) = event_type {
-        let event_type = EventType::first(
-            &format!("name = '{}'", event_type),
-            &mut user.conn,
-            format!("no event type named {}", event_type),
+    let events_with_gigs = if let Some(event_type) = event_type.filter(|type_| type_.len() > 0) {
+        let event_type = user.conn.first::<EventType>(
+            &EventType::filter(&format!("name = '{}'", event_type)),
+            format!("No event type exists named {}.", event_type),
         )?;
         Event::load_all_of_type_for_current_semester(&event_type.name, &mut user.conn)
     } else {
@@ -222,12 +219,12 @@ pub fn deny_absence_request(event_id: i32, member: String, mut user: User) -> Gr
 }
 
 pub fn get_event_types(mut user: User) -> GreaseResult<Value> {
-    EventType::query_all_in_order(vec![("name", Order::Asc)], &mut user.conn)
+    user.conn.load::<EventType>(&EventType::select_all_in_order("name", Order::Asc))
         .map(|types| json!(types))
 }
 
 pub fn get_section_types(mut user: User) -> GreaseResult<Value> {
-    SectionType::query_all_in_order(vec![("name", Order::Asc)], &mut user.conn)
+    user.conn.load::<SectionType>(&SectionType::select_all_in_order("name", Order::Asc))
         .map(|types| json!(types))
 }
 
@@ -245,10 +242,9 @@ pub fn get_gig_requests(all: Option<bool>, mut user: User) -> GreaseResult<Value
     gig_requests.map(|requests| json!(requests))
 }
 
-pub fn new_gig_request((new_request, mut conn): (NewGigRequest, Conn)) -> GreaseResult<Value> {
-    new_request
-        .insert_returning_id("id", &mut conn)
-        .map(|new_id: i32| json!({ "id": new_id }))
+pub fn new_gig_request((new_request, mut conn): (NewGigRequest, DbConn)) -> GreaseResult<Value> {
+    new_request.insert_returning_id(&mut conn)
+        .map(|new_id| json!({ "id": new_id }))
 }
 
 pub fn dismiss_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {

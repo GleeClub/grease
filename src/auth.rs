@@ -1,13 +1,12 @@
-use crate::db::models::member::{MemberForSemester, MemberPermission};
-use crate::error::{GreaseError, GreaseResult};
-use crate::routes::from_url::parse_url;
+use db::{DbConn, member::{MemberForSemester, MemberPermission}};
+use error::{GreaseError, GreaseResult};
+use routes::from_url::parse_url;
 use extract::Extract;
-use mysql::Conn;
 
 pub struct User {
     pub member: MemberForSemester,
     pub permissions: Vec<MemberPermission>,
-    pub conn: Conn,
+    pub conn: DbConn,
 }
 
 // TODO: blanket impls with const generics?
@@ -26,7 +25,7 @@ impl User {
 
 impl Extract for User {
     fn extract(request: &cgi::Request) -> GreaseResult<Self> {
-        let mut conn = Conn::extract(request)?;
+        let mut conn = DbConn::extract(request)?;
         let (_segments, params) = parse_url(&request.uri().to_string())?;
         let member = params
             .get("token")
