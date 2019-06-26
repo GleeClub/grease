@@ -12,6 +12,7 @@ CREATE TABLE member (
   picture varchar(255) DEFAULT NULL,
   passengers int NOT NULL DEFAULT '0',
   location varchar(50) NOT NULL,
+  on_campus tinyint(1) DEFAULT NULL,
   about varchar(500) DEFAULT NULL,
   major varchar(50) DEFAULT NULL,
   minor varchar(50) DEFAULT NULL,

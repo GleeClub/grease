@@ -59,6 +59,7 @@ impl Migrate<OldMember> for NewMember {
                         .as_ref()
                         .map(|location| location.clone())
                         .unwrap_or("".to_owned()),
+                    on_campus: old_member.onCampus.clone(),
                     about: old_member.about.clone(),
                     major: old_member.major.clone(),
                     minor: old_member.minor.clone(),

@@ -28,6 +28,7 @@ pub mod transaction;
 //   picture varchar(255) DEFAULT NULL,
 //   passengers int NOT NULL DEFAULT '0',
 //   location varchar(50) NOT NULL,
+//   on_campus tinyint(1) DEFAULT NULL,
 //   about varchar(500) DEFAULT NULL,
 //   major varchar(50) DEFAULT NULL,
 //   minor varchar(50) DEFAULT NULL,
@@ -53,6 +54,8 @@ pub struct Member {
     pub picture: Option<String>,
     pub passengers: i32,
     pub location: String,
+    #[serde(default)]
+    pub on_campus: Option<bool>,
     #[serde(deserialize_with = "deserialize_optional_string")]
     pub about: Option<String>,
     #[serde(deserialize_with = "deserialize_optional_string")]
@@ -85,6 +88,8 @@ pub struct NewMember {
     pub picture: Option<String>,
     pub passengers: i32,
     pub location: String,
+    #[serde(default)]
+    pub on_campus: Option<bool>,
     #[serde(deserialize_with = "deserialize_optional_string")]
     pub about: Option<String>,
     #[serde(deserialize_with = "deserialize_optional_string")]
@@ -107,6 +112,8 @@ pub struct NewMember {
 #[derive(Deserialize, Extract)]
 pub struct RegisterForSemesterForm {
     pub location: String,
+    #[serde(default)]
+    pub on_campus: Option<bool>,
     #[serde(deserialize_with = "deserialize_optional_string")]
     pub conflicts: Option<String>,
     #[serde(deserialize_with = "deserialize_optional_string")]
