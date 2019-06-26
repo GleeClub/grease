@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 #[derive(Debug, PartialEq)]
 pub struct MemberForSemester {
     pub member: Member,
-    pub active_semester: ActiveSemester,
+    pub active_semester: Option<ActiveSemester>,
 }
 
 impl Member {
@@ -324,8 +324,11 @@ impl Member {
                     active_semester,
                 } = new_member.for_current_semester(transaction)?;
                 member.insert(transaction)?;
-                active_semester.insert(transaction)?;
-                Attendance::create_for_new_member(&member.email, transaction)?;
+
+                if let Some(active_semester) = active_semester {
+                    active_semester.insert(transaction)?;
+                    Attendance::create_for_new_member(&member.email, transaction)?;
+                }
 
                 Ok(())
             })
@@ -338,14 +341,15 @@ impl Member {
         conn: &mut DbConn,
     ) -> GreaseResult<()> {
         let current_semester = Semester::load_current(conn)?;
-        let _member = match MemberForSemester::load(&email, &current_semester.name, conn) {
-            Ok(_member_for_semester) => Err(GreaseError::BadRequest(format!(
+        if MemberForSemester::load(&email, &current_semester.name, conn)?
+            .active_semester
+            .is_some()
+        {
+            return Err(GreaseError::BadRequest(format!(
                 "Member with email {} is already active for the current semester.",
-                &email
-            ))),
-            Err(GreaseError::NotActiveYet(member)) => Ok(member),
-            Err(other) => Err(other),
-        }?;
+                &email,
+            )));
+        }
 
         conn.transaction(|transaction| {
             transaction.update(
@@ -464,15 +468,13 @@ impl MemberForSemester {
         semester: &str,
         conn: &mut C,
     ) -> GreaseResult<MemberForSemester> {
-        let found_member = Member::load(email, conn)?;
+        let member = Member::load(email, conn)?;
+        let active_semester = ActiveSemester::load(email, semester, conn)?;
 
-        match ActiveSemester::load(email, semester, conn)? {
-            Some(active_semester) => Ok(MemberForSemester {
-                member: found_member,
-                active_semester,
-            }),
-            None => Err(GreaseError::NotActiveYet(found_member)),
-        }
+        Ok(MemberForSemester {
+            member,
+            active_semester,
+        })
     }
 
     pub fn load_all<C: Connection>(
@@ -518,8 +520,10 @@ impl MemberForSemester {
         } else {
             conn.transaction(move |transaction| {
                 new_member.member.insert(transaction)?;
-                new_member.active_semester.insert(transaction)?;
-                Attendance::create_for_new_member(&new_member.member.email, transaction)?;
+                if let Some(active_semester) = new_member.active_semester {
+                    active_semester.insert(transaction)?;
+                    Attendance::create_for_new_member(&new_member.member.email, transaction)?;
+                }
 
                 Ok(new_member.member.email)
             })
@@ -705,12 +709,12 @@ impl Into<MemberForSemester> for MemberForSemesterRow {
                 conflicts: self.conflicts,
                 dietary_restrictions: self.dietary_restrictions,
             },
-            active_semester: ActiveSemester {
+            active_semester: Some(ActiveSemester {
                 member: self.member,
                 semester: self.semester,
                 enrollment: self.enrollment,
                 section: self.section,
-            },
+            }),
         }
     }
 }
@@ -743,12 +747,12 @@ impl NewMember {
                 conflicts: self.conflicts,
                 dietary_restrictions: self.dietary_restrictions,
             },
-            active_semester: ActiveSemester {
+            active_semester: Some(ActiveSemester {
                 member: self.email,
                 semester: Semester::load_current(conn)?.name,
                 enrollment: self.enrollment,
                 section: Some(self.section),
-            },
+            }),
         })
     }
 }

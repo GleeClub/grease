@@ -84,7 +84,7 @@ impl Attendance {
             let mut section_attendance: HashMap<Option<String>, Vec<(_, _)>> = HashMap::new();
             for (member_attendance, member_for_semester) in pairs {
                 section_attendance
-                    .entry(member_for_semester.active_semester.section.clone())
+                    .entry(member_for_semester.active_semester.as_ref().and_then(|active_semester| active_semester.section.clone()))
                     .or_default()
                     .push((member_attendance, member_for_semester));
             }
@@ -304,12 +304,12 @@ impl Into<(Attendance, MemberForSemester)> for AttendanceMemberRow {
                     conflicts: self.conflicts,
                     dietary_restrictions: self.dietary_restrictions,
                 },
-                active_semester: ActiveSemester {
+                active_semester: Some(ActiveSemester {
                     member: self.semester_member,
                     semester: self.semester,
                     enrollment: self.enrollment,
                     section: self.section,
-                },
+                }),
             },
         )
     }
@@ -419,12 +419,12 @@ mod tests {
                         conflicts: None,
                         dietary_restrictions: None,
                     },
-                    active_semester: ActiveSemester {
+                    active_semester: Some(ActiveSemester {
                         member: "joe.schmoe@gmail.com".to_owned(),
                         semester: "Some Semester".to_owned(),
                         enrollment: Enrollment::Class,
                         section: None,
-                    },
+                    }),
                 },
             )])
         );

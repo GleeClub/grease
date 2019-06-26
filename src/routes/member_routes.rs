@@ -43,13 +43,14 @@ pub fn get_member(
     if &email != &user.member.member.email {
         check_for_permission!(user => "view-users");
     }
+    let current_semester = Semester::load_current(&mut user.conn)?;
     Member::load(&email, &mut user.conn).and_then(|member| {
         if details.unwrap_or(false) {
             member.to_json_full(None, &mut user.conn)
         } else if grades.unwrap_or(false) {
             let active_semester = ActiveSemester::load(
                 &member.email,
-                &user.member.active_semester.semester,
+                &current_semester.name,
                 &mut user.conn,
             )?;
             if let Some(active_semester) = active_semester {

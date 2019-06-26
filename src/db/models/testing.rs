@@ -100,21 +100,21 @@ lazy_static! {
     pub static ref MEMBERS_FOR_SEMESTERS: [MemberForSemester; 2] = [
         MemberForSemester {
             member: MEMBERS[0].clone(),
-            active_semester: ActiveSemester {
+            active_semester: Some(ActiveSemester {
                 member: MEMBERS[0].email.clone(),
                 semester: SEMESTERS[0].name.clone(),
                 enrollment: Enrollment::Club,
                 section: Some(SECTION_TYPES[1].name.clone()),
-            },
+            }),
         },
         MemberForSemester {
             member: MEMBERS[1].clone(),
-            active_semester: ActiveSemester {
+            active_semester: Some(ActiveSemester {
                 member: MEMBERS[1].email.clone(),
                 semester: SEMESTERS[0].name.clone(),
                 enrollment: Enrollment::Class,
                 section: Some(SECTION_TYPES[3].name.clone()),
-            },
+            }),
         },
     ];
     pub static ref EVENT_TYPES: [EventType; 6] = [

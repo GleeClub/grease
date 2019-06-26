@@ -16,7 +16,8 @@ pub fn get_announcements(all: Option<bool>, mut user: User) -> GreaseResult<Valu
     if all.unwrap_or(false) {
         Announcement::load_all(&mut user.conn).map(|announcements| json!(announcements))
     } else {
-        Announcement::load_all_for_semester(&user.member.active_semester.semester, &mut user.conn)
+        let current_semester = Semester::load_current(&mut user.conn)?;
+        Announcement::load_all_for_semester(&current_semester.name, &mut user.conn)
             .map(|announcements| json!(announcements))
     }
 }
@@ -25,10 +26,11 @@ pub fn make_new_announcement(
     (mut user, new_announcement): (User, NewAnnouncement),
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-announcements");
+    let current_semester = Semester::load_current(&mut user.conn)?;
     Announcement::insert(
         &new_announcement.content,
         &user.member.member.email,
-        &user.member.active_semester.semester,
+        &current_semester.name,
         &mut user.conn,
     )
     .map(|new_id| json!({ "id": new_id }))
