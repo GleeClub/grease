@@ -107,25 +107,9 @@ impl Attendance {
         )
     }
 
-    pub fn load_for_member_at_all_events_of_type<C: Connection>(
+    pub fn create_for_new_member(
         member: &str,
-        event_type: &str,
-        conn: &mut C,
-    ) -> GreaseResult<Vec<(Event, Attendance)>> {
-        let current_semester = Semester::load_current(conn)?;
-        conn.load_as::<EventAttendanceRow, (Event, Attendance)>(
-            Select::new(Event::table_name())
-                .join(Attendance::table_name(), "id", "event", Join::Inner)
-                .fields(EventAttendanceRow::field_names())
-                .filter(&format!("member = '{}'", member))
-                .filter(&format!("semester = '{}'", &current_semester.name))
-                .filter(&format!("type = '{}'", event_type)),
-        )
-    }
-
-    pub fn create_for_new_member<C: Connection>(
-        given_member_email: &str,
-        conn: &mut C,
+        conn: &mut DbTransaction,
     ) -> GreaseResult<()> {
         let now = Local::now().naive_local();
         Event::load_all_for_current_semester(conn)?
@@ -137,7 +121,7 @@ impl Attendance {
                 } else {
                     event_with_gig.event.default_attend
                 },
-                member: given_member_email.to_owned(),
+                member: member.to_owned(),
             })
             .map(|new_attendance| new_attendance.insert(conn))
             .collect::<GreaseResult<()>>()
@@ -185,14 +169,6 @@ impl Attendance {
                 member, event_id
             ),
         )
-    }
-
-    pub fn is_excused<C: Connection>(&self, conn: &mut C) -> GreaseResult<bool> {
-        AbsenceRequest::load(&self.member, self.event, conn).map(|absence_request| {
-            absence_request
-                .map(|request| request.state == AbsenceRequestState::Approved)
-                .unwrap_or(false)
-        })
     }
 }
 
@@ -344,10 +320,11 @@ mod tests {
     use super::event::EventWithGig;
     use super::*;
     use mocktopus::mocking::*;
-    use serde_json::{json, Value};
+    use serde_json::json;
 
     #[test]
     fn attendance_load_for_event() {
+        // let member_
         Event::load.mock_safe(|_event_id, _conn: &mut DbConn| {
             MockResult::Return(Ok(EventWithGig {
                 event: Event {

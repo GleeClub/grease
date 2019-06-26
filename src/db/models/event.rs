@@ -20,15 +20,6 @@ impl Event {
         .map(|row: EventWithGigRow| row.into())
     }
 
-    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<EventWithGig>> {
-        conn.load_as::<EventWithGigRow, EventWithGig>(
-            Select::new(Self::table_name())
-                .join(Gig::table_name(), "id", "event", Join::Left)
-                .fields(EventWithGigRow::field_names())
-                .order_by("call_time", Order::Desc),
-        )
-    }
-
     pub fn load_all_for_current_semester<C: Connection>(
         conn: &mut C,
     ) -> GreaseResult<Vec<EventWithGig>> {
@@ -100,7 +91,6 @@ impl Event {
         }
     }
 
-    // TODO: fix for weekend sectionals?
     pub fn load_sectionals_the_week_of<C: Connection>(
         &self,
         conn: &mut C,
