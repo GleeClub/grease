@@ -306,6 +306,116 @@ impl Member {
             changes: grade_items,
         })
     }
+
+    pub fn create(new_member: NewMember, conn: &mut DbConn) -> GreaseResult<()> {
+        if conn.first_opt::<Member>(&Member::filter(&format!("email = '{}'", &new_member.email)))?.is_some() {
+            Err(GreaseError::BadRequest(format!("A member already exists with the email {}.", &new_member.email)))
+        } else {
+            conn.transaction(|transaction| {
+                let MemberForSemester { member, active_semester } = new_member.for_current_semester(transaction)?;
+                member.insert(transaction)?;
+                active_semester.insert(transaction)?;
+                Attendance::create_for_new_member(&member.email, transaction)?;
+
+                Ok(())
+            })
+        }
+    }
+
+    pub fn register_for_semester(email: String, form: RegisterForSemesterForm, conn: &mut DbConn) -> GreaseResult<()> {
+        let current_semester = Semester::load_current(conn)?;
+        let _member = match MemberForSemester::load(&email, &current_semester.name, conn) {
+            Ok(_member_for_semester) => Err(GreaseError::BadRequest(format!("Member with email {} is already active for the current semester.", &email))),
+            Err(GreaseError::NotActiveYet(member)) => Ok(member),
+            Err(other) => Err(other),
+        }?;
+
+        conn.transaction(|transaction| {
+            transaction.update(
+                Update::new(Member::table_name())
+                    .filter(&format!("email = '{}'", &email))
+                    .set("location", &to_value(form.location))
+                    .set("conflicts", &to_value(form.conflicts))
+                    .set("dietary_restrictions", &to_value(form.dietary_restrictions)),
+                format!("No member with email {}.", &email),
+            )?;
+            let new_active_semester = ActiveSemester {
+                member: email.clone(),
+                semester: current_semester.name,
+                enrollment: form.enrollment,
+                section: Some(form.section),
+            };
+            new_active_semester.insert(transaction)?;
+            Attendance::create_for_new_member(&email, transaction)?;
+
+            Ok(())
+        })
+    }
+
+    pub fn mark_inactive_for_semester<C: Connection>(email: &str, semester: &str, conn: &mut C) -> GreaseResult<()> {
+        conn.delete(
+            Delete::new(Member::table_name())
+                .filter(&format!("member = '{}'", email))
+                .filter(&format!("semester = '{}'", semester)),
+            format!("Member {} is not active for semester {}.", email, semester),
+        )
+    }
+
+    pub fn delete<C: Connection>(email: &str, conn: &mut C) -> GreaseResult<()> {
+        conn.delete(
+            Delete::new(Member::table_name())
+                .filter(&format!("email = '{}'", email)),
+            format!("No member exists with email {}.", email),
+        )
+    }
+
+    pub fn update(email: &str, as_self: bool, update: NewMember, conn: &mut DbConn) -> GreaseResult<()> {
+        conn.transaction(|transaction| {
+            if email != &update.email
+                && transaction.first_opt::<Member>(&Member::filter(&format!("email = '{}'", &update.email)))?.is_some()
+            {
+                return Err(GreaseError::BadRequest(format!("Cannot change email to {}, as another user has that email.", &update.email)));
+            }
+
+            let pass_hash = if as_self && update.pass_hash.is_some() {
+                update.pass_hash.unwrap()
+            } else if !as_self && update.pass_hash.is_some() {
+                return Err(GreaseError::BadRequest("Officers cannot change members' passwords.".to_owned()));
+            } else {
+                Member::load(&email, transaction)?.pass_hash
+            };
+            transaction.update(
+                Update::new(Member::table_name())
+                    .filter(&format!("email = '{}'", email))
+                    .set("first_name", &to_value(&update.first_name))
+                    .set("preferred_name", &to_value(&update.preferred_name))
+                    .set("last_name", &to_value(&update.last_name))
+                    .set("phone_number", &to_value(&update.phone_number))
+                    .set("picture", &to_value(&update.picture))
+                    .set("passengers", &to_value(&update.passengers))
+                    .set("location", &to_value(&update.location))
+                    .set("about", &to_value(&update.about))
+                    .set("major", &to_value(&update.major))
+                    .set("minor", &to_value(&update.minor))
+                    .set("hometown", &to_value(&update.hometown))
+                    .set("arrived_at_tech", &to_value(&update.arrived_at_tech))
+                    .set("gateway_drug", &to_value(&update.gateway_drug))
+                    .set("conflicts", &to_value(&update.conflicts))
+                    .set("dietary_restrictions", &to_value(&update.dietary_restrictions))
+                    .set("pass_hash", &to_value(pass_hash)),
+                    format!("No member with the email {} exists.", email),
+            )?;
+
+            let current_semester = Semester::load_current(transaction)?;
+            let semester_update = ActiveSemesterUpdate {
+                enrollment: update.enrollment,
+                section: Some(update.section),
+            };
+            ActiveSemester::update(&update.email, &current_semester.name, semester_update, transaction)?;
+
+            Ok(())
+        })
+    }
 }
 
 impl MemberForSemester {
@@ -471,10 +581,31 @@ impl ActiveSemester {
             conn,
         )? {
             Err(GreaseError::BadRequest(format!(
-                "the member with email {} already is active in semester {}",
+                "The member with email {} already is active in semester {}.",
                 new_active_semester.member, new_active_semester.semester
             )))
         } else {
+            new_active_semester.insert(conn)
+        }
+    }
+
+    pub fn update<C: Connection>(member: &str, semester: &str, updated_semester: ActiveSemesterUpdate, conn: &mut C) -> GreaseResult<()> {
+        if ActiveSemester::load(member, semester, conn)?.is_some() {
+            conn.update_opt(
+                Update::new(ActiveSemester::table_name())
+                    .filter(&format!("member = '{}'", member))
+                    .filter(&format!("semester = '{}'", semester))
+                    .set("enrollment", &to_value(updated_semester.enrollment))
+                    .set("section", &to_value(updated_semester.section)),
+            )
+        } else {
+            let new_active_semester = ActiveSemester {
+                member: member.to_owned(),
+                semester: semester.to_owned(),
+                enrollment: updated_semester.enrollment,
+                section: updated_semester.section,
+            };
+
             new_active_semester.insert(conn)
         }
     }
@@ -534,5 +665,39 @@ impl Into<MemberForSemester> for MemberForSemesterRow {
                 section: self.section,
             },
         }
+    }
+}
+
+impl NewMember {
+    pub fn for_current_semester<C: Connection>(self, conn: &mut C) -> GreaseResult<MemberForSemester> {
+        Ok(MemberForSemester {
+            member: Member {
+                email: self.email.clone(),
+                first_name: self.first_name,
+                preferred_name: self.preferred_name,
+                last_name: self.last_name,
+                pass_hash: self.pass_hash.ok_or(GreaseError::BadRequest(
+                    "The pass_hash field is required for new member registration.".to_owned()
+                ))?,
+                phone_number: self.phone_number,
+                picture: self.picture,
+                passengers: self.passengers,
+                location: self.location,
+                about: self.about,
+                major: self.major,
+                minor: self.minor,
+                hometown: self.hometown,
+                arrived_at_tech: self.arrived_at_tech,
+                gateway_drug: self.gateway_drug,
+                conflicts: self.conflicts,
+                dietary_restrictions: self.dietary_restrictions,
+            },
+            active_semester: ActiveSemester {
+                member: self.email,
+                semester: Semester::load_current(conn)?.name,
+                enrollment: self.enrollment,
+                section: Some(self.section),
+            }
+        })
     }
 }

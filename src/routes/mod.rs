@@ -92,7 +92,15 @@ pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (GET)    [/members/(email: String)?(grades: Option<bool>)?(details: Option<bool>)] => get_member,
         (GET)    [/members/(email: String)/attendance] => get_member_attendance_for_semester,
         (GET)    [/members?(grades: Option<bool>)?(include: Option<String>)] => get_members,
-        // (POST)   [/members/(email: String)/semesters/(semester: String)] => update_member_semester,
+        (POST)   [/members] => new_member,
+        (POST)   [/members/register?(token: String)] => register_for_semester,
+        (POST)   [/members/(email: String)/(semester: String)] => update_member_semester,
+        (DELETE) [/members/(email: String)/(semester: String)] => mark_member_inactive_for_semester,
+        (POST)   [/members] => new_member,
+        (POST)   [/members/profile] => update_member_profile,
+        (POST)   [/members/(email: String)] => update_member_as_officer,
+        (POST)   [/members/(email: String)/login_as] => login_as_member,
+        (DELETE) [/members/(email: String)?(confirm: Option<bool>)] => delete_member,
         // events
         (GET)    [/events/(id: i32)?(full: Option<bool>)] => get_event,
         (GET)    [/events?(full: Option<bool>)?(event_type: Option<String>)] => get_events,
@@ -125,6 +133,7 @@ pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         // variables
         (GET)    [/variables/(key: String)] => get_variable,
         (POST)   [/variables/(key: String)/(value: String)] => set_variable,
+        (DELETE) [/variables/(key: String)] => unset_variable,
         // announcements
         (GET)    [/announcements/(id: i32)] => get_announcement,
         (GET)    [/announcements?(all: Option<bool>)] => get_announcements,

@@ -10,3 +10,7 @@ pub fn get_variable(key: String, mut user: User) -> GreaseResult<Value> {
 pub fn set_variable(key: String, value: String, mut user: User) -> GreaseResult<Value> {
     Variable::set(key, value, &mut user.conn).map(|old_val| json!(old_val))
 }
+
+pub fn unset_variable(key: String, mut user: User) -> GreaseResult<Value> {
+    Variable::unset(&key, &mut user.conn).map(|old_val| json!(old_val))
+}

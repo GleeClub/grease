@@ -70,6 +70,51 @@ pub struct Member {
     pub dietary_restrictions: Option<String>,
 }
 
+#[derive(Deserialize, Extract)]
+pub struct NewMember {
+    pub email: String,
+    pub first_name: String,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub preferred_name: Option<String>,
+    pub last_name: String,
+    #[serde(default)]
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub pass_hash: Option<String>,
+    pub phone_number: String,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub picture: Option<String>,
+    pub passengers: i32,
+    pub location: String,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub about: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub major: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub minor: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub hometown: Option<String>,
+    pub arrived_at_tech: Option<i32>,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub gateway_drug: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub conflicts: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub dietary_restrictions: Option<String>,
+    pub enrollment: Enrollment,
+    pub section: String,
+}
+
+#[derive(Deserialize, Extract)]
+pub struct RegisterForSemesterForm {
+    pub location: String,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub conflicts: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub dietary_restrictions: Option<String>,
+    pub enrollment: Enrollment,
+    pub section: String,
+}
+
 // CREATE TABLE semester (
 //   name varchar(32) NOT NULL PRIMARY KEY,
 //   start_date datetime NOT NULL,
@@ -304,6 +349,13 @@ pub enum AbsenceRequestState {
 pub struct ActiveSemester {
     pub member: String,
     pub semester: String,
+    pub enrollment: Enrollment,
+    #[serde(deserialize_with = "deserialize_optional_string")]
+    pub section: Option<String>,
+}
+
+#[derive(Deserialize, Extract)]
+pub struct ActiveSemesterUpdate {
     pub enrollment: Enrollment,
     #[serde(deserialize_with = "deserialize_optional_string")]
     pub section: Option<String>,
