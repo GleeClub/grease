@@ -172,7 +172,6 @@ pub fn new_semester((new_semester, mut user): (NewSemester, User)) -> GreaseResu
 }
 
 pub fn set_current_semester(name: String, mut user: User) -> GreaseResult<Value> {
-    // TODO: update officers and permissions on semester change
     Semester::set_current(&name, &mut user.conn).map(|_| basic_success())
 }
 

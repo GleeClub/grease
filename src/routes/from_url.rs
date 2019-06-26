@@ -16,15 +16,27 @@ macro_rules! impl_from_url_str {
                     <$type>::from_str(in_str).ok()
                 }
             }
+
+            impl FromUrlStr for Option<$type> {
+                fn from_url_str(in_str: &str) -> Option<Self> {
+                    Some(<$type>::from_str(in_str).ok())
+                }
+            }
         )*
     };
 }
 
-impl_from_url_str!(usize, i32, i64, bool, String,);
+impl_from_url_str!(usize, i32, i64, bool,);
 
-impl<T: FromUrlStr> FromUrlStr for Option<T> {
+impl FromUrlStr for String {
     fn from_url_str(in_str: &str) -> Option<Self> {
-        Some(T::from_url_str(in_str))
+        Some(in_str.to_owned())
+    }
+}
+
+impl FromUrlStr for Option<String> {
+    fn from_url_str(in_str: &str) -> Option<Self> {
+        Some(Some(in_str.to_owned()).filter(|s| s.len() > 0))
     }
 }
 

@@ -70,10 +70,7 @@ pub fn get_members(
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "view-users");
     let current_semester = Semester::load_current(&mut user.conn)?;
-    // TODO: debug how missing "include" param leads to Some("") being provided
-    let (include_class, include_club, include_inactive) = if let Some(include) =
-        include.filter(|include| include.len() > 0)
-    {
+    let (include_class, include_club, include_inactive) = if let Some(include) = include {
         let mut included = include.split(",").collect::<HashSet<&str>>();
         included.remove("");
         let include_class = included.remove("class");
@@ -124,26 +121,54 @@ pub fn get_members(
     })
 }
 
-// pub fn register_for_semester(member: String, mut user: User) -> GreaseResult<Value> {
-//     unimplemented!()
-// }
+pub fn new_member((new_member, mut conn): (NewMember, DbConn)) -> GreaseResult<Value> {
+    Member::create(new_member, &mut conn).map(|_| basic_success())
+}
 
-// pub fn update_member_semester(member: String, mut user: User) -> GreaseResult<Value> {
-//     unimplemented!()
-// }
+pub fn register_for_semester(token: String, (form, mut conn): (RegisterForSemesterForm, DbConn)) -> GreaseResult<Value> {
+    if let Some(session) = conn.first_opt::<Session>(&Session::filter(&format!("`key` = '{}'", &token)))? {
+        Member::register_for_semester(session.member, form, &mut conn).map(|_| basic_success())
+    } else {
+        Err(GreaseError::Unauthorized)
+    }
+}
 
-// pub fn new_member(member: String, mut user: User) -> GreaseResult<Value> {
-//     unimplemented!()
-// }
+pub fn mark_member_inactive_for_semester(member: String, semester: String, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-user");
+    Member::mark_inactive_for_semester(&member, &semester, &mut user.conn).map(|_| basic_success())
+}
 
-// pub fn update_member_profile(member: String, mut user: User) -> GreaseResult<Value> {
-//     unimplemented!()
-// }
+pub fn update_member_semester(member: String, semester: String, (update, mut user): (ActiveSemesterUpdate, User)) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-user");
+    ActiveSemester::update(&member, &semester, update, &mut user.conn).map(|_| basic_success())
+}
 
-// pub fn update_member_as_officer(member: String, mut user: User) -> GreaseResult<Value> {
-//     unimplemented!()
-// }
+pub fn update_member_profile((update, mut user): (NewMember, User)) -> GreaseResult<Value> {
+    Member::update(&user.member.member.email, true, update, &mut user.conn).map(|_| basic_success())
+}
 
-// pub fn login_as_member(member: String, mut user: User) -> GreaseResult<Value> {
-//     unimplemented!()
-// }
+pub fn update_member_as_officer(member: String, (update, mut user): (NewMember, User)) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-user");
+    Member::update(&member, false, update, &mut user.conn).map(|_| basic_success())
+}
+
+pub fn login_as_member(member: String, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "switch-user");
+    if member == user.member.member.email {
+        Err(GreaseError::BadRequest("Cannot re-login as self.".to_owned()))
+    } else {
+        Session::generate(&member, &mut user.conn)
+            .map(|new_key| json!({
+                "token": new_key
+            }))
+    }
+}
+
+pub fn delete_member(member: String, confirm: Option<bool>, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "delete-user");
+    if confirm.unwrap_or(false) {
+        Member::delete(&member, &mut user.conn).map(|_| basic_success())
+    } else {
+        Err(GreaseError::BadRequest("You must pass 'confirm=true' to actually delete a member.".to_owned()))
+    }
+}

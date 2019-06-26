@@ -112,8 +112,6 @@ impl Song {
     }
 }
 
-// TODO: handle remote vs local media types
-// TODO: check if the file would be overwritten
 impl SongLink {
     pub fn load<C: Connection>(link_id: i32, conn: &mut C) -> GreaseResult<SongLink> {
         conn.first(
@@ -143,9 +141,14 @@ impl SongLink {
         new_link: NewSongLink,
         conn: &mut C,
     ) -> GreaseResult<i32> {
-        let target = check_for_music_file(
-            &utf8_percent_encode(&new_link.target, DEFAULT_ENCODE_SET).to_string(),
-        )?;
+        let media_type = MediaType::load(&new_link.type_, conn)?;
+        let target = if media_type.storage == StorageType::Local {
+            check_for_music_file(
+                &utf8_percent_encode(&new_link.target, DEFAULT_ENCODE_SET).to_string(),
+            )?
+        } else {
+            new_link.target
+        };
 
         conn.insert_returning_id(
             Insert::new(Self::table_name())
@@ -158,22 +161,25 @@ impl SongLink {
 
     pub fn delete<C: Connection>(link_id: i32, conn: &mut C) -> GreaseResult<()> {
         let link = Self::load(link_id, conn)?;
+        let media_type = MediaType::load(&link.type_, conn)?;
         conn.delete_opt(Delete::new(Self::table_name()).filter(&format!("id = {}", link_id)))?;
 
-        let file_name =
-            PathBuf::from_str(&format!("./music/{}", &link.target)).map_err(|_err| {
-                GreaseError::ServerError(format!(
-                    "invalid file name for link with id {}: {}",
-                    link_id, &link.target
-                ))
-            })?;
-        if std::fs::metadata(&file_name).is_ok() {
-            std::fs::remove_file(&file_name).map_err(|err| {
-                GreaseError::ServerError(format!(
-                    "error deleting file from music directory: {}",
-                    err
-                ))
-            })?;
+        if media_type.storage == StorageType::Local {
+            let file_name =
+                PathBuf::from_str(&format!("./music/{}", &link.target)).map_err(|_err| {
+                    GreaseError::ServerError(format!(
+                        "invalid file name for link with id {}: {}",
+                        link_id, &link.target
+                    ))
+                })?;
+            if std::fs::metadata(&file_name).is_ok() {
+                std::fs::remove_file(&file_name).map_err(|err| {
+                    GreaseError::ServerError(format!(
+                        "error deleting file from music directory: {}",
+                        err
+                    ))
+                })?;
+            }
         }
 
         Ok(())
@@ -185,7 +191,12 @@ impl SongLink {
         conn: &mut DbConn,
     ) -> GreaseResult<()> {
         let old_link = Self::load(link_id, conn)?;
-        let new_target = utf8_percent_encode(&updated_link.target, DEFAULT_ENCODE_SET).to_string();
+        let media_type = MediaType::load(&old_link.type_, conn)?;
+        let new_target = if &media_type.storage == &StorageType::Local {
+            utf8_percent_encode(&updated_link.target, DEFAULT_ENCODE_SET).to_string()
+        } else {
+            updated_link.target.clone()
+        };
 
         conn.transaction(|transaction| {
             transaction.update_opt(
@@ -195,7 +206,7 @@ impl SongLink {
                     .set("target = '{}'", &new_target)
             )?;
 
-            if old_link.target != new_target {
+            if old_link.target != new_target && &media_type.storage == &StorageType::Local {
                 let old_path =
                     PathBuf::from_str(&format!("./music/{}", old_link.target)).map_err(|_err| {
                         GreaseError::ServerError(format!("invalid file name: {}", old_link.target))

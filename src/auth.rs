@@ -12,9 +12,6 @@ pub struct User {
     pub conn: DbConn,
 }
 
-// TODO: blanket impls with const generics?
-// pub struct PermittedUser<const S: &'static str>(User);
-
 impl User {
     pub fn has_permission(&self, permission_name: &str, event_type: Option<&str>) -> bool {
         let permission = MemberPermission {

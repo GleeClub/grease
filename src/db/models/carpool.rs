@@ -48,51 +48,46 @@ impl Carpool {
         Ok(carpools)
     }
 
-    // TODO: check for driver capacity
     pub fn update_for_event(
         given_event_id: i32,
-        mut updated_carpools: Vec<UpdatedCarpool>,
+        mut given_updated_carpools: Vec<UpdatedCarpool>,
         conn: &mut DbConn,
     ) -> GreaseResult<()> {
-        let (new_carpools, all_new_passengers): (Vec<NewCarpool>, Vec<Vec<String>>) =
-            updated_carpools
-                .drain_filter(|updated| updated.id.is_none())
-                .map(|updated| {
-                    let new_carpool = NewCarpool {
-                        event: given_event_id,
-                        driver: updated.driver,
-                    };
-                    (new_carpool, updated.passengers)
-                })
-                .fold(
-                    (Vec::new(), Vec::new()),
-                    |(mut new_carpools, mut all_new_passengers), (new_carpool, passengers)| {
-                        new_carpools.push(new_carpool);
-                        all_new_passengers.push(passengers);
-                        (new_carpools, all_new_passengers)
-                    },
-                );
+        let all_members = Member::load_all(conn)?;
+        let (mut new_carpools, mut all_new_passengers) = (Vec::new(), Vec::new());
+        for updated in given_updated_carpools.drain_filter(|updated| updated.id.is_none()) {
+            let driver = all_members
+                .iter()
+                .find(|member| &member.email == &updated.driver)
+                .ok_or(GreaseError::BadRequest(format!("No member with email {} exists.", &updated.driver)))?;
+            if driver.passengers < updated.passengers.len() as i32 {
+                return Err(GreaseError::BadRequest(format!("Driver {} can only drive {} members.", driver.email, driver.passengers)));
+            }
+            let new_carpool = NewCarpool {
+                event: given_event_id,
+                driver: updated.driver,
+            };
+            new_carpools.push(new_carpool);
+            all_new_passengers.push(updated.passengers);
+        }
 
-        let (updated_carpools, updated_passengers): (Vec<Carpool>, Vec<Vec<String>>) =
-            updated_carpools
-                .into_iter()
-                .map(|updated| {
-                    let updated_carpool = Carpool {
-                        id: updated.id.unwrap(),
-                        event: given_event_id,
-                        driver: updated.driver,
-                    };
-                    (updated_carpool, updated.passengers)
-                })
-                .fold(
-                    (Vec::new(), Vec::new()),
-                    |(mut updated_carpools, mut updated_passengers),
-                     (updated_carpool, passengers)| {
-                        updated_carpools.push(updated_carpool);
-                        updated_passengers.push(passengers);
-                        (updated_carpools, updated_passengers)
-                    },
-                );
+        let (mut updated_carpools, mut updated_passengers) = (Vec::new(), Vec::new());
+        for updated in given_updated_carpools {
+            let driver = all_members
+                .iter()
+                .find(|member| &member.email == &updated.driver)
+                .ok_or(GreaseError::BadRequest(format!("No member with email {} exists.", &updated.driver)))?;
+            if driver.passengers < updated.passengers.len() as i32 {
+                return Err(GreaseError::BadRequest(format!("Driver {} can only drive {} members.", driver.email, driver.passengers)));
+            }
+            let updated_carpool = Carpool {
+                id: updated.id.unwrap(),
+                event: given_event_id,
+                driver: updated.driver,
+            };
+            updated_carpools.push(updated_carpool);
+            updated_passengers.push(updated.passengers);
+        }
 
         conn.transaction(move |transaction| {
             transaction.delete_opt(Delete::new(RidesIn::table_name()).filter(&format!(
@@ -153,7 +148,6 @@ impl Carpool {
     }
 }
 
-// TODO: figure out group_by for this puppy
 #[derive(Deserialize)]
 pub struct EventCarpool {
     pub driver: Member,
