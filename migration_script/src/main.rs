@@ -105,10 +105,10 @@ pub fn run_migration(passwords: &Passwords) -> MigrateResult<()> {
     let (old_events, _new_events) = NewEvent::migrate(&old_db, &new_db, &old_section_types)?;
 
     println!("Migrating uniforms...");
-    let (old_uniforms, _new_uniforms) = NewUniform::migrate(&old_db, &new_db, &())?;
+    let (old_uniforms, new_uniforms) = NewUniform::migrate(&old_db, &new_db, &())?;
 
     println!("Migrating gigs...");
-    let (_old_gigs, _new_gigs) = NewGig::migrate(&old_db, &new_db, &old_uniforms)?;
+    let (_old_gigs, _new_gigs) = NewGig::migrate(&old_db, &new_db, &(old_uniforms, new_uniforms))?;
 
     println!("Migrating gig requests...");
     let (_old_gig_requests, _new_gig_requests) = NewGigRequest::migrate(&old_db, &new_db, &())?;

@@ -584,7 +584,9 @@ impl Migrate<OldUniform> for NewUniform {
         let new_uniforms = old_uniforms
             .iter()
             .filter(|old_uniform| old_uniform.choir == "glee")
-            .map(|old_uniform| NewUniform {
+            .enumerate()
+            .map(|(index, old_uniform)| NewUniform {
+                id: index as i64 + 1,
                 name: old_uniform.name.clone(),
                 description: Some(old_uniform.description.clone()).filter(|d| d.len() > 0),
                 color: match old_uniform.id.as_str() {
@@ -603,11 +605,11 @@ impl Migrate<OldUniform> for NewUniform {
 }
 
 impl Migrate<OldGig> for NewGig {
-    type Dependencies = Vec<OldUniform>;
+    type Dependencies = (Vec<OldUniform>, Vec<NewUniform>);
     fn migrate(
         old_db: &Pool,
         new_db: &Pool,
-        dependencies: &Self::Dependencies,
+        (old_uniforms, new_uniforms): &Self::Dependencies,
     ) -> MigrateResult<(Vec<OldGig>, Vec<Self>)> {
         let old_gigs = OldGig::load(old_db)?;
         let new_gigs = old_gigs
@@ -623,15 +625,22 @@ impl Migrate<OldGig> for NewGig {
                     public: old_gig.public.clone(),
                     summary: Some(old_gig.summary.clone()),
                     description: Some(old_gig.description.clone()),
-                    uniform: dependencies
-                        .iter()
-                        .find(|old_uniform| old_uniform.id == old_gig.uniform)
-                        .ok_or(MigrateError::Other(format!(
-                            "no uniform with id {}",
-                            old_gig.uniform
-                        )))?
-                        .name
-                        .clone(),
+                    uniform: {
+                        let old_uniform = old_uniforms
+                            .iter()
+                            .find(|old_uniform| old_uniform.id == old_gig.uniform)
+                            .ok_or(MigrateError::Other(format!(
+                                "no uniform with id {}",
+                                old_gig.uniform
+                            )))?;
+                        let new_uniform = new_uniforms
+                            .iter()
+                            .find(|new_uniform| new_uniform.name == old_uniform.name)
+                            .ok_or(MigrateError::Other(format!(
+                                "no new uniform with name {}", &old_uniform.name
+                            )))?;
+                        new_uniform.id
+                    },
                 })
             })
             .collect::<MigrateResult<Vec<NewGig>>>()?;
