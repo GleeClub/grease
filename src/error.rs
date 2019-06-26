@@ -18,7 +18,7 @@ pub enum GreaseError {
 pub type GreaseResult<T> = Result<T, GreaseError>;
 
 impl GreaseError {
-    pub fn as_response(self) -> (u16, Value) {
+    pub fn as_response(&self) -> (u16, Value) {
         match self {
             GreaseError::Unauthorized => (
                 401,
@@ -94,5 +94,12 @@ impl GreaseError {
                 }),
             ),
         }
+    }
+}
+
+#[cfg(test)]
+impl std::cmp::PartialEq for GreaseError {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_response() == other.as_response()
     }
 }
