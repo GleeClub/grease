@@ -59,9 +59,15 @@ impl Carpool {
             let driver = all_members
                 .iter()
                 .find(|member| &member.email == &updated.driver)
-                .ok_or(GreaseError::BadRequest(format!("No member with email {} exists.", &updated.driver)))?;
+                .ok_or(GreaseError::BadRequest(format!(
+                    "No member with email {} exists.",
+                    &updated.driver
+                )))?;
             if driver.passengers < updated.passengers.len() as i32 {
-                return Err(GreaseError::BadRequest(format!("Driver {} can only drive {} members.", driver.email, driver.passengers)));
+                return Err(GreaseError::BadRequest(format!(
+                    "Driver {} can only drive {} members.",
+                    driver.email, driver.passengers
+                )));
             }
             let new_carpool = NewCarpool {
                 event: given_event_id,
@@ -76,9 +82,15 @@ impl Carpool {
             let driver = all_members
                 .iter()
                 .find(|member| &member.email == &updated.driver)
-                .ok_or(GreaseError::BadRequest(format!("No member with email {} exists.", &updated.driver)))?;
+                .ok_or(GreaseError::BadRequest(format!(
+                    "No member with email {} exists.",
+                    &updated.driver
+                )))?;
             if driver.passengers < updated.passengers.len() as i32 {
-                return Err(GreaseError::BadRequest(format!("Driver {} can only drive {} members.", driver.email, driver.passengers)));
+                return Err(GreaseError::BadRequest(format!(
+                    "Driver {} can only drive {} members.",
+                    driver.email, driver.passengers
+                )));
             }
             let updated_carpool = Carpool {
                 id: updated.id.unwrap(),

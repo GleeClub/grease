@@ -1,11 +1,11 @@
 use chrono::{Datelike, Duration, Local, NaiveDate, NaiveDateTime};
 use db::*;
 use error::*;
+#[cfg(test)]
+use mocktopus::macros::*;
 use pinto::query_builder::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-#[cfg(test)]
-use mocktopus::macros::*;
 
 #[mockable]
 impl Event {

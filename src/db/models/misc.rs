@@ -101,11 +101,7 @@ impl Uniform {
         conn.load(&Self::select_all_in_order("name", Order::Asc))
     }
 
-    pub fn update<C: Connection>(
-        id: i32,
-        updated: &Uniform,
-        conn: &mut C,
-    ) -> GreaseResult<()> {
+    pub fn update<C: Connection>(id: i32, updated: &Uniform, conn: &mut C) -> GreaseResult<()> {
         conn.update(
             Update::new(Self::table_name())
                 .filter(&format!("id = {}", id))

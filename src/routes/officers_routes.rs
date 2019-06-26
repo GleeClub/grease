@@ -139,10 +139,9 @@ pub fn get_uniforms(mut user: User) -> GreaseResult<Value> {
 pub fn new_uniform((mut user, new_uniform): (User, Uniform)) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-uniforms");
     new_uniform.validate()?;
-    new_uniform.insert_returning_id(&mut user.conn)
-        .map(|new_id| json!({
-            "id": new_id
-        }))
+    new_uniform
+        .insert_returning_id(&mut user.conn)
+        .map(|new_id| json!({ "id": new_id }))
 }
 
 pub fn modify_uniform(
@@ -280,11 +279,12 @@ pub fn add_officership((member_role, mut user): (MemberRole, User)) -> GreaseRes
             "member {} already has that position",
             &member_role.member
         )))
-    } else if given_role.max_quantity > 0 && member_role_pairs
-        .iter()
-        .filter(|(_member, role)| role.name == given_role.name)
-        .count()
-        >= given_role.max_quantity as usize
+    } else if given_role.max_quantity > 0
+        && member_role_pairs
+            .iter()
+            .filter(|(_member, role)| role.name == given_role.name)
+            .count()
+            >= given_role.max_quantity as usize
     {
         Err(GreaseError::BadRequest(format!(
             "No more officers of type {} are allowed (max of {})",

@@ -308,11 +308,20 @@ impl Member {
     }
 
     pub fn create(new_member: NewMember, conn: &mut DbConn) -> GreaseResult<()> {
-        if conn.first_opt::<Member>(&Member::filter(&format!("email = '{}'", &new_member.email)))?.is_some() {
-            Err(GreaseError::BadRequest(format!("A member already exists with the email {}.", &new_member.email)))
+        if conn
+            .first_opt::<Member>(&Member::filter(&format!("email = '{}'", &new_member.email)))?
+            .is_some()
+        {
+            Err(GreaseError::BadRequest(format!(
+                "A member already exists with the email {}.",
+                &new_member.email
+            )))
         } else {
             conn.transaction(|transaction| {
-                let MemberForSemester { member, active_semester } = new_member.for_current_semester(transaction)?;
+                let MemberForSemester {
+                    member,
+                    active_semester,
+                } = new_member.for_current_semester(transaction)?;
                 member.insert(transaction)?;
                 active_semester.insert(transaction)?;
                 Attendance::create_for_new_member(&member.email, transaction)?;
@@ -322,10 +331,17 @@ impl Member {
         }
     }
 
-    pub fn register_for_semester(email: String, form: RegisterForSemesterForm, conn: &mut DbConn) -> GreaseResult<()> {
+    pub fn register_for_semester(
+        email: String,
+        form: RegisterForSemesterForm,
+        conn: &mut DbConn,
+    ) -> GreaseResult<()> {
         let current_semester = Semester::load_current(conn)?;
         let _member = match MemberForSemester::load(&email, &current_semester.name, conn) {
-            Ok(_member_for_semester) => Err(GreaseError::BadRequest(format!("Member with email {} is already active for the current semester.", &email))),
+            Ok(_member_for_semester) => Err(GreaseError::BadRequest(format!(
+                "Member with email {} is already active for the current semester.",
+                &email
+            ))),
             Err(GreaseError::NotActiveYet(member)) => Ok(member),
             Err(other) => Err(other),
         }?;
@@ -352,7 +368,11 @@ impl Member {
         })
     }
 
-    pub fn mark_inactive_for_semester<C: Connection>(email: &str, semester: &str, conn: &mut C) -> GreaseResult<()> {
+    pub fn mark_inactive_for_semester<C: Connection>(
+        email: &str,
+        semester: &str,
+        conn: &mut C,
+    ) -> GreaseResult<()> {
         conn.delete(
             Delete::new(Member::table_name())
                 .filter(&format!("member = '{}'", email))
@@ -363,24 +383,35 @@ impl Member {
 
     pub fn delete<C: Connection>(email: &str, conn: &mut C) -> GreaseResult<()> {
         conn.delete(
-            Delete::new(Member::table_name())
-                .filter(&format!("email = '{}'", email)),
+            Delete::new(Member::table_name()).filter(&format!("email = '{}'", email)),
             format!("No member exists with email {}.", email),
         )
     }
 
-    pub fn update(email: &str, as_self: bool, update: NewMember, conn: &mut DbConn) -> GreaseResult<()> {
+    pub fn update(
+        email: &str,
+        as_self: bool,
+        update: NewMember,
+        conn: &mut DbConn,
+    ) -> GreaseResult<()> {
         conn.transaction(|transaction| {
             if email != &update.email
-                && transaction.first_opt::<Member>(&Member::filter(&format!("email = '{}'", &update.email)))?.is_some()
+                && transaction
+                    .first_opt::<Member>(&Member::filter(&format!("email = '{}'", &update.email)))?
+                    .is_some()
             {
-                return Err(GreaseError::BadRequest(format!("Cannot change email to {}, as another user has that email.", &update.email)));
+                return Err(GreaseError::BadRequest(format!(
+                    "Cannot change email to {}, as another user has that email.",
+                    &update.email
+                )));
             }
 
             let pass_hash = if as_self && update.pass_hash.is_some() {
                 update.pass_hash.unwrap()
             } else if !as_self && update.pass_hash.is_some() {
-                return Err(GreaseError::BadRequest("Officers cannot change members' passwords.".to_owned()));
+                return Err(GreaseError::BadRequest(
+                    "Officers cannot change members' passwords.".to_owned(),
+                ));
             } else {
                 Member::load(&email, transaction)?.pass_hash
             };
@@ -401,9 +432,12 @@ impl Member {
                     .set("arrived_at_tech", &to_value(&update.arrived_at_tech))
                     .set("gateway_drug", &to_value(&update.gateway_drug))
                     .set("conflicts", &to_value(&update.conflicts))
-                    .set("dietary_restrictions", &to_value(&update.dietary_restrictions))
+                    .set(
+                        "dietary_restrictions",
+                        &to_value(&update.dietary_restrictions),
+                    )
                     .set("pass_hash", &to_value(pass_hash)),
-                    format!("No member with the email {} exists.", email),
+                format!("No member with the email {} exists.", email),
             )?;
 
             let current_semester = Semester::load_current(transaction)?;
@@ -411,7 +445,12 @@ impl Member {
                 enrollment: update.enrollment,
                 section: Some(update.section),
             };
-            ActiveSemester::update(&update.email, &current_semester.name, semester_update, transaction)?;
+            ActiveSemester::update(
+                &update.email,
+                &current_semester.name,
+                semester_update,
+                transaction,
+            )?;
 
             Ok(())
         })
@@ -589,7 +628,12 @@ impl ActiveSemester {
         }
     }
 
-    pub fn update<C: Connection>(member: &str, semester: &str, updated_semester: ActiveSemesterUpdate, conn: &mut C) -> GreaseResult<()> {
+    pub fn update<C: Connection>(
+        member: &str,
+        semester: &str,
+        updated_semester: ActiveSemesterUpdate,
+        conn: &mut C,
+    ) -> GreaseResult<()> {
         if ActiveSemester::load(member, semester, conn)?.is_some() {
             conn.update_opt(
                 Update::new(ActiveSemester::table_name())
@@ -669,7 +713,10 @@ impl Into<MemberForSemester> for MemberForSemesterRow {
 }
 
 impl NewMember {
-    pub fn for_current_semester<C: Connection>(self, conn: &mut C) -> GreaseResult<MemberForSemester> {
+    pub fn for_current_semester<C: Connection>(
+        self,
+        conn: &mut C,
+    ) -> GreaseResult<MemberForSemester> {
         Ok(MemberForSemester {
             member: Member {
                 email: self.email.clone(),
@@ -677,7 +724,7 @@ impl NewMember {
                 preferred_name: self.preferred_name,
                 last_name: self.last_name,
                 pass_hash: self.pass_hash.ok_or(GreaseError::BadRequest(
-                    "The pass_hash field is required for new member registration.".to_owned()
+                    "The pass_hash field is required for new member registration.".to_owned(),
                 ))?,
                 phone_number: self.phone_number,
                 picture: self.picture,
@@ -697,7 +744,7 @@ impl NewMember {
                 semester: Semester::load_current(conn)?.name,
                 enrollment: self.enrollment,
                 section: Some(self.section),
-            }
+            },
         })
     }
 }

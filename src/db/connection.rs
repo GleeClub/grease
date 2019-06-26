@@ -239,7 +239,10 @@ mod conn {
             })
     }
 
-    pub fn insert_with_conn<G: GenericConnection>(query: &Insert, conn: &mut G) -> GreaseResult<()> {
+    pub fn insert_with_conn<G: GenericConnection>(
+        query: &Insert,
+        conn: &mut G,
+    ) -> GreaseResult<()> {
         conn.query(query.build()).map_err(GreaseError::DbError)?;
         Ok(())
     }
@@ -280,7 +283,10 @@ mod conn {
         }
     }
 
-    fn update_opt_with_conn<G: GenericConnection>(query: &Update, conn: &mut G) -> GreaseResult<()> {
+    fn update_opt_with_conn<G: GenericConnection>(
+        query: &Update,
+        conn: &mut G,
+    ) -> GreaseResult<()> {
         conn.query(query.build()).map_err(GreaseError::DbError)?;
         Ok(())
     }
@@ -302,7 +308,10 @@ mod conn {
         }
     }
 
-    fn delete_opt_with_conn<G: GenericConnection>(query: &Delete, conn: &mut G) -> GreaseResult<()> {
+    fn delete_opt_with_conn<G: GenericConnection>(
+        query: &Delete,
+        conn: &mut G,
+    ) -> GreaseResult<()> {
         conn.query(query.build()).map_err(GreaseError::DbError)?;
         Ok(())
     }
@@ -334,7 +343,8 @@ mod test_conn {
     impl DbConn {
         pub fn setup(queries: Vec<(&str, serde_json::Value)>) -> DbConn {
             DbConn {
-                queries: queries.into_iter()
+                queries: queries
+                    .into_iter()
                     .map(|(query, data)| (query.to_string(), data))
                     .collect(),
             }
@@ -365,7 +375,9 @@ mod test_conn {
                 }
                 serde_json::Value::Object(_map) => vec![Self::json_to_row(value)],
                 serde_json::Value::Null => vec![],
-                _other => panic!("JSON can only be a single row object, multiple row objects, or null"),
+                _other => {
+                    panic!("JSON can only be a single row object, multiple row objects, or null")
+                }
             }
         }
 
@@ -465,9 +477,10 @@ mod test_conn {
                             matches[4].parse().unwrap(),
                             0,
                         )
-                    } else if let Some(matches) = Regex::new(r"^'(-?)(\d{3}):(\d{2}):(\d{2})\.(\d{6})'$")
-                        .unwrap()
-                        .captures(&string)
+                    } else if let Some(matches) =
+                        Regex::new(r"^'(-?)(\d{3}):(\d{2}):(\d{2})\.(\d{6})'$")
+                            .unwrap()
+                            .captures(&string)
                     {
                         mysql::Value::Time(
                             &matches[1] == "-",
@@ -491,7 +504,8 @@ mod test_conn {
 
             let column_packet_start = Box::new(b"\x03def\x06schema\x05table\x09org_table").to_vec();
             let column_packet_end =
-                Box::new(b"\x08org_name\x0c\x21\x00\x0F\x00\x00\x00\x00\x01\x00\x08\x00\x00").to_vec();
+                Box::new(b"\x08org_name\x0c\x21\x00\x0F\x00\x00\x00\x00\x01\x00\x08\x00\x00")
+                    .to_vec();
 
             let packet = column_packet_start
                 .into_iter()
@@ -619,7 +633,8 @@ mod test_conn {
         }
 
         fn first_opt<T: FromRow>(&mut self, query: &Select) -> GreaseResult<Option<T>> {
-            Ok(self.conn
+            Ok(self
+                .conn
                 .check_query(&query.build())
                 .into_iter()
                 .next()
@@ -652,7 +667,8 @@ mod test_conn {
         }
 
         fn insert_returning_id(&mut self, query: &Insert) -> GreaseResult<i32> {
-            let row = self.conn
+            let row = self
+                .conn
                 .check_query(&query.build())
                 .into_iter()
                 .next()

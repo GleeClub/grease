@@ -107,10 +107,7 @@ impl Attendance {
         )
     }
 
-    pub fn create_for_new_member(
-        member: &str,
-        conn: &mut DbTransaction,
-    ) -> GreaseResult<()> {
+    pub fn create_for_new_member(member: &str, conn: &mut DbTransaction) -> GreaseResult<()> {
         let now = Local::now().naive_local();
         Event::load_all_for_current_semester(conn)?
             .into_iter()
