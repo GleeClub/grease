@@ -1,7 +1,7 @@
+use chrono::NaiveDateTime;
 use db::*;
 use error::*;
 use pinto::query_builder::*;
-use chrono::NaiveDateTime;
 
 impl AbsenceRequest {
     pub fn load<C: Connection>(
@@ -9,7 +9,10 @@ impl AbsenceRequest {
         event_id: i32,
         conn: &mut C,
     ) -> GreaseResult<Option<AbsenceRequest>> {
-        conn.first_opt(&Self::filter(&format!("event = {} AND member = '{}'", event_id, member)))
+        conn.first_opt(&Self::filter(&format!(
+            "event = {} AND member = '{}'",
+            event_id, member
+        )))
     }
 
     pub fn load_all_for_this_semester<C: Connection>(
@@ -21,40 +24,67 @@ impl AbsenceRequest {
                 .join(Event::table_name(), "event", "id", Join::Inner)
                 .fields(AbsenceRequestEventRow::field_names())
                 .filter(&format!("semester = '{}'", &current_semester.name))
-                .order_by("`time`", Order::Desc)
+                .order_by("`time`", Order::Desc),
         )
     }
 
-    pub fn excused_for_event<C: Connection>(member: &str, event_id: i32, conn: &mut C) -> GreaseResult<bool> {
-        conn.first_opt(&Self::filter(&format!("event = {} AND member = '{}'", event_id, member))).map(|request: Option<AbsenceRequest>| request.map(|r| r.state == AbsenceRequestState::Approved).unwrap_or(false))
+    pub fn excused_for_event<C: Connection>(
+        member: &str,
+        event_id: i32,
+        conn: &mut C,
+    ) -> GreaseResult<bool> {
+        conn.first_opt(&Self::filter(&format!(
+            "event = {} AND member = '{}'",
+            event_id, member
+        )))
+        .map(|request: Option<AbsenceRequest>| {
+            request
+                .map(|r| r.state == AbsenceRequestState::Approved)
+                .unwrap_or(false)
+        })
     }
 
-    pub fn create<C: Connection>(member: &str, event_id: i32, reason: &str, conn: &mut C) -> GreaseResult<()> {
+    pub fn create<C: Connection>(
+        member: &str,
+        event_id: i32,
+        reason: &str,
+        conn: &mut C,
+    ) -> GreaseResult<()> {
         conn.insert(
             Insert::new(Self::table_name())
                 .set("member", &format!("'{}'", member))
                 .set("event", &event_id.to_string())
-                .set("reason", &format!("'{}'", reason))
+                .set("reason", &format!("'{}'", reason)),
         )
     }
 
     pub fn approve<C: Connection>(member: &str, event_id: i32, conn: &mut C) -> GreaseResult<()> {
-        let _request = AbsenceRequest::load(member, event_id, conn)?;
+        let _request = AbsenceRequest::load(member, event_id, conn)?.ok_or(
+            GreaseError::BadRequest(format!(
+                "No absence request for member {} at event with id {}.",
+                member, event_id
+            )),
+        )?;
 
         conn.update_opt(
             Update::new(Self::table_name())
                 .filter(&format!("event = {} AND member = '{}'", event_id, member))
-                .set("state", &format!("'{}'", AbsenceRequestState::Approved))
+                .set("state", &format!("'{}'", AbsenceRequestState::Approved)),
         )
     }
 
     pub fn deny<C: Connection>(member: &str, event_id: i32, conn: &mut C) -> GreaseResult<()> {
-        let _request = AbsenceRequest::load(member, event_id, conn)?;
+        let _request = AbsenceRequest::load(member, event_id, conn)?.ok_or(
+            GreaseError::BadRequest(format!(
+                "No absence request for member {} at event with id {}.",
+                member, event_id
+            )),
+        )?;
 
         conn.update_opt(
             Update::new(Self::table_name())
                 .filter(&format!("event = {} AND member = '{}'", event_id, member))
-                .set("state", &format!("'{}'", AbsenceRequestState::Denied))
+                .set("state", &format!("'{}'", AbsenceRequestState::Denied)),
         )
     }
 }
@@ -108,5 +138,49 @@ impl Into<(AbsenceRequest, Event)> for AbsenceRequestEventRow {
                 section: self.section,
             },
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::testing::*;
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn approve_absence_request() {
+        // let test_data = load_data("/attendance_load_for_event");
+        let member = MEMBERS[0].clone();
+        let absence_request = ABSENCE_REQUESTS[0].clone();
+        let event = EVENTS[2].clone();
+        let mut conn = DbConn::setup(vec![
+            (
+                &format!(
+                    "SELECT `member`, `event`, `time`, `reason`, `state` FROM absence_request \
+                     WHERE event = {} AND member = '{}';",
+                    &event.id, &member.email,
+                ),
+                json!({
+                    "member": &absence_request.member,
+                    "event": &absence_request.event,
+                    "time": to_value(&absence_request.time),
+                    "reason": &absence_request.reason,
+                    "state": &absence_request.state.to_string(),
+                }),
+            ),
+            (
+                &format!(
+                    "UPDATE absence_request SET state = 'approved' \
+                     WHERE event = {} AND member = '{}';",
+                    &event.id, &member.email,
+                ),
+                json!({}),
+            ),
+        ]);
+
+        assert_eq!(
+            AbsenceRequest::approve(&member.email, event.id, &mut conn),
+            Ok(())
+        );
     }
 }

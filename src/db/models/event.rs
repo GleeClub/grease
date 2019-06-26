@@ -1,21 +1,21 @@
-use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, Local};
+use chrono::{Datelike, Duration, Local, NaiveDate, NaiveDateTime};
 use db::*;
 use error::*;
 use pinto::query_builder::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+#[cfg(test)]
+use mocktopus::macros::*;
 
+#[mockable]
 impl Event {
-    pub fn load<C: Connection>(
-        event_id: i32,
-        conn: &mut C,
-    ) -> GreaseResult<EventWithGig> {
+    pub fn load<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<EventWithGig> {
         conn.first(
             Select::new(Self::table_name())
                 .join(Gig::table_name(), "id", "event", Join::Left)
                 .fields(EventWithGigRow::field_names())
                 .filter(&format!("id = {}", event_id)),
-            format!("No event with id {}.", event_id)
+            format!("No event with id {}.", event_id),
         )
         .map(|row: EventWithGigRow| row.into())
     }
@@ -25,7 +25,7 @@ impl Event {
             Select::new(Self::table_name())
                 .join(Gig::table_name(), "id", "event", Join::Left)
                 .fields(EventWithGigRow::field_names())
-                .order_by("call_time", Order::Desc)
+                .order_by("call_time", Order::Desc),
         )
     }
 
@@ -39,7 +39,7 @@ impl Event {
                 .join(Gig::table_name(), "id", "event", Join::Left)
                 .fields(EventWithGigRow::field_names())
                 .filter(&format!("semester = '{}'", &current_semester.name))
-                .order_by("call_time", Order::Desc)
+                .order_by("call_time", Order::Desc),
         )
     }
 
@@ -55,7 +55,7 @@ impl Event {
                 .fields(EventWithGigRow::field_names())
                 .filter(&format!("semester = '{}'", &current_semester.name))
                 .filter(&format!("type = '{}'", event_type))
-                .order_by("call_time", Order::Desc)
+                .order_by("call_time", Order::Desc),
         )
     }
 
@@ -101,7 +101,10 @@ impl Event {
     }
 
     // TODO: fix for weekend sectionals?
-    pub fn load_sectionals_the_week_of<C: Connection>(&self, conn: &mut C) -> GreaseResult<Vec<Event>> {
+    pub fn load_sectionals_the_week_of<C: Connection>(
+        &self,
+        conn: &mut C,
+    ) -> GreaseResult<Vec<Event>> {
         let days_since_sunday = self.call_time.date().weekday().num_days_from_sunday() as i64;
         let last_sunday = self.call_time - Duration::days(days_since_sunday);
         let next_sunday = last_sunday + Duration::days(7);
@@ -113,7 +116,7 @@ impl Event {
                 .filter(&format!("semester = '{}'", &self.semester))
                 .filter(&format!("call_time > {}", to_value(last_sunday)))
                 .filter(&format!("release_time > {}", to_value(next_sunday)))
-                .order_by("call_time", Order::Asc)
+                .order_by("call_time", Order::Asc),
         )
     }
 
@@ -155,29 +158,31 @@ impl Event {
         }
 
         conn.transaction(|transaction| {
-            let new_ids = call_and_release_time_pairs.iter().map(|(call_time, release_time)| {
-                let new_id = transaction.insert_returning_id(
-                    Insert::new(Self::table_name())
-                        .set("name", &to_value(&new_event.name))
-                        .set("semester", &to_value(&new_event.semester))
-                        .set("`type`", &to_value(&new_event.type_))
-                        .set("call_time", &to_value(&call_time))
-                        .set("release_time", &to_value(&release_time))
-                        .set("points", &to_value(&new_event.points))
-                        .set("comments", &to_value(&new_event.comments))
-                        .set("location", &to_value(&new_event.location))
-                        .set("default_attend", &to_value(&new_event.default_attend))
-                        .set("gig_count", &to_value(&new_event.gig_count))
-                )?;
-                Attendance::create_for_new_event(new_id, transaction)?;
+            let new_ids = call_and_release_time_pairs
+                .iter()
+                .map(|(call_time, release_time)| {
+                    let new_id = transaction.insert_returning_id(
+                        Insert::new(Self::table_name())
+                            .set("name", &to_value(&new_event.name))
+                            .set("semester", &to_value(&new_event.semester))
+                            .set("`type`", &to_value(&new_event.type_))
+                            .set("call_time", &to_value(&call_time))
+                            .set("release_time", &to_value(&release_time))
+                            .set("points", &to_value(&new_event.points))
+                            .set("comments", &to_value(&new_event.comments))
+                            .set("location", &to_value(&new_event.location))
+                            .set("default_attend", &to_value(&new_event.default_attend))
+                            .set("gig_count", &to_value(&new_event.gig_count)),
+                    )?;
+                    Attendance::create_for_new_event(new_id, transaction)?;
 
-                if let Some((ref _gig_request, ref new_gig)) = from_request.as_ref() {
-                    Gig::insert(new_id, &new_gig, transaction)?;
-                }
+                    if let Some((ref _gig_request, ref new_gig)) = from_request.as_ref() {
+                        Gig::insert(new_id, &new_gig, transaction)?;
+                    }
 
-                Ok(new_id)
-            })
-            .collect::<GreaseResult<Vec<i32>>>()?;
+                    Ok(new_id)
+                })
+                .collect::<GreaseResult<Vec<i32>>>()?;
 
             let first_id = *new_ids
                 .iter()
@@ -192,7 +197,10 @@ impl Event {
                         .filter(&format!("id = '{}'", &gig_request.id))
                         .set("event", &to_value(first_id))
                         .set("state", &to_value(GigRequestStatus::Accepted)),
-                    format!("Error updating gig request with id {} to mark it as accepted.", gig_request.id)
+                    format!(
+                        "Error updating gig request with id {} to mark it as accepted.",
+                        gig_request.id
+                    ),
                 )?;
             }
 
@@ -200,7 +208,12 @@ impl Event {
         })
     }
 
-    pub fn repeat_event_times(call_time: NaiveDateTime, release_time: Option<NaiveDateTime>, period: Period, until: NaiveDate) -> Vec<(NaiveDateTime, Option<NaiveDateTime>)> {
+    pub fn repeat_event_times(
+        call_time: NaiveDateTime,
+        release_time: Option<NaiveDateTime>,
+        period: Period,
+        until: NaiveDate,
+    ) -> Vec<(NaiveDateTime, Option<NaiveDateTime>)> {
         std::iter::successors(
             Some((call_time, release_time)),
             |(call_time, release_time)| {
@@ -251,7 +264,8 @@ impl Event {
                                 event_update
                                     .performance_time
                                     .ok_or(GreaseError::BadRequest(
-                                        "Performance time is required on events that are gigs.".to_owned(),
+                                        "Performance time is required on events that are gigs."
+                                            .to_owned(),
                                     ))?,
                             ),
                         )
@@ -294,7 +308,8 @@ impl Event {
                                 event_update
                                     .performance_time
                                     .ok_or(GreaseError::BadRequest(
-                                        "Performance time is required on events that are gigs.".to_owned(),
+                                        "Performance time is required on events that are gigs."
+                                            .to_owned(),
                                     ))?,
                             ),
                         )
@@ -315,7 +330,7 @@ impl Event {
                             ))?),
                         )
                         .set("summary", &to_value(event_update.summary))
-                        .set("description", &to_value(event_update.description))
+                        .set("description", &to_value(event_update.description)),
                 )?;
             }
 
@@ -340,8 +355,7 @@ impl Event {
 
     pub fn delete<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<()> {
         conn.delete(
-            Delete::new(Self::table_name())
-                .filter(&format!("id = {}", event_id)),
+            Delete::new(Self::table_name()).filter(&format!("id = {}", event_id)),
             format!("No event with id {}.", event_id),
         )
     }
@@ -364,7 +378,7 @@ impl Gig {
                 .set("price", &to_value(new_gig.price))
                 .set("public", &to_value(new_gig.public))
                 .set("summary", &to_value(&new_gig.summary))
-                .set("description", &to_value(&new_gig.description))
+                .set("description", &to_value(&new_gig.description)),
         )
     }
 }
@@ -428,10 +442,14 @@ impl EventWithGig {
         })
     }
 
-    pub fn to_json_full<C: Connection>(&self, member: &Member, conn: &mut C) -> GreaseResult<Value> {
+    pub fn to_json_full<C: Connection>(
+        &self,
+        member: &Member,
+        conn: &mut C,
+    ) -> GreaseResult<Value> {
         let mut json_val = self.to_json();
 
-        let uniform = if let Some(uniform) = self.gig.as_ref().map(|gig| &gig.uniform) {
+        let uniform = if let Some(uniform) = self.gig.as_ref().map(|gig| gig.uniform) {
             Some(Uniform::load(uniform, conn)?)
         } else {
             None
@@ -447,14 +465,19 @@ impl EventWithGig {
 
 impl GigRequest {
     pub fn load<C: Connection>(id: i32, conn: &mut C) -> GreaseResult<GigRequest> {
-        conn.first(&Self::filter(&format!("id = {}", id)), format!("no gig request with id {}", id))
+        conn.first(
+            &Self::filter(&format!("id = {}", id)),
+            format!("no gig request with id {}", id),
+        )
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<GigRequest>> {
         conn.load(&Self::select_all_in_order("time", Order::Desc))
     }
 
-    pub fn load_all_for_semester_and_pending<C: Connection>(conn: &mut C) -> GreaseResult<Vec<GigRequest>> {
+    pub fn load_all_for_semester_and_pending<C: Connection>(
+        conn: &mut C,
+    ) -> GreaseResult<Vec<GigRequest>> {
         let current_semester = Semester::load_current(conn)?;
 
         conn.load(
@@ -463,7 +486,7 @@ impl GigRequest {
                 &current_semester.start_date.to_value().as_sql(false),
                 GigRequestStatus::Pending
             ))
-            .order_by("time", Order::Desc)
+            .order_by("time", Order::Desc),
         )
     }
 
@@ -518,7 +541,7 @@ struct EventWithGigRow {
     // gig fields
     pub event: Option<i32>,
     pub performance_time: Option<NaiveDateTime>,
-    pub uniform: Option<String>,
+    pub uniform: Option<i32>,
     pub contact_name: Option<String>,
     pub contact_email: Option<String>,
     pub contact_phone: Option<String>,

@@ -1,10 +1,10 @@
 use chrono::{Local, NaiveDateTime};
+use db::models::member::MemberForSemester;
 use db::*;
 use error::*;
-use db::models::member::MemberForSemester;
 use pinto::query_builder::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
 
 impl Attendance {
     pub fn load<C: Connection>(
@@ -14,7 +14,10 @@ impl Attendance {
     ) -> GreaseResult<Attendance> {
         conn.first(
             &Self::filter(&format!("member = '{}' AND event = {}", member, event_id)),
-            format!("Attendance for member {} for event {} not found.", member, event_id)
+            format!(
+                "Attendance for member {} for event {} not found.",
+                member, event_id
+            ),
         )
     }
 
@@ -41,7 +44,7 @@ impl Attendance {
                 )
                 .fields(AttendanceMemberRow::field_names())
                 .filter(&format!("event = {}", event_id))
-                .order_by("last_name, first_name", Order::Asc)
+                .order_by("last_name, first_name", Order::Asc),
         )
     }
 
@@ -69,7 +72,7 @@ impl Attendance {
                 .fields(AttendanceMemberRow::field_names())
                 .filter(&format!("event = {}", event_id))
                 .filter(&format!("section = {}", to_value(section)))
-                .order_by("last_name, first_name", Order::Asc)
+                .order_by("last_name, first_name", Order::Asc),
         )
     }
 
@@ -100,7 +103,7 @@ impl Attendance {
                 .join(Attendance::table_name(), "id", "event", Join::Inner)
                 .fields(EventAttendanceRow::field_names())
                 .filter(&format!("member = '{}'", member))
-                .filter(&format!("semester = '{}'", semester))
+                .filter(&format!("semester = '{}'", semester)),
         )
     }
 
@@ -116,13 +119,13 @@ impl Attendance {
                 .fields(EventAttendanceRow::field_names())
                 .filter(&format!("member = '{}'", member))
                 .filter(&format!("semester = '{}'", &current_semester.name))
-                .filter(&format!("type = '{}'", event_type))
+                .filter(&format!("type = '{}'", event_type)),
         )
     }
 
-    pub fn create_for_new_member(
+    pub fn create_for_new_member<C: Connection>(
         given_member_email: &str,
-        conn: &mut DbTransaction,
+        conn: &mut C,
     ) -> GreaseResult<()> {
         let now = Local::now().naive_local();
         Event::load_all_for_current_semester(conn)?
@@ -140,10 +143,7 @@ impl Attendance {
             .collect::<GreaseResult<()>>()
     }
 
-    pub fn create_for_new_event<C: Connection>(
-        event_id: i32,
-        conn: &mut C,
-    ) -> GreaseResult<()> {
+    pub fn create_for_new_event<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<()> {
         let event = Event::load(event_id, conn)?.event;
         let semester_members = MemberForSemester::load_all(&event.semester, conn)?;
 
@@ -162,7 +162,7 @@ impl Attendance {
         conn.update_opt(
             Update::new(Self::table_name())
                 .filter(&format!("event = {} AND confirmed = false", event_id))
-                .set("should_attend", "false")
+                .set("should_attend", "false"),
         )
     }
 
@@ -180,7 +180,10 @@ impl Attendance {
                 .set("did_attend", &to_value(&attendance_form.did_attend))
                 .set("minutes_late", &to_value(&attendance_form.minutes_late))
                 .set("confirmed", &to_value(&attendance_form.confirmed)),
-            format!("No attendance exists for member {} at event {}. (Are they inactive?)", member, event_id)
+            format!(
+                "No attendance exists for member {} at event {}. (Are they inactive?)",
+                member, event_id
+            ),
         )
     }
 
@@ -333,5 +336,119 @@ impl Into<(Attendance, MemberForSemester)> for AttendanceMemberRow {
                 },
             },
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::event::EventWithGig;
+    use super::*;
+    use mocktopus::mocking::*;
+    use serde_json::{json, Value};
+
+    #[test]
+    fn attendance_load_for_event() {
+        Event::load.mock_safe(|_event_id, _conn: &mut DbConn| {
+            MockResult::Return(Ok(EventWithGig {
+                event: Event {
+                    id: 5,
+                    name: "Some Event".to_owned(),
+                    semester: "Some Semester".to_owned(),
+                    type_: "Other".to_owned(),
+                    call_time: Local::now().naive_local(),
+                    release_time: None,
+                    points: 5,
+                    comments: Some("Nothing important.".to_owned()),
+                    location: Some("Willage".to_owned()),
+                    gig_count: true,
+                    default_attend: true,
+                    section: None,
+                },
+                gig: None,
+            }))
+        });
+
+        let mut conn = DbConn::setup(vec![(
+            "SELECT `email`, `first_name`, `preferred_name`, `last_name`, `pass_hash`, `phone_number`, \
+             `picture`, `passengers`, `location`, `about`, `major`, `minor`, `hometown`, `arrived_at_tech`, \
+             `gateway_drug`, `conflicts`, `dietary_restrictions`, `active_semester`.`member`, `semester`, \
+             `enrollment`, `section`, `attendance`.`member`, `event`, `should_attend`, `did_attend`, \
+             `confirmed`, `minutes_late` \
+             FROM attendance \
+             INNER JOIN member ON attendance.member = email \
+             INNER JOIN active_semester ON attendance.member = active_semester.member \
+             WHERE event = 5 \
+             ORDER BY last_name, first_name ASC;",
+            json!({
+                "email": "joe.schmoe@gmail.com",
+                "first_name": "Joe",
+                "preferred_name": None::<String>,
+                "last_name": "Schmoe",
+                "pass_hash": "hashedpassword123",
+                "phone_number": "8005882300",
+                "picture": None::<String>,
+                "passengers": 0,
+                "location": "My house",
+                "about": None::<String>,
+                "major": None::<String>,
+                "minor": None::<String>,
+                "hometown": None::<String>,
+                "arrived_at_tech": 2,
+                "gateway_drug": None::<String>,
+                "conflicts": None::<String>,
+                "dietary_restrictions": None::<String>,
+                "`active_semester`.`member`": "joe.schmoe@gmail.com",
+                "semester": "Some Semester",
+                "enrollment": "class",
+                "section": None::<String>,
+                "`attendance`.`member`": "joe.schmoe@gmail.com",
+                "event": 5,
+                "should_attend": true,
+                "did_attend": true,
+                "confirmed": false,
+                "minutes_late": 0
+            }),
+        )]);
+
+        assert_eq!(
+            Attendance::load_for_event(5, &mut conn),
+            Ok(vec![(
+                Attendance {
+                    member: "joe.schmoe@gmail.com".to_owned(),
+                    event: 5,
+                    should_attend: true,
+                    did_attend: true,
+                    confirmed: false,
+                    minutes_late: 0,
+                },
+                MemberForSemester {
+                    member: Member {
+                        email: "joe.schmoe@gmail.com".to_owned(),
+                        first_name: "Joe".to_owned(),
+                        preferred_name: None,
+                        last_name: "Schmoe".to_owned(),
+                        pass_hash: "hashedpassword123".to_owned(),
+                        phone_number: "8005882300".to_owned(),
+                        picture: None,
+                        passengers: 0,
+                        location: "My house".to_owned(),
+                        about: None,
+                        major: None,
+                        minor: None,
+                        hometown: None,
+                        arrived_at_tech: Some(2),
+                        gateway_drug: None,
+                        conflicts: None,
+                        dietary_restrictions: None,
+                    },
+                    active_semester: ActiveSemester {
+                        member: "joe.schmoe@gmail.com".to_owned(),
+                        semester: "Some Semester".to_owned(),
+                        enrollment: Enrollment::Class,
+                        section: None,
+                    },
+                },
+            )])
+        );
     }
 }

@@ -219,12 +219,14 @@ pub fn deny_absence_request(event_id: i32, member: String, mut user: User) -> Gr
 }
 
 pub fn get_event_types(mut user: User) -> GreaseResult<Value> {
-    user.conn.load::<EventType>(&EventType::select_all_in_order("name", Order::Asc))
+    user.conn
+        .load::<EventType>(&EventType::select_all_in_order("name", Order::Asc))
         .map(|types| json!(types))
 }
 
 pub fn get_section_types(mut user: User) -> GreaseResult<Value> {
-    user.conn.load::<SectionType>(&SectionType::select_all_in_order("name", Order::Asc))
+    user.conn
+        .load::<SectionType>(&SectionType::select_all_in_order("name", Order::Asc))
         .map(|types| json!(types))
 }
 
@@ -243,7 +245,8 @@ pub fn get_gig_requests(all: Option<bool>, mut user: User) -> GreaseResult<Value
 }
 
 pub fn new_gig_request((new_request, mut conn): (NewGigRequest, DbConn)) -> GreaseResult<Value> {
-    new_request.insert_returning_id(&mut conn)
+    new_request
+        .insert_returning_id(&mut conn)
         .map(|new_id| json!({ "id": new_id }))
 }
 

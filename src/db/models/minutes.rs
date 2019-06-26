@@ -6,14 +6,20 @@ use serde_json::{json, Value};
 
 impl MeetingMinutes {
     pub fn load<C: Connection>(meeting_id: i32, conn: &mut C) -> GreaseResult<MeetingMinutes> {
-        conn.first(&Self::filter(&format!("id = {}", meeting_id)), format!("No meeting minutes with id {}.", meeting_id))
+        conn.first(
+            &Self::filter(&format!("id = {}", meeting_id)),
+            format!("No meeting minutes with id {}.", meeting_id),
+        )
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<MeetingMinutes>> {
         conn.load(&Self::select_all_in_order("date, name", Order::Desc))
     }
 
-    pub fn create<C: Connection>(new_meeting: &NewMeetingMinutes, conn: &mut C) -> GreaseResult<i32> {
+    pub fn create<C: Connection>(
+        new_meeting: &NewMeetingMinutes,
+        conn: &mut C,
+    ) -> GreaseResult<i32> {
         new_meeting.insert_returning_id(conn)
     }
 
@@ -33,7 +39,10 @@ impl MeetingMinutes {
     }
 
     pub fn delete<C: Connection>(meeting_id: i32, conn: &mut C) -> GreaseResult<()> {
-        conn.delete(&Delete::new(Self::table_name()).filter(&format!("id = {}", meeting_id)), format!("No meeting minutes with id {}.", meeting_id))
+        conn.delete(
+            &Delete::new(Self::table_name()).filter(&format!("id = {}", meeting_id)),
+            format!("No meeting minutes with id {}.", meeting_id),
+        )
     }
 
     pub fn to_json(&self, can_view_private: bool) -> Value {

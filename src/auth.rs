@@ -1,7 +1,10 @@
-use db::{DbConn, member::{MemberForSemester, MemberPermission}};
+use db::{
+    member::{MemberForSemester, MemberPermission},
+    DbConn,
+};
 use error::{GreaseError, GreaseResult};
-use routes::from_url::parse_url;
 use extract::Extract;
+use routes::from_url::parse_url;
 
 pub struct User {
     pub member: MemberForSemester,

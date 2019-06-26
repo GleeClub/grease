@@ -14,6 +14,8 @@ pub mod minutes;
 pub mod misc;
 pub mod semester;
 pub mod song;
+#[cfg(test)]
+pub mod testing;
 pub mod transaction;
 
 // CREATE TABLE member (
@@ -35,7 +37,9 @@ pub mod transaction;
 //   conflicts varchar(500) DEFAULT NULL,
 //   dietary_restrictions varchar(500) DEFAULT NULL
 // ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Debug)]
+#[derive(
+    TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Debug, PartialEq, Clone,
+)]
 #[table_name = "member"]
 pub struct Member {
     pub email: String,
@@ -167,7 +171,7 @@ pub struct EventType {
 //   FOREIGN KEY (`type`) REFERENCES event_type (name) ON UPDATE CASCADE ON DELETE CASCADE,
 //   FOREIGN KEY (section) REFERENCES section_type (name) ON UPDATE CASCADE ON DELETE SET NULL
 // ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Debug)]
+#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Debug, Clone)]
 #[table_name = "event"]
 pub struct Event {
     pub id: i32,
@@ -233,7 +237,7 @@ pub struct EventUpdate {
     pub section: Option<String>,
     // gig fields
     pub performance_time: Option<NaiveDateTime>,
-    pub uniform: Option<String>,
+    pub uniform: Option<i32>,
     #[serde(deserialize_with = "deserialize_optional_string")]
     pub contact_name: Option<String>,
     #[serde(deserialize_with = "deserialize_optional_string")]
@@ -259,7 +263,7 @@ pub struct EventUpdate {
 //   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
 //   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE
 // ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
+#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Clone)]
 #[table_name = "absence_request"]
 pub struct AbsenceRequest {
     pub member: String,
@@ -295,7 +299,7 @@ pub enum AbsenceRequestState {
 //   FOREIGN KEY (semester) REFERENCES semester (name) ON DELETE CASCADE ON UPDATE CASCADE,
 //   FOREIGN KEY (section) REFERENCES section_type (name) ON DELETE CASCADE ON UPDATE CASCADE
 // ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable)]
+#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, PartialEq, Debug)]
 #[table_name = "active_semester"]
 pub struct ActiveSemester {
     pub member: String,
@@ -353,7 +357,7 @@ pub struct NewAnnouncement {
 //   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
 //   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE
 // ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Debug)]
+#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Debug, PartialEq)]
 #[table_name = "attendance"]
 pub struct Attendance {
     pub member: String,
@@ -396,7 +400,7 @@ pub struct UpdatedCarpool {
 
 // CREATE TABLE fee (
 //   name varchar(16) NOT NULL PRIMARY KEY,
-//   description varchar(40) NOT NULL PRIMARY KEY,
+//   description varchar(40) NOT NULL,
 //   amount int NOT NULL DEFAULT '0'
 // ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -419,13 +423,15 @@ pub struct GoogleDoc {
 }
 
 // CREATE TABLE uniform (
-//   name varchar(32) NOT NULL PRIMARY KEY,
+//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+//   name varchar(32) NOT NULL,
 //   color varchar(4) DEFAULT NULL,
 //   description text DEFAULT NULL
 // ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Extract)]
 #[table_name = "uniform"]
 pub struct Uniform {
+    pub id: i32,
     pub name: String,
     #[serde(deserialize_with = "deserialize_optional_string")]
     pub color: Option<String>,
@@ -436,7 +442,7 @@ pub struct Uniform {
 // CREATE TABLE gig (
 //   event int NOT NULL PRIMARY KEY,
 //   performance_time datetime NOT NULL,
-//   uniform varchar(32) NOT NULL,
+//   uniform int NOT NULL,
 //   contact_name varchar(50) DEFAULT NULL,
 //   contact_email varchar(50) DEFAULT NULL,
 //   contact_phone varchar(16) DEFAULT NULL,
@@ -446,14 +452,14 @@ pub struct Uniform {
 //   description text DEFAULT NULL,
 
 //   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (uniform) REFERENCES uniform (name) ON DELETE CASCADE ON UPDATE CASCADE
+//   FOREIGN KEY (uniform) REFERENCES uniform (id) ON DELETE CASCADE ON UPDATE CASCADE
 // ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "gig"]
 pub struct Gig {
     pub event: i32,
     pub performance_time: NaiveDateTime,
-    pub uniform: String,
+    pub uniform: i32,
     #[serde(deserialize_with = "deserialize_optional_string")]
     pub contact_name: Option<String>,
     #[serde(deserialize_with = "deserialize_optional_string")]
@@ -472,7 +478,7 @@ pub struct Gig {
 #[table_name = "gig"]
 pub struct NewGig {
     pub performance_time: NaiveDateTime,
-    pub uniform: String,
+    pub uniform: i32,
     #[serde(deserialize_with = "deserialize_optional_string")]
     pub contact_name: Option<String>,
     #[serde(deserialize_with = "deserialize_optional_string")]

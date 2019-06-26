@@ -123,8 +123,8 @@ pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (POST)   [/gig_requests/(id: i32)/reopen] => reopen_gig_request,
         (POST)   [/gig_requests/(id: i32)/create_event] => create_event_from_gig_request,
         // variables
-        (GET)    [/variable/(key: String)] => get_variable,
-        (POST)   [/variable/(key: String)/(value: String)] => set_variable,
+        (GET)    [/variables/(key: String)] => get_variable,
+        (POST)   [/variables/(key: String)/(value: String)] => set_variable,
         // announcements
         (GET)    [/announcements/(id: i32)] => get_announcement,
         (GET)    [/announcements?(all: Option<bool>)] => get_announcements,
@@ -144,11 +144,11 @@ pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (GET)    [/meeting_minutes/(id: i32)/email] => send_minutes_as_email,
         (DELETE) [/meeting_minutes/(id: i32)] => delete_meeting_minutes,
         // uniforms
-        (GET)    [/uniform/(name: String)] => get_uniform,
-        (GET)    [/uniform] => get_uniforms,
-        (POST)   [/uniform] => new_uniform,
-        (POST)   [/uniform/(name: String)] => modify_uniform,
-        (DELETE) [/uniform/(name: String)] => delete_uniform,
+        (GET)    [/uniforms/(id: i32)] => get_uniform,
+        (GET)    [/uniforms] => get_uniforms,
+        (POST)   [/uniforms] => new_uniform,
+        (POST)   [/uniforms/(id: i32)] => modify_uniform,
+        (DELETE) [/uniforms/(id: i32)] => delete_uniform,
         // todos
         (GET)    [/todos] => get_todos,
         (POST)   [/todos] => add_todo_for_members,

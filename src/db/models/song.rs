@@ -1,23 +1,25 @@
-use db::*;
 use crate::error::*;
-use util::check_for_music_file;
+use db::*;
 use pinto::query_builder::*;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
+use util::check_for_music_file;
 
 impl Song {
     pub fn load<C: Connection>(song_id: i32, conn: &mut C) -> GreaseResult<Song> {
-        conn.first(&Self::filter(&format!("id = {}", song_id)), format!("No song with id {}.", song_id))
+        conn.first(
+            &Self::filter(&format!("id = {}", song_id)),
+            format!("No song with id {}.", song_id),
+        )
     }
 
     pub fn load_with_data<C: Connection>(song_id: i32, conn: &mut C) -> GreaseResult<SongData> {
         let song = Song::load(song_id, conn)?;
         let song_links = conn.load::<SongLink>(
-            SongLink::filter(&format!("song = {}", song_id))
-                .order_by("name", Order::Asc)
+            SongLink::filter(&format!("song = {}", song_id)).order_by("name", Order::Asc),
         )?;
 
         let mut sorted_links = song_links
@@ -27,7 +29,8 @@ impl Song {
                 section.push(song_link);
                 map
             });
-        let media_types = conn.load::<MediaType>(&MediaType::select_all_in_order("`order`", Order::Asc))?;
+        let media_types =
+            conn.load::<MediaType>(&MediaType::select_all_in_order("`order`", Order::Asc))?;
         let links = media_types
             .into_iter()
             .map(|media_type| {
@@ -70,7 +73,11 @@ impl Song {
         new_song.insert_returning_id(conn)
     }
 
-    pub fn update<C: Connection>(song_id: i32, updated_song: &Song, conn: &mut C) -> GreaseResult<()> {
+    pub fn update<C: Connection>(
+        song_id: i32,
+        updated_song: &Song,
+        conn: &mut C,
+    ) -> GreaseResult<()> {
         conn.update(
             Update::new(Self::table_name())
                 .filter(&format!("id = {}", song_id))
@@ -84,7 +91,11 @@ impl Song {
         )
     }
 
-    pub fn set_current_status<C: Connection>(song_id: i32, is_current: bool, conn: &mut C) -> GreaseResult<()> {
+    pub fn set_current_status<C: Connection>(
+        song_id: i32,
+        is_current: bool,
+        conn: &mut C,
+    ) -> GreaseResult<()> {
         conn.update(
             Update::new(Self::table_name())
                 .filter(&format!("id = {}", song_id))
@@ -95,28 +106,43 @@ impl Song {
 
     pub fn delete<C: Connection>(song_id: i32, conn: &mut C) -> GreaseResult<()> {
         conn.delete(
-            Delete::new(Self::table_name())
-                .filter(&format!("id = {}", song_id)),
+            Delete::new(Self::table_name()).filter(&format!("id = {}", song_id)),
             format!("No song with id {}.", song_id),
         )
     }
 }
 
+// TODO: handle remote vs local media types
+// TODO: check if the file would be overwritten
 impl SongLink {
     pub fn load<C: Connection>(link_id: i32, conn: &mut C) -> GreaseResult<SongLink> {
-        conn.first(&Self::filter(&format!("id = {}", link_id)), format!("no song link with id {}", link_id))
-    }
-
-    pub fn load_all_with_types<C: Connection>(conn: &mut C) -> GreaseResult<Vec<(SongLink, MediaType)>> {
-        conn.load_as::<SongLinkWithTypeRow, (SongLink, MediaType)>(
-            Select::new(Self::table_name())
-                .join(MediaType::table_name(), "type", "media_type.name", Join::Inner)
-                .fields(SongLinkWithTypeRow::field_names())
-                .order_by("song_link.name, `order`", Order::Asc)
+        conn.first(
+            &Self::filter(&format!("id = {}", link_id)),
+            format!("no song link with id {}", link_id),
         )
     }
 
-    pub fn create<C: Connection>(song_id: i32, new_link: NewSongLink, conn: &mut C) -> GreaseResult<i32> {
+    pub fn load_all_with_types<C: Connection>(
+        conn: &mut C,
+    ) -> GreaseResult<Vec<(SongLink, MediaType)>> {
+        conn.load_as::<SongLinkWithTypeRow, (SongLink, MediaType)>(
+            Select::new(Self::table_name())
+                .join(
+                    MediaType::table_name(),
+                    "type",
+                    "media_type.name",
+                    Join::Inner,
+                )
+                .fields(SongLinkWithTypeRow::field_names())
+                .order_by("song_link.name, `order`", Order::Asc),
+        )
+    }
+
+    pub fn create<C: Connection>(
+        song_id: i32,
+        new_link: NewSongLink,
+        conn: &mut C,
+    ) -> GreaseResult<i32> {
         let target = check_for_music_file(
             &utf8_percent_encode(&new_link.target, DEFAULT_ENCODE_SET).to_string(),
         )?;
@@ -126,16 +152,13 @@ impl SongLink {
                 .set("song", &to_value(&song_id))
                 .set("type", &to_value(&new_link.type_))
                 .set("name", &to_value(&new_link.name))
-                .set("target", &to_value(&target))
+                .set("target", &to_value(&target)),
         )
     }
 
     pub fn delete<C: Connection>(link_id: i32, conn: &mut C) -> GreaseResult<()> {
         let link = Self::load(link_id, conn)?;
-        conn.delete_opt(
-            Delete::new(Self::table_name())
-                .filter(&format!("id = {}", link_id))
-        )?;
+        conn.delete_opt(Delete::new(Self::table_name()).filter(&format!("id = {}", link_id)))?;
 
         let file_name =
             PathBuf::from_str(&format!("./music/{}", &link.target)).map_err(|_err| {
@@ -156,7 +179,11 @@ impl SongLink {
         Ok(())
     }
 
-    pub fn update(link_id: i32, updated_link: SongLinkUpdate, conn: &mut DbConn) -> GreaseResult<()> {
+    pub fn update(
+        link_id: i32,
+        updated_link: SongLinkUpdate,
+        conn: &mut DbConn,
+    ) -> GreaseResult<()> {
         let old_link = Self::load(link_id, conn)?;
         let new_target = utf8_percent_encode(&updated_link.target, DEFAULT_ENCODE_SET).to_string();
 

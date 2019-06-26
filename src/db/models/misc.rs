@@ -5,7 +5,10 @@ use util::random_base64;
 
 impl GoogleDoc {
     pub fn load<C: Connection>(doc_name: &str, conn: &mut C) -> GreaseResult<GoogleDoc> {
-        conn.first(&Self::filter(&format!("name = '{}'", doc_name)), format!("No google doc named '{}'.", doc_name))
+        conn.first(
+            &Self::filter(&format!("name = '{}'", doc_name)),
+            format!("No google doc named '{}'.", doc_name),
+        )
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<GoogleDoc>> {
@@ -16,7 +19,11 @@ impl GoogleDoc {
         new_doc.insert(conn)
     }
 
-    pub fn update<C: Connection>(old_name: &str, changed_doc: &GoogleDoc, conn: &mut C) -> GreaseResult<()> {
+    pub fn update<C: Connection>(
+        old_name: &str,
+        changed_doc: &GoogleDoc,
+        conn: &mut C,
+    ) -> GreaseResult<()> {
         conn.update(
             Update::new(Self::table_name())
                 .filter(&format!("name = '{}'", old_name))
@@ -27,13 +34,19 @@ impl GoogleDoc {
     }
 
     pub fn delete<C: Connection>(name: &str, conn: &mut C) -> GreaseResult<()> {
-        conn.delete(Delete::new(Self::table_name()).filter(&format!("name = '{}'", name)), format!("No google doc named '{}'.", name))
+        conn.delete(
+            Delete::new(Self::table_name()).filter(&format!("name = '{}'", name)),
+            format!("No google doc named '{}'.", name),
+        )
     }
 }
 
 impl Announcement {
     pub fn load<C: Connection>(announcement_id: i32, conn: &mut C) -> GreaseResult<Announcement> {
-        conn.first(&Self::filter(&format!("id = {}", announcement_id)), format!("No announcement with id {}.", announcement_id))
+        conn.first(
+            &Self::filter(&format!("id = {}", announcement_id)),
+            format!("No announcement with id {}.", announcement_id),
+        )
     }
 
     pub fn insert<C: Connection>(
@@ -46,7 +59,7 @@ impl Announcement {
             Insert::new(Self::table_name())
                 .set("member", &to_value(member))
                 .set("semester", &to_value(semester))
-                .set("content", &to_value(new_content))
+                .set("content", &to_value(new_content)),
         )
     }
 
@@ -62,7 +75,7 @@ impl Announcement {
             Self::select_all()
                 .filter(&format!("semester = '{}'", semester))
                 .filter("archived = false")
-                .order_by("time", Order::Desc)
+                .order_by("time", Order::Desc),
         )
     }
 
@@ -71,36 +84,42 @@ impl Announcement {
             Update::new(Self::table_name())
                 .filter(&format!("id = {}", announcement_id))
                 .set("archived", "true"),
-            format!("No announcement with id {}.", announcement_id)
+            format!("No announcement with id {}.", announcement_id),
         )
     }
 }
 
 impl Uniform {
-    pub fn load<C: Connection>(name: &str, conn: &mut C) -> GreaseResult<Uniform> {
-        conn.first(&Self::filter(&format!("name = '{}'", name)), format!("No uniform named {}.", name))
+    pub fn load<C: Connection>(id: i32, conn: &mut C) -> GreaseResult<Uniform> {
+        conn.first(
+            &Self::filter(&format!("id = {}", id)),
+            format!("No uniform with id {}.", id),
+        )
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Uniform>> {
         conn.load(&Self::select_all_in_order("name", Order::Asc))
     }
 
-    pub fn update<C: Connection>(old_name: &str, updated: &Uniform, conn: &mut C) -> GreaseResult<()> {
+    pub fn update<C: Connection>(
+        id: i32,
+        updated: &Uniform,
+        conn: &mut C,
+    ) -> GreaseResult<()> {
         conn.update(
             Update::new(Self::table_name())
-                .filter(&format!("name = '{}'", old_name))
+                .filter(&format!("id = {}", id))
                 .set("name", &to_value(&updated.name))
                 .set("color", &to_value(&updated.color))
                 .set("description", &to_value(&updated.description)),
-            format!("No uniform named {}.", old_name),
+            format!("No uniform with id {}.", id),
         )
     }
 
-    pub fn delete<C: Connection>(name: &str, conn: &mut C) -> GreaseResult<()> {
+    pub fn delete<C: Connection>(id: i32, conn: &mut C) -> GreaseResult<()> {
         conn.delete(
-            Delete::new(Self::table_name())
-                .filter(&format!("name = '{}'", name)),
-            format!("No uniform named {}.", name)
+            Delete::new(Self::table_name()).filter(&format!("id = {}", id)),
+            format!("No uniform with id {}.", id),
         )
     }
 
@@ -126,7 +145,10 @@ impl Uniform {
 
 impl MediaType {
     pub fn load<C: Connection>(type_name: &str, conn: &mut C) -> GreaseResult<MediaType> {
-        conn.first(&Self::filter(&format!("name = '{}'", type_name)), format!("No media type named {}.", type_name))
+        conn.first(
+            &Self::filter(&format!("name = '{}'", type_name)),
+            format!("No media type named {}.", type_name),
+        )
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<MediaType>> {
@@ -136,7 +158,7 @@ impl MediaType {
 
 impl Variable {
     pub fn load<C: Connection>(key: &str, conn: &mut C) -> GreaseResult<Option<Variable>> {
-        conn.first_opt(&Self::filter(&format!("`key` = '{}'",  key)))
+        conn.first_opt(&Self::filter(&format!("`key` = '{}'", key)))
     }
 
     pub fn set<C: Connection>(
@@ -148,7 +170,7 @@ impl Variable {
             conn.update_opt(
                 Update::new(Self::table_name())
                     .filter(&format!("`key` = '{}'", &key))
-                    .set("value", &value)
+                    .set("value", &value),
             )?;
 
             Ok(Some(variable.value))
@@ -162,9 +184,8 @@ impl Variable {
 
     pub fn unset<C: Connection>(key: &str, conn: &mut C) -> GreaseResult<()> {
         conn.delete(
-            Delete::new(Self::table_name())
-                .filter(&format!("`key` = '{}'", key)),
-            format!("No variable with key {}.", key)
+            Delete::new(Self::table_name()).filter(&format!("`key` = '{}'", key)),
+            format!("No variable with key {}.", key),
         )
     }
 }
@@ -176,9 +197,8 @@ impl Session {
 
     pub fn delete<C: Connection>(email: &str, conn: &mut C) -> GreaseResult<()> {
         conn.delete(
-            Delete::new(Self::table_name())
-                .filter(&format!("member = '{}'", email)),
-            format!("No session for member {}.", email)
+            Delete::new(Self::table_name()).filter(&format!("member = '{}'", email)),
+            format!("No session for member {}.", email),
         )
     }
 
@@ -193,7 +213,10 @@ impl Session {
 }
 
 impl GigSong {
-    pub fn load_for_event<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<Vec<GigSong>> {
+    pub fn load_for_event<C: Connection>(
+        event_id: i32,
+        conn: &mut C,
+    ) -> GreaseResult<Vec<GigSong>> {
         conn.load(&Self::filter(&format!("event = {}", event_id)).order_by("`order`", Order::Asc))
     }
 
@@ -213,7 +236,9 @@ impl GigSong {
             .collect::<Vec<GigSong>>();
 
         conn.transaction(|transaction| {
-            transaction.delete_opt(&Delete::new(Self::table_name()).filter(&format!("event = {}", event_id)))?;
+            transaction.delete_opt(
+                &Delete::new(Self::table_name()).filter(&format!("event = {}", event_id)),
+            )?;
             for gig_song in &gig_songs {
                 gig_song.insert(transaction)?;
             }
@@ -225,11 +250,20 @@ impl GigSong {
 
 impl Todo {
     pub fn load<C: Connection>(todo_id: i32, conn: &mut C) -> GreaseResult<Todo> {
-        conn.first(&Self::filter(&format!("id = {}", todo_id)), format!("No todo with id {}.", todo_id))
+        conn.first(
+            &Self::filter(&format!("id = {}", todo_id)),
+            format!("No todo with id {}.", todo_id),
+        )
     }
 
-    pub fn load_all_for_member<C: Connection>(member: &str, conn: &mut C) -> GreaseResult<Vec<Todo>> {
-        conn.load(&Self::filter(&format!("member = '{}' AND completed = true", member)))
+    pub fn load_all_for_member<C: Connection>(
+        member: &str,
+        conn: &mut C,
+    ) -> GreaseResult<Vec<Todo>> {
+        conn.load(&Self::filter(&format!(
+            "member = '{}' AND completed = true",
+            member
+        )))
     }
 
     pub fn create(new_todo: NewTodo, conn: &mut DbConn) -> GreaseResult<()> {
@@ -263,9 +297,14 @@ impl RolePermission {
         event_type: &Option<String>,
         conn: &mut C,
     ) -> GreaseResult<()> {
-        if conn.first_opt::<RolePermission>(&Self::filter(&format!(
-            "role = '{}' AND permission = '{}' AND event_type = '{}'",
-            role, permission, to_value(&event_type))))?.is_some()
+        if conn
+            .first_opt::<RolePermission>(&Self::filter(&format!(
+                "role = '{}' AND permission = '{}' AND event_type = '{}'",
+                role,
+                permission,
+                to_value(&event_type)
+            )))?
+            .is_some()
         {
             Ok(())
         } else {
@@ -273,7 +312,7 @@ impl RolePermission {
                 Insert::new(Self::table_name())
                     .set("role", &to_value(role))
                     .set("permission", &to_value(permission))
-                    .set("event_type", &to_value(event_type))
+                    .set("event_type", &to_value(event_type)),
             )
         }
     }
@@ -288,7 +327,7 @@ impl RolePermission {
             Delete::new(Self::table_name())
                 .filter(&format!("role = '{}'", role))
                 .filter(&format!("permission = '{}'", permission))
-                .filter(&format!("event_type = {}", to_value(event_type)))
+                .filter(&format!("event_type = {}", to_value(event_type))),
         )
     }
 }
@@ -299,7 +338,7 @@ impl MemberRole {
             Select::new(MemberRole::table_name())
                 .join(Member::table_name(), "member", "email", Join::Inner)
                 .join(Role::table_name(), "role", "name", Join::Inner)
-                .fields(MemberWithRoleRow::field_names())
+                .fields(MemberWithRoleRow::field_names()),
         )
     }
 }

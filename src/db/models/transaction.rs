@@ -4,7 +4,10 @@ use error::*;
 use pinto::query_builder::*;
 
 impl Transaction {
-    pub fn load_all_for_member<C: Connection>(member: &str, conn: &mut C) -> GreaseResult<Vec<Transaction>> {
+    pub fn load_all_for_member<C: Connection>(
+        member: &str,
+        conn: &mut C,
+    ) -> GreaseResult<Vec<Transaction>> {
         conn.load(Self::filter(&format!("member = '{}'", member)).order_by("time", Order::Asc))
     }
 
@@ -13,13 +16,22 @@ impl Transaction {
         semester: &str,
         conn: &mut C,
     ) -> GreaseResult<Vec<Transaction>> {
-        conn.load(Self::filter(&format!("semester = '{}' AND `type` = '{}'", semester, type_)).order_by("time", Order::Asc))
+        conn.load(
+            Self::filter(&format!(
+                "semester = '{}' AND `type` = '{}'",
+                semester, type_
+            ))
+            .order_by("time", Order::Asc),
+        )
     }
 }
 
 impl Fee {
     pub fn load<C: Connection>(name: &str, conn: &mut C) -> GreaseResult<Fee> {
-        conn.first(&Self::filter(&format!("name = '{}'", name)), format!("No fee with name {}.", name))
+        conn.first(
+            &Self::filter(&format!("name = '{}'", name)),
+            format!("No fee with name {}.", name),
+        )
     }
 
     pub fn charge_for_the_semester(&self, conn: &mut DbConn) -> GreaseResult<()> {
@@ -28,7 +40,10 @@ impl Fee {
             let transaction_type = match self.name.as_str() {
                 "dues" | "latedues" => "Dues".to_owned(),
                 other => db_transaction
-                    .first_opt::<TransactionType>(&TransactionType::filter(&format!("name = '{}'", other)))?
+                    .first_opt::<TransactionType>(&TransactionType::filter(&format!(
+                        "name = '{}'",
+                        other
+                    )))?
                     .map(|type_| type_.name)
                     .unwrap_or("Other".to_owned()),
             };
@@ -71,12 +86,16 @@ impl Fee {
         conn.load(&Fee::select_all_in_order("name", Order::Asc))
     }
 
-    pub fn update_amount<C: Connection>(name: &str, new_amount: i32, conn: &mut C) -> GreaseResult<()> {
+    pub fn update_amount<C: Connection>(
+        name: &str,
+        new_amount: i32,
+        conn: &mut C,
+    ) -> GreaseResult<()> {
         conn.update(
             Update::new(Self::table_name())
                 .filter(&format!("name = '{}'", name))
                 .set("amount", &new_amount.to_string()),
-            format!("No fee with name {}.", name)
+            format!("No fee with name {}.", name),
         )
     }
 }

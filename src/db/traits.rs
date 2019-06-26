@@ -1,6 +1,6 @@
-use pinto::query_builder::*;
 use db::connection::Connection;
 use error::GreaseResult;
+use pinto::query_builder::*;
 
 pub trait TableName {
     fn table_name() -> &'static str;
@@ -21,8 +21,7 @@ pub trait Insertable: TableName + Sized {
 pub trait Selectable: TableName + FieldNames + mysql::prelude::FromRow + Sized {
     fn filter<'a>(filter: &'a str) -> Select<'a> {
         let mut query = Select::new(Self::table_name());
-            query.fields(Self::field_names())
-            .filter(filter);
+        query.fields(Self::field_names()).filter(filter);
 
         query
     }
@@ -36,7 +35,8 @@ pub trait Selectable: TableName + FieldNames + mysql::prelude::FromRow + Sized {
 
     fn select_all_in_order<'a>(field_name: &'a str, direction: Order) -> Select<'a> {
         let mut query = Select::new(Self::table_name());
-        query.fields(Self::field_names())
+        query
+            .fields(Self::field_names())
             .order_by(field_name, direction);
 
         query

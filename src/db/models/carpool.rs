@@ -5,25 +5,29 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 impl Carpool {
-    pub fn load_for_event<C: Connection>(given_event_id: i32, conn: &mut C) -> GreaseResult<Vec<EventCarpool>> {
+    pub fn load_for_event<C: Connection>(
+        given_event_id: i32,
+        conn: &mut C,
+    ) -> GreaseResult<Vec<EventCarpool>> {
         let carpool_driver_pairs = conn.load_as::<CarpoolMemberRow, (Carpool, Member)>(
             Select::new(Self::table_name())
                 .join(Member::table_name(), "member", "email", Join::Inner)
                 .fields(CarpoolMemberRow::field_names())
                 .filter(&format!("event = {}", given_event_id))
-                .order_by("id", Order::Asc)
+                .order_by("id", Order::Asc),
         )?;
 
         let passenger_pairs = conn.load_as::<RidesInMemberRow, (RidesIn, Member)>(
             Select::new(RidesIn::table_name())
                 .join(Member::table_name(), "member", "email", Join::Inner)
                 .fields(RidesInMemberRow::field_names())
-                .filter(&format!("event = ({})",
+                .filter(&format!(
+                    "event = ({})",
                     Select::new(RidesIn::table_name())
                         .fields(&["id"])
                         .filter(&format!("event = {}", given_event_id))
                         .build(),
-                ))
+                )),
         )?;
 
         let mut carpools = carpool_driver_pairs
@@ -44,6 +48,7 @@ impl Carpool {
         Ok(carpools)
     }
 
+    // TODO: check for driver capacity
     pub fn update_for_event(
         given_event_id: i32,
         mut updated_carpools: Vec<UpdatedCarpool>,
@@ -90,14 +95,10 @@ impl Carpool {
                 );
 
         conn.transaction(move |transaction| {
-            transaction.delete_opt(
-                Delete::new(RidesIn::table_name())
-                    .filter(&format!("carpool = ({})",
-                        Select::new(Carpool::table_name())
-                            .fields(&["id"])
-                            .build(),
-                    ))
-            )?;
+            transaction.delete_opt(Delete::new(RidesIn::table_name()).filter(&format!(
+                "carpool = ({})",
+                Select::new(Carpool::table_name()).fields(&["id"]).build(),
+            )))?;
 
             for new_carpool in &new_carpools {
                 new_carpool.insert(transaction)?;
@@ -106,7 +107,7 @@ impl Carpool {
                 Select::new(Carpool::table_name())
                     .fields(&["id"])
                     .order_by("id", Order::Desc)
-                    .limit(new_carpools.len())
+                    .limit(new_carpools.len()),
             )?;
 
             updated_carpools

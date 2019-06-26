@@ -128,8 +128,8 @@ pub fn delete_meeting_minutes(id: i32, mut user: User) -> GreaseResult<Value> {
     MeetingMinutes::delete(id, &mut user.conn).map(|_| basic_success())
 }
 
-pub fn get_uniform(name: String, mut user: User) -> GreaseResult<Value> {
-    Uniform::load(&name, &mut user.conn).map(|uniform| json!(uniform))
+pub fn get_uniform(id: i32, mut user: User) -> GreaseResult<Value> {
+    Uniform::load(id, &mut user.conn).map(|uniform| json!(uniform))
 }
 
 pub fn get_uniforms(mut user: User) -> GreaseResult<Value> {
@@ -139,23 +139,24 @@ pub fn get_uniforms(mut user: User) -> GreaseResult<Value> {
 pub fn new_uniform((mut user, new_uniform): (User, Uniform)) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-uniforms");
     new_uniform.validate()?;
-    new_uniform.insert(&mut user.conn)?;
-
-    Ok(basic_success())
+    new_uniform.insert_returning_id(&mut user.conn)
+        .map(|new_id| json!({
+            "id": new_id
+        }))
 }
 
 pub fn modify_uniform(
-    old_name: String,
+    id: i32,
     (mut user, changed_uniform): (User, Uniform),
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-uniforms");
     changed_uniform.validate()?;
-    Uniform::update(&old_name, &changed_uniform, &mut user.conn).map(|_| basic_success())
+    Uniform::update(id, &changed_uniform, &mut user.conn).map(|_| basic_success())
 }
 
-pub fn delete_uniform(name: String, mut user: User) -> GreaseResult<Value> {
+pub fn delete_uniform(id: i32, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-uniforms");
-    Uniform::delete(&name, &mut user.conn).map(|_| basic_success())
+    Uniform::delete(id, &mut user.conn).map(|_| basic_success())
 }
 
 pub fn get_semester(name: String, mut user: User) -> GreaseResult<Value> {
@@ -193,12 +194,14 @@ pub fn delete_semester(name: String, confirm: Option<bool>, mut user: User) -> G
 }
 
 pub fn get_permissions(mut user: User) -> GreaseResult<Value> {
-    user.conn.load::<Permission>(&Permission::select_all_in_order("name", Order::Asc))
+    user.conn
+        .load::<Permission>(&Permission::select_all_in_order("name", Order::Asc))
         .map(|permissions| json!(permissions))
 }
 
 pub fn get_roles(mut user: User) -> GreaseResult<Value> {
-    user.conn.load::<Role>(&Role::select_all_in_order("rank", Order::Asc))
+    user.conn
+        .load::<Role>(&Role::select_all_in_order("rank", Order::Asc))
         .map(|roles| json!(roles))
 }
 
@@ -230,7 +233,8 @@ pub fn member_permissions(member: String, mut user: User) -> GreaseResult<Value>
 }
 
 pub fn get_current_role_permissions(mut user: User) -> GreaseResult<Value> {
-    user.conn.load::<RolePermission>(&RolePermission::select_all())
+    user.conn
+        .load::<RolePermission>(&RolePermission::select_all())
         .map(|role_permissions| json!(role_permissions))
 }
 
@@ -277,7 +281,7 @@ pub fn add_officership((member_role, mut user): (MemberRole, User)) -> GreaseRes
             "member {} already has that position",
             &member_role.member
         )))
-    } else if member_role_pairs
+    } else if given_role.max_quantity > 0 && member_role_pairs
         .iter()
         .filter(|(_member, role)| role.name == given_role.name)
         .count()
@@ -297,12 +301,14 @@ pub fn add_officership((member_role, mut user): (MemberRole, User)) -> GreaseRes
 pub fn remove_officership((member_role, mut user): (MemberRole, User)) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-officers");
     user.conn.delete(
-        Delete::new(MemberRole::table_name())
-            .filter(&format!(
+        Delete::new(MemberRole::table_name()).filter(&format!(
             "member = '{}' AND role = '{}'",
             member_role.member, member_role.role
         )),
-        format!("Member {} does not hold the {} position.", member_role.member, member_role.role),
+        format!(
+            "Member {} does not hold the {} position.",
+            member_role.member, member_role.role
+        ),
     )?;
 
     Ok(basic_success())
@@ -330,7 +336,8 @@ pub fn add_transactions(
 }
 
 pub fn get_transaction_types(mut user: User) -> GreaseResult<Value> {
-    user.conn.load::<TransactionType>(&TransactionType::select_all_in_order("name", Order::Asc))
+    user.conn
+        .load::<TransactionType>(&TransactionType::select_all_in_order("name", Order::Asc))
         .map(|types| json!(types))
 }
 
