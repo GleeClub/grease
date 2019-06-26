@@ -1,6 +1,5 @@
 extern crate lazy_static;
 
-use serde_json::Value;
 use self::lazy_static::lazy_static;
 use super::member::MemberForSemester;
 use super::*;

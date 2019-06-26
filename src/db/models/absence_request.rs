@@ -178,9 +178,7 @@ mod tests {
             ),
         ]);
 
-        assert_eq!(
-            AbsenceRequest::approve(&member.email, event.id, &mut conn),
-            Ok(())
-        );
+        let result = AbsenceRequest::approve(&member.email, event.id, &mut conn);
+        conn.compare_result(result, Ok(()));
     }
 }
