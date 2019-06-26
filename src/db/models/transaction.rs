@@ -8,7 +8,7 @@ impl Transaction {
         member: &str,
         conn: &mut C,
     ) -> GreaseResult<Vec<Transaction>> {
-        conn.load(Self::filter(&format!("member = '{}'", member)).order_by("time", Order::Asc))
+        conn.load(Transaction::filter(&format!("member = '{}'", member)).order_by("time", Order::Asc))
     }
 
     pub fn load_all_of_type_for_semester<C: Connection>(
@@ -17,7 +17,7 @@ impl Transaction {
         conn: &mut C,
     ) -> GreaseResult<Vec<Transaction>> {
         conn.load(
-            Self::filter(&format!(
+            Transaction::filter(&format!(
                 "semester = '{}' AND `type` = '{}'",
                 semester, type_
             ))
@@ -29,7 +29,7 @@ impl Transaction {
 impl Fee {
     pub fn load<C: Connection>(name: &str, conn: &mut C) -> GreaseResult<Fee> {
         conn.first(
-            &Self::filter(&format!("name = '{}'", name)),
+            &Fee::filter(&format!("name = '{}'", name)),
             format!("No fee with name {}.", name),
         )
     }
@@ -92,7 +92,7 @@ impl Fee {
         conn: &mut C,
     ) -> GreaseResult<()> {
         conn.update(
-            Update::new(Self::table_name())
+            Update::new(Fee::table_name())
                 .filter(&format!("name = '{}'", name))
                 .set("amount", &new_amount.to_string()),
             format!("No fee with name {}.", name),

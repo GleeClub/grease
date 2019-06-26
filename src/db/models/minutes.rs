@@ -7,13 +7,13 @@ use serde_json::{json, Value};
 impl MeetingMinutes {
     pub fn load<C: Connection>(meeting_id: i32, conn: &mut C) -> GreaseResult<MeetingMinutes> {
         conn.first(
-            &Self::filter(&format!("id = {}", meeting_id)),
+            &MeetingMinutes::filter(&format!("id = {}", meeting_id)),
             format!("No meeting minutes with id {}.", meeting_id),
         )
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<MeetingMinutes>> {
-        conn.load(&Self::select_all_in_order("date, name", Order::Desc))
+        conn.load(&MeetingMinutes::select_all_in_order("date, name", Order::Desc))
     }
 
     pub fn create<C: Connection>(
@@ -29,7 +29,7 @@ impl MeetingMinutes {
         conn: &mut C,
     ) -> GreaseResult<()> {
         conn.update(
-            &Update::new(Self::table_name())
+            &Update::new(MeetingMinutes::table_name())
                 .filter(&format!("id = {}", meeting_id))
                 .set("name", &to_value(&updated_meeting.name))
                 .set("public", &to_value(&updated_meeting.public))
@@ -40,7 +40,7 @@ impl MeetingMinutes {
 
     pub fn delete<C: Connection>(meeting_id: i32, conn: &mut C) -> GreaseResult<()> {
         conn.delete(
-            &Delete::new(Self::table_name()).filter(&format!("id = {}", meeting_id)),
+            &Delete::new(MeetingMinutes::table_name()).filter(&format!("id = {}", meeting_id)),
             format!("No meeting minutes with id {}.", meeting_id),
         )
     }

@@ -13,7 +13,7 @@ impl Attendance {
         conn: &mut C,
     ) -> GreaseResult<Attendance> {
         conn.first(
-            &Self::filter(&format!("member = '{}' AND event = {}", member, event_id)),
+            &Attendance::filter(&format!("member = '{}' AND event = {}", member, event_id)),
             format!(
                 "Attendance for member {} for event {} not found.",
                 member, event_id
@@ -29,16 +29,16 @@ impl Attendance {
         let _found_event = Event::load(event_id, conn)?;
 
         conn.load_as::<AttendanceMemberRow, (Attendance, MemberForSemester)>(
-            Select::new(Self::table_name())
+            Select::new(Attendance::table_name())
                 .join(
                     Member::table_name(),
-                    &format!("{}.member", Self::table_name()),
+                    &format!("{}.member", Attendance::table_name()),
                     "email",
                     Join::Inner,
                 )
                 .join(
                     ActiveSemester::table_name(),
-                    &format!("{}.member", Self::table_name()),
+                    &format!("{}.member", Attendance::table_name()),
                     &format!("{}.member", ActiveSemester::table_name()),
                     Join::Inner,
                 )
@@ -56,16 +56,16 @@ impl Attendance {
         let _found_event = Event::load(event_id, conn)?;
 
         conn.load_as::<AttendanceMemberRow, (Attendance, MemberForSemester)>(
-            Select::new(Self::table_name())
+            Select::new(Attendance::table_name())
                 .join(
                     Member::table_name(),
-                    &format!("{}.member", Self::table_name()),
+                    &format!("{}.member", Attendance::table_name()),
                     "email",
                     Join::Inner,
                 )
                 .join(
                     ActiveSemester::table_name(),
-                    &format!("{}.member", Self::table_name()),
+                    &format!("{}.member", Attendance::table_name()),
                     &format!("{}.member", ActiveSemester::table_name()),
                     Join::Inner,
                 )
@@ -141,12 +141,13 @@ impl Attendance {
 
     pub fn excuse_unconfirmed<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<()> {
         conn.update_opt(
-            Update::new(Self::table_name())
+            Update::new(Attendance::table_name())
                 .filter(&format!("event = {} AND confirmed = false", event_id))
                 .set("should_attend", "false"),
         )
     }
 
+    // TODO: don't allow updates for inactive members (NO RSVP'ing)
     pub fn update<C: Connection>(
         event_id: i32,
         member: &str,
@@ -154,7 +155,7 @@ impl Attendance {
         conn: &mut C,
     ) -> GreaseResult<()> {
         conn.update(
-            Update::new(Self::table_name())
+            Update::new(Attendance::table_name())
                 .filter(&format!("member = '{}'", member))
                 .filter(&format!("event = {}", event_id))
                 .set("should_attend", &to_value(&attendance_form.should_attend))

@@ -14,7 +14,7 @@ pub struct MemberForSemester {
 impl Member {
     pub fn load<C: Connection>(email: &str, conn: &mut C) -> GreaseResult<Member> {
         conn.first(
-            &Self::filter(&format!("email = '{}'", email)),
+            &Member::filter(&format!("email = '{}'", email)),
             format!("No member with the email {}.", email),
         )
     }
@@ -24,14 +24,14 @@ impl Member {
         pass_hash: &str,
         conn: &mut C,
     ) -> GreaseResult<Option<Member>> {
-        conn.first_opt(&Self::filter(&format!(
+        conn.first_opt(&Member::filter(&format!(
             "email = '{}' AND pass_hash = '{}'",
             email, pass_hash
         )))
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Member>> {
-        conn.load(&Self::select_all_in_order(
+        conn.load(&Member::select_all_in_order(
             "last_name, first_name",
             Order::Asc,
         ))
@@ -587,7 +587,7 @@ impl ActiveSemester {
         semester: &str,
         conn: &mut C,
     ) -> GreaseResult<Option<ActiveSemester>> {
-        conn.first_opt(&Self::filter(&format!(
+        conn.first_opt(&ActiveSemester::filter(&format!(
             "member = '{}' AND semester = '{}'",
             email, semester
         )))
@@ -598,14 +598,14 @@ impl ActiveSemester {
         conn: &mut C,
     ) -> GreaseResult<Vec<ActiveSemester>> {
         conn.load(
-            Select::new(Self::table_name())
+            Select::new(ActiveSemester::table_name())
                 .join(
                     Semester::table_name(),
-                    &format!("{}.semester", Self::table_name()),
+                    &format!("{}.semester", ActiveSemester::table_name()),
                     &format!("{}.name", Semester::table_name()),
                     Join::Inner,
                 )
-                .fields(Self::field_names())
+                .fields(ActiveSemester::field_names())
                 .filter(&format!("member = '{}'", given_email))
                 .order_by("start_date", Order::Desc),
         )
@@ -615,7 +615,7 @@ impl ActiveSemester {
         new_active_semester: &ActiveSemester,
         conn: &mut C,
     ) -> GreaseResult<()> {
-        if let Some(_existing) = Self::load(
+        if let Some(_existing) = ActiveSemester::load(
             &new_active_semester.member,
             &new_active_semester.semester,
             conn,

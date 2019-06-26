@@ -10,7 +10,7 @@ impl Carpool {
         conn: &mut C,
     ) -> GreaseResult<Vec<EventCarpool>> {
         let carpool_driver_pairs = conn.load_as::<CarpoolMemberRow, (Carpool, Member)>(
-            Select::new(Self::table_name())
+            Select::new(Carpool::table_name())
                 .join(Member::table_name(), "member", "email", Join::Inner)
                 .fields(CarpoolMemberRow::field_names())
                 .filter(&format!("event = {}", given_event_id))

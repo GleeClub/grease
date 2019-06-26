@@ -11,7 +11,7 @@ use util::check_for_music_file;
 impl Song {
     pub fn load<C: Connection>(song_id: i32, conn: &mut C) -> GreaseResult<Song> {
         conn.first(
-            &Self::filter(&format!("id = {}", song_id)),
+            &Song::filter(&format!("id = {}", song_id)),
             format!("No song with id {}.", song_id),
         )
     }
@@ -54,7 +54,7 @@ impl Song {
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Song>> {
-        conn.load(&Self::select_all_in_order("title", Order::Asc))
+        conn.load(&Song::select_all_in_order("title", Order::Asc))
     }
 
     pub fn load_all_separate_this_semester<C: Connection>(
@@ -79,7 +79,7 @@ impl Song {
         conn: &mut C,
     ) -> GreaseResult<()> {
         conn.update(
-            Update::new(Self::table_name())
+            Update::new(Song::table_name())
                 .filter(&format!("id = {}", song_id))
                 .set("title", &to_value(&updated_song.title))
                 .set("info", &to_value(&updated_song.info))
@@ -97,7 +97,7 @@ impl Song {
         conn: &mut C,
     ) -> GreaseResult<()> {
         conn.update(
-            Update::new(Self::table_name())
+            Update::new(Song::table_name())
                 .filter(&format!("id = {}", song_id))
                 .set("current", &is_current.to_string()),
             format!("No song with id {}.", song_id),
@@ -106,7 +106,7 @@ impl Song {
 
     pub fn delete<C: Connection>(song_id: i32, conn: &mut C) -> GreaseResult<()> {
         conn.delete(
-            Delete::new(Self::table_name()).filter(&format!("id = {}", song_id)),
+            Delete::new(Song::table_name()).filter(&format!("id = {}", song_id)),
             format!("No song with id {}.", song_id),
         )
     }
@@ -115,7 +115,7 @@ impl Song {
 impl SongLink {
     pub fn load<C: Connection>(link_id: i32, conn: &mut C) -> GreaseResult<SongLink> {
         conn.first(
-            &Self::filter(&format!("id = {}", link_id)),
+            &SongLink::filter(&format!("id = {}", link_id)),
             format!("no song link with id {}", link_id),
         )
     }
@@ -124,7 +124,7 @@ impl SongLink {
         conn: &mut C,
     ) -> GreaseResult<Vec<(SongLink, MediaType)>> {
         conn.load_as::<SongLinkWithTypeRow, (SongLink, MediaType)>(
-            Select::new(Self::table_name())
+            Select::new(SongLink::table_name())
                 .join(
                     MediaType::table_name(),
                     "type",
@@ -151,7 +151,7 @@ impl SongLink {
         };
 
         conn.insert_returning_id(
-            Insert::new(Self::table_name())
+            Insert::new(SongLink::table_name())
                 .set("song", &to_value(&song_id))
                 .set("type", &to_value(&new_link.type_))
                 .set("name", &to_value(&new_link.name))
@@ -160,9 +160,9 @@ impl SongLink {
     }
 
     pub fn delete<C: Connection>(link_id: i32, conn: &mut C) -> GreaseResult<()> {
-        let link = Self::load(link_id, conn)?;
+        let link = SongLink::load(link_id, conn)?;
         let media_type = MediaType::load(&link.type_, conn)?;
-        conn.delete_opt(Delete::new(Self::table_name()).filter(&format!("id = {}", link_id)))?;
+        conn.delete_opt(Delete::new(SongLink::table_name()).filter(&format!("id = {}", link_id)))?;
 
         if media_type.storage == StorageType::Local {
             let file_name =
@@ -190,7 +190,7 @@ impl SongLink {
         updated_link: SongLinkUpdate,
         conn: &mut DbConn,
     ) -> GreaseResult<()> {
-        let old_link = Self::load(link_id, conn)?;
+        let old_link = SongLink::load(link_id, conn)?;
         let media_type = MediaType::load(&old_link.type_, conn)?;
         let new_target = if &media_type.storage == &StorageType::Local {
             utf8_percent_encode(&updated_link.target, DEFAULT_ENCODE_SET).to_string()
@@ -200,7 +200,7 @@ impl SongLink {
 
         conn.transaction(|transaction| {
             transaction.update_opt(
-                Update::new(Self::table_name())
+                Update::new(SongLink::table_name())
                     .filter(&format!("id = {}", link_id))
                     .set("name = '{}'", &updated_link.name)
                     .set("target = '{}'", &new_target)

@@ -9,7 +9,7 @@ impl AbsenceRequest {
         event_id: i32,
         conn: &mut C,
     ) -> GreaseResult<Option<AbsenceRequest>> {
-        conn.first_opt(&Self::filter(&format!(
+        conn.first_opt(&AbsenceRequest::filter(&format!(
             "event = {} AND member = '{}'",
             event_id, member
         )))
@@ -20,7 +20,7 @@ impl AbsenceRequest {
     ) -> GreaseResult<Vec<(AbsenceRequest, Event)>> {
         let current_semester = Semester::load_current(conn)?;
         conn.load_as::<AbsenceRequestEventRow, _>(
-            Select::new(Self::table_name())
+            Select::new(AbsenceRequest::table_name())
                 .join(Event::table_name(), "event", "id", Join::Inner)
                 .fields(AbsenceRequestEventRow::field_names())
                 .filter(&format!("semester = '{}'", &current_semester.name))
@@ -33,7 +33,7 @@ impl AbsenceRequest {
         event_id: i32,
         conn: &mut C,
     ) -> GreaseResult<bool> {
-        conn.first_opt(&Self::filter(&format!(
+        conn.first_opt(&AbsenceRequest::filter(&format!(
             "event = {} AND member = '{}'",
             event_id, member
         )))
@@ -51,7 +51,7 @@ impl AbsenceRequest {
         conn: &mut C,
     ) -> GreaseResult<()> {
         conn.insert(
-            Insert::new(Self::table_name())
+            Insert::new(AbsenceRequest::table_name())
                 .set("member", &format!("'{}'", member))
                 .set("event", &event_id.to_string())
                 .set("reason", &format!("'{}'", reason)),
@@ -67,7 +67,7 @@ impl AbsenceRequest {
         )?;
 
         conn.update_opt(
-            Update::new(Self::table_name())
+            Update::new(AbsenceRequest::table_name())
                 .filter(&format!("event = {} AND member = '{}'", event_id, member))
                 .set("state", &format!("'{}'", AbsenceRequestState::Approved)),
         )
@@ -82,7 +82,7 @@ impl AbsenceRequest {
         )?;
 
         conn.update_opt(
-            Update::new(Self::table_name())
+            Update::new(AbsenceRequest::table_name())
                 .filter(&format!("event = {} AND member = '{}'", event_id, member))
                 .set("state", &format!("'{}'", AbsenceRequestState::Denied)),
         )

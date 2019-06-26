@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 impl Event {
     pub fn load<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<EventWithGig> {
         conn.first(
-            Select::new(Self::table_name())
+            Select::new(Event::table_name())
                 .join(Gig::table_name(), "id", "event", Join::Left)
                 .fields(EventWithGigRow::field_names())
                 .filter(&format!("id = {}", event_id)),
@@ -26,7 +26,7 @@ impl Event {
         let current_semester = Semester::load_current(conn)?;
 
         conn.load_as::<EventWithGigRow, EventWithGig>(
-            Select::new(Self::table_name())
+            Select::new(Event::table_name())
                 .join(Gig::table_name(), "id", "event", Join::Left)
                 .fields(EventWithGigRow::field_names())
                 .filter(&format!("semester = '{}'", &current_semester.name))
@@ -41,7 +41,7 @@ impl Event {
         let current_semester = Semester::load_current(conn)?;
 
         conn.load_as::<EventWithGigRow, EventWithGig>(
-            Select::new(Self::table_name())
+            Select::new(Event::table_name())
                 .join(Gig::table_name(), "id", "event", Join::Left)
                 .fields(EventWithGigRow::field_names())
                 .filter(&format!("semester = '{}'", &current_semester.name))
@@ -100,8 +100,8 @@ impl Event {
         let next_sunday = last_sunday + Duration::days(7);
 
         conn.load(
-            Select::new(Self::table_name())
-                .fields(Self::field_names())
+            Select::new(Event::table_name())
+                .fields(Event::field_names())
                 .filter("type = 'sectional'")
                 .filter(&format!("semester = '{}'", &self.semester))
                 .filter(&format!("call_time > {}", to_value(last_sunday)))
@@ -135,7 +135,7 @@ impl Event {
                 "Must supply a repeat until time if repeat is supplied.".to_owned(),
             ))?;
 
-            Self::repeat_event_times(new_event.call_time, new_event.release_time, period, until)
+            Event::repeat_event_times(new_event.call_time, new_event.release_time, period, until)
         } else {
             vec![(new_event.call_time, new_event.release_time)]
         };
@@ -152,7 +152,7 @@ impl Event {
                 .iter()
                 .map(|(call_time, release_time)| {
                     let new_id = transaction.insert_returning_id(
-                        Insert::new(Self::table_name())
+                        Insert::new(Event::table_name())
                             .set("name", &to_value(&new_event.name))
                             .set("semester", &to_value(&new_event.semester))
                             .set("`type`", &to_value(&new_event.type_))
@@ -345,7 +345,7 @@ impl Event {
 
     pub fn delete<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<()> {
         conn.delete(
-            Delete::new(Self::table_name()).filter(&format!("id = {}", event_id)),
+            Delete::new(Event::table_name()).filter(&format!("id = {}", event_id)),
             format!("No event with id {}.", event_id),
         )
     }
@@ -358,7 +358,7 @@ impl Gig {
         conn: &mut C,
     ) -> GreaseResult<()> {
         conn.insert(
-            Insert::new(Self::table_name())
+            Insert::new(Event::table_name())
                 .set("event", &to_value(event_id))
                 .set("performance_time", &to_value(new_gig.performance_time))
                 .set("uniform", &to_value(&new_gig.uniform))
@@ -456,13 +456,13 @@ impl EventWithGig {
 impl GigRequest {
     pub fn load<C: Connection>(id: i32, conn: &mut C) -> GreaseResult<GigRequest> {
         conn.first(
-            &Self::filter(&format!("id = {}", id)),
+            &GigRequest::filter(&format!("id = {}", id)),
             format!("no gig request with id {}", id),
         )
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<GigRequest>> {
-        conn.load(&Self::select_all_in_order("time", Order::Desc))
+        conn.load(&GigRequest::select_all_in_order("time", Order::Desc))
     }
 
     pub fn load_all_for_semester_and_pending<C: Connection>(
@@ -471,7 +471,7 @@ impl GigRequest {
         let current_semester = Semester::load_current(conn)?;
 
         conn.load(
-            Self::filter(&format!(
+            GigRequest::filter(&format!(
                 "time > {} OR status = '{}'",
                 &current_semester.start_date.to_value().as_sql(false),
                 GigRequestStatus::Pending
@@ -502,7 +502,7 @@ impl GigRequest {
                     Err(GreaseError::BadRequest("Must create the event for the gig request first before marking it as accepted.".to_owned()))
                 } else {
                     conn.update_opt(
-                        Update::new(Self::table_name())
+                        Update::new(Event::table_name())
                             .filter(&format!("id = {}", request_id))
                             .set("status", &format!("'{}'", status)),
                     )
