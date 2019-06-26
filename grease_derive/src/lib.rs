@@ -74,9 +74,9 @@ pub fn derive_from_row(input: TokenStream) -> TokenStream {
 
             quote! {
                 #field_name: (if let Some(val) = row.take(#index) {
-                    <#field_type>::from_value_opt(val).map_err(|_err| #error(error_row.clone()))
+                    <#field_type>::from_value_opt(val).map_err(|_err| #error(row.clone()))
                 } else {
-                    Err(#error(error_row.clone()))
+                    Err(#error(row.clone()))
                 })?,
             }
         }));
@@ -98,7 +98,6 @@ pub fn derive_from_row(input: TokenStream) -> TokenStream {
             fn from_row_opt(mut row: #row_type) -> Result<Self, #error> {
                 use mysql_enum::mysql::prelude::FromValue as _;
 
-                let error_row = row.clone();
                 if row.len() != #num_fields {
                     return Err(#error(row));
                 }
