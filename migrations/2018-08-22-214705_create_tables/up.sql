@@ -157,7 +157,8 @@ CREATE TABLE google_docs (
 
 
 CREATE TABLE uniform (
-  name varchar(32) NOT NULL PRIMARY KEY,
+  id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name varchar(32) NOT NULL,
   color varchar(4) DEFAULT NULL,
   description text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -166,7 +167,7 @@ CREATE TABLE uniform (
 CREATE TABLE gig (
   event int NOT NULL PRIMARY KEY,
   performance_time datetime NOT NULL,
-  uniform varchar(32) NOT NULL,
+  uniform int NOT NULL,
   contact_name varchar(50) DEFAULT NULL,
   contact_email varchar(50) DEFAULT NULL,
   contact_phone varchar(16) DEFAULT NULL,
@@ -176,7 +177,7 @@ CREATE TABLE gig (
   description text DEFAULT NULL,
 
   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (uniform) REFERENCES uniform (name) ON DELETE CASCADE ON UPDATE CASCADE
+  FOREIGN KEY (uniform) REFERENCES uniform (id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
