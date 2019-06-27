@@ -43,8 +43,15 @@ impl Semester {
     }
 
     pub fn create<C: Connection>(new_semester: NewSemester, conn: &mut C) -> GreaseResult<String> {
-        new_semester.insert(conn)?;
-        Ok(new_semester.name)
+        if &new_semester.start_date >= &new_semester.end_date {
+            Err(GreaseError::BadRequest(
+                "The new semester must end after it begins.".to_owned(),
+            ))
+        } else {
+            new_semester.insert(conn)?;
+
+            Ok(new_semester.name)
+        }
     }
 
     pub fn set_current(name: &str, conn: &mut DbConn) -> GreaseResult<()> {
@@ -69,17 +76,23 @@ impl Semester {
         updated_semester: &SemesterUpdate,
         conn: &mut C,
     ) -> GreaseResult<()> {
-        conn.update(
-            &Update::new(Semester::table_name())
-                .filter(&format!("name = '{}'", name))
-                .set("start_date", &to_value(updated_semester.start_date))
-                .set("end_date", &to_value(updated_semester.end_date))
-                .set(
-                    "gig_requirement",
-                    &to_value(updated_semester.gig_requirement),
-                ),
-            format!("No semester named '{}'.", name),
-        )
+        if &updated_semester.start_date >= &updated_semester.end_date {
+            Err(GreaseError::BadRequest(
+                "The new semester must end after it begins.".to_owned(),
+            ))
+        } else {
+            conn.update(
+                &Update::new(Semester::table_name())
+                    .filter(&format!("name = '{}'", name))
+                    .set("start_date", &to_value(updated_semester.start_date))
+                    .set("end_date", &to_value(updated_semester.end_date))
+                    .set(
+                        "gig_requirement",
+                        &to_value(updated_semester.gig_requirement),
+                    ),
+                format!("No semester named '{}'.", name),
+            )
+        }
     }
 
     pub fn delete<C: Connection>(name: &str, conn: &mut C) -> GreaseResult<String> {

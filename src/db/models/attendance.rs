@@ -11,14 +11,11 @@ impl Attendance {
         member: &str,
         event_id: i32,
         conn: &mut C,
-    ) -> GreaseResult<Attendance> {
-        conn.first(
-            &Attendance::filter(&format!("member = '{}' AND event = {}", member, event_id)),
-            format!(
-                "Attendance for member {} for event {} not found.",
-                member, event_id
-            ),
-        )
+    ) -> GreaseResult<Option<Attendance>> {
+        conn.first_opt(&Attendance::filter(&format!(
+            "member = '{}' AND event = {}",
+            member, event_id
+        )))
     }
 
     pub fn load_for_event<C: Connection>(
