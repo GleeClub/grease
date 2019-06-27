@@ -6,11 +6,6 @@ mod misc_routes;
 mod officers_routes;
 mod repertoire_routes;
 
-use self::event_routes::*;
-use self::member_routes::*;
-use self::misc_routes::*;
-use self::officers_routes::*;
-use self::repertoire_routes::*;
 use crate::error::{GreaseError, GreaseResult};
 use crate::router;
 use http::{
@@ -20,6 +15,12 @@ use http::{
 use serde_json::{json, Value};
 use std::panic::{self, AssertUnwindSafe};
 use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
+
+pub use self::event_routes::*;
+pub use self::member_routes::*;
+pub use self::misc_routes::*;
+pub use self::officers_routes::*;
+pub use self::repertoire_routes::*;
 
 #[macro_export]
 macro_rules! check_for_permission {
@@ -83,7 +84,7 @@ pub fn handle_request(mut request: cgi::Request) -> cgi::Response {
     }
 }
 
-pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
+fn handle(request: &cgi::Request) -> GreaseResult<Value> {
     router!(request,
         // authorization
         (POST)   [/login]  => login,

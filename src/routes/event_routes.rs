@@ -7,6 +7,41 @@ use error::*;
 use pinto::query_builder::Order;
 use serde_json::{json, Value};
 
+/// GET /events/{id} - Get a single event.
+///
+/// ## Path Parameters:
+///   * event_id: integer (required) - The ID of the event
+///
+/// ## Query Parameters:
+///   * full: boolean (optional) - Whether to include uniform and attendance.
+///
+/// ## Return Format:
+///
+/// ```python
+/// {
+///     id: integer,
+///     name: string,
+///     semester: string,
+///     type: string, // The event type
+///     callTime: RFC 3339 datetime,
+///     releaseTime: RFC 3339 datetime, // optional
+///     points: integer,
+///     comments: string,
+///     location: ,
+///     gigCount: ,
+///     defaultAttend: ,
+///     section: ,
+///     performanceTime:
+///     uniform: string,
+///     contactName: string,
+///     contactEmail: string,
+///     contactPhone: string,
+///     price:
+///     public:
+///     summary: string,
+///     description: string,
+/// }
+/// ```
 pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseResult<Value> {
     Event::load(event_id, &mut user.conn).and_then(|event_with_gig| {
         if full.unwrap_or(false) {
