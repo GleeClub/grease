@@ -209,8 +209,7 @@ CREATE TABLE song (
              'E', 'E♯', 'F♭', 'F', 'F♯', 'G♭', 'G', 'G♯') DEFAULT NULL,
   starting_pitch enum('A♭', 'A', 'A♯', 'B♭', 'B', 'B♯', 'C♭', 'C', 'C♯', 'D♭', 'D', 'D♯',
                       'E♭', 'E', 'E♯', 'F♭', 'F', 'F♯', 'G♭', 'G', 'G♯') DEFAULT NULL,
-  mode enum('major', 'minor', 'dorian', 'phrygian', 'lydian',
-            'mixolydian', 'locrian') DEFAULT NULL
+  mode enum('major', 'minor') DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 

@@ -155,7 +155,6 @@ pub fn delete_event(id: i32, mut user: User) -> GreaseResult<Value> {
 /// See the [Attendance](../../db/models/struct.Attendance.html) and the
 /// [Member](../../db/models/struct.Member.html) models for how they will be
 /// returned.
-///
 pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
     let event = Event::load(id, &mut user.conn)?;
     let section = event.event.section.as_ref().map(|s| s.as_str());

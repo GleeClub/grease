@@ -822,6 +822,7 @@ pub struct NewAnnouncement {
     pub content: String,
 }
 
+
 /// The model for member attendance.
 ///
 /// ## Database Format:
@@ -871,22 +872,49 @@ pub struct Attendance {
     pub minutes_late: i32,
 }
 
-// CREATE TABLE carpool (
-//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-//   event int NOT NULL,
-//   driver varchar(50) NOT NULL,
-
-//   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (driver) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for recording who is driving who for events.
+///
+/// ## Datbase Format:
+///
+/// ```sql
+/// CREATE TABLE carpool (
+///   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+///   event int NOT NULL,
+///   driver varchar(50) NOT NULL,
+///
+///   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (driver) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     id: integer,
+///     event: integer,
+///     driver: string
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "carpool"]
 pub struct Carpool {
+    /// The ID of the carpool
     pub id: i32,
+    /// The ID of the event this carpool belongs to
     pub event: i32,
+    /// The email of the driver of this carpool
     pub driver: String,
 }
 
+/// The required format for making new carpools.
+///
+/// ## Expected Format:
+///
+/// | Field  |  Type   | Required? | Comments |
+/// |--------|---------|:---------:|----------|
+/// | event  | integer |     ✓     |          |
+/// | driver | string  |     ✓     |          |
 #[derive(Deserialize, TableName, Insertable, Extract)]
 #[table_name = "carpool"]
 pub struct NewCarpool {
@@ -894,72 +922,151 @@ pub struct NewCarpool {
     pub driver: String,
 }
 
+/// The required format for updating the carpools for an event.
+///
+/// ## Expected Format:
+///
+/// |    Field   |   Type   | Required? |                 Comments                  |
+/// |------------|----------|:---------:|-------------------------------------------|
+/// | id         | integer  |           | if updating an old carpool, pass the `id` |
+/// | driver     | string   |     ✓     | the email of the driver                   |
+/// | passengers | [string] |     ✓     | the emails of the passengers              |
 #[derive(Debug, Deserialize, Extract)]
 pub struct UpdatedCarpool {
+    #[serde(default)]
     pub id: Option<i32>,
     pub driver: String,
     pub passengers: Vec<String>,
 }
 
-// CREATE TABLE fee (
-//   name varchar(16) NOT NULL PRIMARY KEY,
-//   description varchar(40) NOT NULL,
-//   amount int NOT NULL DEFAULT '0'
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for fees to charge members.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE fee (
+///   name varchar(16) NOT NULL PRIMARY KEY,
+///   description varchar(40) NOT NULL,
+///   amount int NOT NULL DEFAULT '0'
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     name: string,
+///     description: string,
+///     amount: integer
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "fee"]
 pub struct Fee {
+    /// The short name of the fee
     pub name: String,
+    /// A longer description of what it is charging members for
     pub description: String,
+    /// The amount to charge members
     pub amount: i32,
 }
 
-// CREATE TABLE google_docs (
-//   name varchar(40) NOT NULL PRIMARY KEY,
-//   url varchar(255) NOT NULL
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for Google Docs.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE google_docs (
+///   name varchar(40) NOT NULL PRIMARY KEY,
+///   url varchar(255) NOT NULL
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     name: string,
+///     url: string
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Extract)]
 #[table_name = "google_docs"]
 pub struct GoogleDoc {
+    /// The name of the Google Doc
     pub name: String,
+    /// A link to the Google Doc (must be an embed link)
     pub url: String,
 }
 
-// CREATE TABLE uniform (
-//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-//   name varchar(32) NOT NULL,
-//   color varchar(4) DEFAULT NULL,
-//   description text DEFAULT NULL
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for uniforms that members wear to events.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE uniform (
+///   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+///   name varchar(32) NOT NULL,
+///   color varchar(4) DEFAULT NULL,
+///   description text DEFAULT NULL
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     id: integer,
+///     name: string,
+///     color: string, // optional
+///     description: string // optional
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Extract)]
 #[table_name = "uniform"]
 pub struct Uniform {
+    /// The ID of the uniform
     pub id: i32,
+    /// The name of the uniform
     pub name: String,
+    /// The associated color of the uniform (In the format "#XXX", where "X" is a hex digit)
     #[serde(deserialize_with = "deser_opt_string")]
     pub color: Option<String>,
+    /// The explanation of what to wear when wearing the uniform
     #[serde(deserialize_with = "deser_opt_string")]
     pub description: Option<String>,
 }
 
-// CREATE TABLE gig (
-//   event int NOT NULL PRIMARY KEY,
-//   performance_time datetime NOT NULL,
-//   uniform int NOT NULL,
-//   contact_name varchar(50) DEFAULT NULL,
-//   contact_email varchar(50) DEFAULT NULL,
-//   contact_phone varchar(16) DEFAULT NULL,
-//   price int DEFAULT NULL,
-//   public boolean NOT NULL DEFAULT '0',
-//   summary text DEFAULT NULL,
-//   description text DEFAULT NULL,
-
-//   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (uniform) REFERENCES uniform (id) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The models for gigs tied to events.
+///
+/// ### Database Format:
+///
+/// ```sql
+/// CREATE TABLE gig (
+///   event int NOT NULL PRIMARY KEY,
+///   performance_time datetime NOT NULL,
+///   uniform int NOT NULL,
+///   contact_name varchar(50) DEFAULT NULL,
+///   contact_email varchar(50) DEFAULT NULL,
+///   contact_phone varchar(16) DEFAULT NULL,
+///   price int DEFAULT NULL,
+///   public boolean NOT NULL DEFAULT '0',
+///   summary text DEFAULT NULL,
+///   description text DEFAULT NULL,
+///
+///   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (uniform) REFERENCES uniform (id) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// `Gig`s are not directly serialized, see [to_json](event/struct.EventWithGig.html#method.to_json)
+/// for how `Gig`s get serialized with `Event`s.
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "gig"]
 pub struct Gig {
+    /// The ID of the event this
     pub event: i32,
     #[serde(rename = "performanceTime")]
     pub performance_time: NaiveDateTime,
@@ -1081,8 +1188,7 @@ pub enum GigRequestStatus {
 //              'E', 'E#', 'F♭', 'F', 'F♯', 'G♭', 'G', 'G#') DEFAULT NULL,
 //   starting_pitch enum('A♭', 'A', 'A#', 'B♭', 'B', 'B#', 'C♭', 'C', 'C♯', 'D♭', 'D', 'D♯',
 //                       'E♭', 'E', 'E#', 'F♭', 'F', 'F♯', 'G♭', 'G', 'G#') DEFAULT NULL,
-//   mode enum('major', 'minor', 'dorian', 'phrygian', 'lydian',
-//             'mixolydian', 'locrian') DEFAULT NULL
+//   mode enum('major', 'minor') DEFAULT NULL
 // ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract)]
 #[table_name = "song"]
@@ -1092,9 +1198,9 @@ pub struct Song {
     #[serde(deserialize_with = "deser_opt_string")]
     pub info: Option<String>,
     pub current: bool,
-    pub key: Option<Key>,
+    pub key: Option<Pitch>,
     #[serde(rename = "startingPitch")]
-    pub starting_pitch: Option<Key>,
+    pub starting_pitch: Option<Pitch>,
     pub mode: Option<SongMode>,
 }
 
@@ -1107,67 +1213,88 @@ pub struct NewSong {
 }
 
 #[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
-pub enum Key {
+pub enum Pitch {
+    /// "A♭"
     #[serde(rename = "A♭")]
     #[strum(serialize = "A♭")]
     AFlat,
+    /// "A"
     #[serde(rename = "A")]
     #[strum(serialize = "A")]
     A,
+    /// "A♯"
     #[serde(rename = "A♯")]
     #[strum(serialize = "A♯")]
     ASharp,
+    /// "B♭"
     #[serde(rename = "B♭")]
     #[strum(serialize = "B♭")]
     BFlat,
+    /// "B"
     #[serde(rename = "B")]
     #[strum(serialize = "B")]
     B,
+    /// "B♯"
     #[serde(rename = "B♯")]
     #[strum(serialize = "B♯")]
     BSharp,
+    /// "C♭"
     #[serde(rename = "C♭")]
     #[strum(serialize = "C♭")]
     CFlat,
+    /// "C"
     #[serde(rename = "C")]
     #[strum(serialize = "C")]
     C,
+    /// "C♯"
     #[serde(rename = "C♯")]
     #[strum(serialize = "C♯")]
     CSharp,
+    /// "D♭"
     #[serde(rename = "D♭")]
     #[strum(serialize = "D♭")]
     DFlat,
+    /// "D"
     #[serde(rename = "D")]
     #[strum(serialize = "D")]
     D,
+    /// "D♯"
     #[serde(rename = "D♯")]
     #[strum(serialize = "D♯")]
     DSharp,
+    /// "E♭"
     #[serde(rename = "E♭")]
     #[strum(serialize = "E♭")]
     EFlat,
+    /// "E"
     #[serde(rename = "E")]
     #[strum(serialize = "E")]
     E,
+    /// "E♯"
     #[serde(rename = "E♯")]
     #[strum(serialize = "E♯")]
     ESharp,
+    /// "F♭"
     #[serde(rename = "F♭")]
     #[strum(serialize = "F♭")]
     FFlat,
+    /// "F"
     #[serde(rename = "F")]
     #[strum(serialize = "F")]
     F,
+    /// "F♯"
     #[serde(rename = "F♯")]
     #[strum(serialize = "F♯")]
     FSharp,
+    /// "G♭"
     #[serde(rename = "G♭")]
     #[strum(serialize = "G♭")]
     GFlat,
+    /// "G"
     #[serde(rename = "G")]
     #[strum(serialize = "G")]
     G,
+    /// "G♯"
     #[serde(rename = "G♯")]
     #[strum(serialize = "G♯")]
     GSharp,
@@ -1179,16 +1306,6 @@ pub enum SongMode {
     Major,
     #[strum(serialize = "minor")]
     Minor,
-    #[strum(serialize = "dorian")]
-    Dorian,
-    #[strum(serialize = "phrygian")]
-    Phrygian,
-    #[strum(serialize = "lydian")]
-    Lydian,
-    #[strum(serialize = "myxolydian")]
-    Myxolydian,
-    #[strum(serialize = "locrian")]
-    Locrian,
 }
 
 // CREATE TABLE gig_song (

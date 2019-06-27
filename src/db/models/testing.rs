@@ -437,8 +437,8 @@ lazy_static! {
             title: "Ramblin' Wreck".to_owned(),
             info: Some("Our fight song!".to_owned()),
             current: true,
-            key: Some(Key::C),
-            starting_pitch: Some(Key::G),
+            key: Some(Pitch::C),
+            starting_pitch: Some(Pitch::G),
             mode: Some(SongMode::Major),
         },
         Song {
@@ -446,8 +446,8 @@ lazy_static! {
             title: "Eagles Medley".to_owned(),
             info: Some("A mashup of 'Seven Bridges Road' and 'Take it Easy', both by the Eagles.".to_owned()),
             current: true,
-            key: Some(Key::D),
-            starting_pitch: Some(Key::D),
+            key: Some(Pitch::D),
+            starting_pitch: Some(Pitch::D),
             mode: Some(SongMode::Major),
         },
         Song {
@@ -455,8 +455,8 @@ lazy_static! {
             title: "It's Raining Men".to_owned(),
             info: Some("You know this song.".to_owned()),
             current: false,
-            key: Some(Key::E),
-            starting_pitch: Some(Key::E),
+            key: Some(Pitch::E),
+            starting_pitch: Some(Pitch::E),
             mode: Some(SongMode::Minor),
         },
     ];
