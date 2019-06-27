@@ -44,66 +44,75 @@ pub mod transaction;
 #[table_name = "member"]
 pub struct Member {
     pub email: String,
+    #[serde(rename = "firstName")]
     pub first_name: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "preferredName", deserialize_with = "deser_opt_string")]
     pub preferred_name: Option<String>,
+    #[serde(rename = "lastName")]
     pub last_name: String,
+    #[serde(rename = "passHash")]
     pub pass_hash: String,
+    #[serde(rename = "phoneNumber")]
     pub phone_number: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub picture: Option<String>,
     pub passengers: i32,
     pub location: String,
     #[serde(default)]
+    #[serde(rename = "onCampus")]
     pub on_campus: Option<bool>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub about: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub major: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub minor: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub hometown: Option<String>,
+    #[serde(rename = "arrivedAtTech")]
     pub arrived_at_tech: Option<i32>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "gatewayDrug", deserialize_with = "deser_opt_string")]
     pub gateway_drug: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub conflicts: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "dietaryRestrictions", deserialize_with = "deser_opt_string")]
     pub dietary_restrictions: Option<String>,
 }
 
 #[derive(Deserialize, Extract)]
 pub struct NewMember {
     pub email: String,
+    #[serde(rename = "firstName")]
     pub first_name: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "preferredName", deserialize_with = "deser_opt_string")]
     pub preferred_name: Option<String>,
+    #[serde(rename = "lastName")]
     pub last_name: String,
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(default, rename = "passHash", deserialize_with = "deser_opt_string")]
     pub pass_hash: Option<String>,
+    #[serde(rename = "phoneNumber")]
     pub phone_number: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub picture: Option<String>,
     pub passengers: i32,
     pub location: String,
-    #[serde(default)]
+    #[serde(default, rename = "onCampus")]
     pub on_campus: Option<bool>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub about: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub major: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub minor: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub hometown: Option<String>,
+    #[serde(rename = "arrivedAtTech")]
     pub arrived_at_tech: Option<i32>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "gatewayDrug", deserialize_with = "deser_opt_string")]
     pub gateway_drug: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub conflicts: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "dietaryRestrictions", deserialize_with = "deser_opt_string")]
     pub dietary_restrictions: Option<String>,
     pub enrollment: Enrollment,
     pub section: String,
@@ -112,11 +121,11 @@ pub struct NewMember {
 #[derive(Deserialize, Extract)]
 pub struct RegisterForSemesterForm {
     pub location: String,
-    #[serde(default)]
+    #[serde(default, rename = "onCampus")]
     pub on_campus: Option<bool>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub conflicts: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "dietaryRestrictions", deserialize_with = "deser_opt_string")]
     pub dietary_restrictions: Option<String>,
     pub enrollment: Enrollment,
     pub section: String,
@@ -133,8 +142,11 @@ pub struct RegisterForSemesterForm {
 #[table_name = "semester"]
 pub struct Semester {
     pub name: String,
+    #[serde(rename = "startDate")]
     pub start_date: NaiveDateTime,
+    #[serde(rename = "endDate")]
     pub end_date: NaiveDateTime,
+    #[serde(rename = "gigRequirement")]
     pub gig_requirement: i32,
     pub current: bool,
 }
@@ -142,18 +154,21 @@ pub struct Semester {
 #[derive(TableName, Deserialize, FieldNames, Extract)]
 #[table_name = "semester"]
 pub struct SemesterUpdate {
-    pub name: String,
+    #[serde(rename = "startDate")]
     pub start_date: NaiveDateTime,
+    #[serde(rename = "endDate")]
     pub end_date: NaiveDateTime,
+    #[serde(rename = "gigRequirement")]
     pub gig_requirement: i32,
-    pub current: bool,
 }
 
 #[derive(TableName, Deserialize, FieldNames, Insertable, Extract)]
 #[table_name = "semester"]
 pub struct NewSemester {
     pub name: String,
+    #[serde(rename = "startDate")]
     pub start_date: NaiveDateTime,
+    #[serde(rename = "endDate")]
     pub end_date: NaiveDateTime,
 }
 
@@ -167,6 +182,7 @@ pub struct NewSemester {
 pub struct Role {
     pub name: String,
     pub rank: i32,
+    #[serde(rename = "maxQuantity")]
     pub max_quantity: i32,
 }
 
@@ -232,16 +248,20 @@ pub struct Event {
     #[rename = "type"]
     #[serde(rename = "type")]
     pub type_: String,
+    #[serde(rename = "callTime")]
     pub call_time: NaiveDateTime,
+    #[serde(rename = "releaseTime")]
     pub release_time: Option<NaiveDateTime>,
     pub points: i32,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub comments: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub location: Option<String>,
+    #[serde(rename = "gigCount")]
     pub gig_count: bool,
+    #[serde(rename = "defaultAttend")]
     pub default_attend: bool,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub section: Option<String>,
 }
 
@@ -253,17 +273,21 @@ pub struct NewEvent {
     #[rename = "type"]
     #[serde(rename = "type")]
     pub type_: String,
+    #[serde(rename = "callTime")]
     pub call_time: NaiveDateTime,
+    #[serde(rename = "releaseTime")]
     pub release_time: Option<NaiveDateTime>,
     pub points: i32,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub comments: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub location: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "gigCount")]
     pub gig_count: Option<bool>,
+    #[serde(rename = "defaultAttend")]
     pub default_attend: bool,
     pub repeat: String,
+    #[serde(rename = "repeatUntil")]
     pub repeat_until: Option<NaiveDate>,
 }
 
@@ -276,31 +300,36 @@ pub struct EventUpdate {
     #[rename = "type"]
     #[serde(rename = "type")]
     pub type_: String,
+    #[serde(rename = "callTime")]
     pub call_time: NaiveDateTime,
+    #[serde(rename = "releaseTime")]
     pub release_time: Option<NaiveDateTime>,
     pub points: i32,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub comments: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub location: Option<String>,
+    #[serde(rename = "gigCount")]
     pub gig_count: bool,
+    #[serde(rename = "defaultAttend")]
     pub default_attend: bool,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub section: Option<String>,
     // gig fields
+    #[serde(rename = "performanceTime")]
     pub performance_time: Option<NaiveDateTime>,
     pub uniform: Option<i32>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "contactName", deserialize_with = "deser_opt_string")]
     pub contact_name: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "contactEmail", deserialize_with = "deser_opt_string")]
     pub contact_email: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "contactPhone", deserialize_with = "deser_opt_string")]
     pub contact_phone: Option<String>,
     pub price: Option<i32>,
     pub public: Option<bool>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub summary: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub description: Option<String>,
 }
 
@@ -357,14 +386,14 @@ pub struct ActiveSemester {
     pub member: String,
     pub semester: String,
     pub enrollment: Enrollment,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub section: Option<String>,
 }
 
 #[derive(Deserialize, Extract)]
 pub struct ActiveSemesterUpdate {
     pub enrollment: Enrollment,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub section: Option<String>,
 }
 
@@ -391,7 +420,7 @@ pub enum Enrollment {
 #[table_name = "announcement"]
 pub struct Announcement {
     pub id: i32,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub member: Option<String>,
     pub semester: String,
     pub time: NaiveDateTime,
@@ -421,9 +450,12 @@ pub struct NewAnnouncement {
 pub struct Attendance {
     pub member: String,
     pub event: i32,
+    #[serde(rename = "shouldAttend")]
     pub should_attend: bool,
+    #[serde(rename = "didAttend")]
     pub did_attend: bool,
     pub confirmed: bool,
+    #[serde(rename = "minutesLate")]
     pub minutes_late: i32,
 }
 
@@ -492,9 +524,9 @@ pub struct GoogleDoc {
 pub struct Uniform {
     pub id: i32,
     pub name: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub color: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub description: Option<String>,
 }
 
@@ -517,38 +549,40 @@ pub struct Uniform {
 #[table_name = "gig"]
 pub struct Gig {
     pub event: i32,
+    #[serde(rename = "performanceTime")]
     pub performance_time: NaiveDateTime,
     pub uniform: i32,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "contactName", deserialize_with = "deser_opt_string")]
     pub contact_name: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "contactEmail", deserialize_with = "deser_opt_string")]
     pub contact_email: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "contactPhone", deserialize_with = "deser_opt_string")]
     pub contact_phone: Option<String>,
     pub price: Option<i32>,
     pub public: bool,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub summary: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub description: Option<String>,
 }
 
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract)]
 #[table_name = "gig"]
 pub struct NewGig {
+    #[serde(rename = "performanceTime")]
     pub performance_time: NaiveDateTime,
     pub uniform: i32,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "contactName", deserialize_with = "deser_opt_string")]
     pub contact_name: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "contactEmail", deserialize_with = "deser_opt_string")]
     pub contact_email: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "contactPhone", deserialize_with = "deser_opt_string")]
     pub contact_phone: Option<String>,
     pub price: Option<i32>,
     pub public: bool,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub summary: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub description: Option<String>,
 }
 
@@ -576,12 +610,16 @@ pub struct GigRequest {
     pub name: String,
     pub organization: String,
     pub event: Option<i32>,
+    #[serde(rename = "contactName")]
     pub contact_name: String,
+    #[serde(rename = "contactEmail")]
     pub contact_email: String,
+    #[serde(rename = "contactPhone")]
     pub contact_phone: String,
+    #[serde(rename = "startTime")]
     pub start_time: NaiveDateTime,
     pub location: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub comments: Option<String>,
     pub status: GigRequestStatus,
 }
@@ -591,12 +629,16 @@ pub struct GigRequest {
 pub struct NewGigRequest {
     pub name: String,
     pub organization: String,
+    #[serde(rename = "contactName")]
     pub contact_name: String,
+    #[serde(rename = "contactEmail")]
     pub contact_email: String,
+    #[serde(rename = "contactPhone")]
     pub contact_phone: String,
+    #[serde(rename = "startTime")]
     pub start_time: NaiveDateTime,
     pub location: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub comments: Option<String>,
 }
 
@@ -635,10 +677,11 @@ pub enum GigRequestStatus {
 pub struct Song {
     pub id: i32,
     pub title: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub info: Option<String>,
     pub current: bool,
     pub key: Option<Key>,
+    #[serde(rename = "startingPitch")]
     pub starting_pitch: Option<Key>,
     pub mode: Option<SongMode>,
 }
@@ -647,7 +690,7 @@ pub struct Song {
 #[table_name = "song"]
 pub struct NewSong {
     pub title: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub info: Option<String>,
 }
 
@@ -792,9 +835,9 @@ pub struct MeetingMinutes {
     pub id: i32,
     pub name: String,
     pub date: NaiveDate,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub private: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub public: Option<String>,
 }
 
@@ -807,7 +850,7 @@ pub struct MeetingMinutes {
 #[table_name = "permission"]
 pub struct Permission {
     pub name: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub description: Option<String>,
     #[rename = "type"]
     #[serde(rename = "type")]
@@ -853,7 +896,7 @@ pub struct RolePermission {
     pub id: i32,
     pub role: String,
     pub permission: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(rename = "eventType", deserialize_with = "deser_opt_string")]
     pub event_type: Option<String>,
 }
 
@@ -949,7 +992,7 @@ pub struct Transaction {
     pub time: NaiveDateTime,
     pub amount: i32,
     pub description: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub semester: Option<String>,
     #[rename = "type"]
     #[serde(rename = "type")]
@@ -963,7 +1006,7 @@ pub struct NewTransaction {
     pub member: String,
     pub amount: i32,
     pub description: String,
-    #[serde(deserialize_with = "deserialize_optional_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub semester: Option<String>,
     #[rename = "type"]
     #[serde(rename = "type")]
@@ -995,7 +1038,7 @@ pub struct Variable {
     pub value: String,
 }
 
-fn deserialize_optional_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+fn deser_opt_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
 {
