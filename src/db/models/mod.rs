@@ -471,7 +471,7 @@ pub struct EventType {
 ///
 /// ## JSON Format:
 ///
-/// `Event`s are not directly serialized, see [to_json](event/struct.EventWithGig#method.to_json)
+/// `Event`s are not directly serialized, see [to_json](event/struct.EventWithGig.html#method.to_json)
 /// for how `Event`s get serialized with `Gig`s.
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Debug, Clone)]
 #[table_name = "event"]
@@ -512,6 +512,26 @@ pub struct Event {
     pub section: Option<String>,
 }
 
+/// The required format for adding events.
+///
+/// ## Expected Format:
+///
+/// |     Field     |   Type   | Required? |           Comments            |
+/// |---------------|----------|:---------:|-------------------------------|
+/// | name          | string   |     ✓     |                               |
+/// | semester      | string   |     ✓     |                               |
+/// | type          | string   |     ✓     | event type                    |
+/// | callTime      | datetime |     ✓     |                               |
+/// | releaseTime   | datetime |           |                               |
+/// | points        | integer  |     ✓     |                               |
+/// | comments      | string   |           |                               |
+/// | location      | string   |           |                               |
+/// | gigCount      | boolean  |     ✓     | for volunteer gigs            |
+/// | defaultAttend | boolean  |     ✓     | assume members should go      |
+/// | repeat        | string   |     ✓     | see [Period]                  |
+/// | repeatUntil   | datetime |           | needed if `repeat` isn't "no" |
+///
+/// [Period]: event/enum.Period.html
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract)]
 #[table_name = "event"]
 pub struct NewEvent {
@@ -538,6 +558,32 @@ pub struct NewEvent {
     pub repeat_until: Option<NaiveDate>,
 }
 
+/// The required format for updating events.
+///
+/// ## Expected Format:
+///
+/// |      Field       |      Type      |      Required?       |       Comments        |
+/// |------------------|----------------|:--------------------:|-----------------------|
+/// | name             | string         |          ✓           |                       |
+/// | semester         | string         |          ✓           |                       |
+/// | type             | string         |          ✓           | the event type        |
+/// | callTime         | datetime       |          ✓           |                       |
+/// | releaseTime      | datetime       |                      |                       |
+/// | points           | integer        |          ✓           |                       |
+/// | comments         | string         |                      |                       |
+/// | location         | string         |                      |                       |
+/// | gigCount         | boolean        |          ✓           | for volunteer gigs    |
+/// | defaultAttend    | boolean        |          ✓           |                       |
+/// | section          | string         |                      | name of the section   |
+/// | performanceTime  | datetime       | for events with gigs |                       |
+/// | uniform          | integer        | for events with gigs |                       |
+/// | contactName      | string         |                      |                       |
+/// | contactEmail     | string         |                      |                       |
+/// | contactPhone     | string         |                      |                       |
+/// | price            | integer        |                      |                       |
+/// | public           | boolean        | for events with gigs | show on external site |
+/// | summary          | string         |                      | public event summary  |
+/// | description      | string         |                      | public event summary  |
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract, Debug)]
 #[table_name = "event"]
 pub struct EventUpdate {
@@ -580,63 +626,124 @@ pub struct EventUpdate {
     pub description: Option<String>,
 }
 
-// CREATE TABLE absence_request (
-//   member varchar(50) NOT NULL,
-//   event int NOT NULL,
-//   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-//   reason varchar(500) NOT NULL,
-//   state enum('pending', 'approved', 'denied') NOT NULL DEFAULT 'pending',
-
-//   PRIMARY KEY (member, event),
-//   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for member's requests for absence from events.
+///
+/// ## Database Format:
+///
+/// ``sql
+/// CREATE TABLE absence_request (
+///   member varchar(50) NOT NULL,
+///   event int NOT NULL,
+///   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+///   reason varchar(500) NOT NULL,
+///   state enum('pending', 'approved', 'denied') NOT NULL DEFAULT 'pending',
+///
+///   PRIMARY KEY (member, event),
+///   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     member: string,
+///     event: integer,
+///     time: datetime,
+///     reason: string,
+///     state: string,
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Clone)]
 #[table_name = "absence_request"]
 pub struct AbsenceRequest {
+    /// The email of the member that requested an absence
     pub member: String,
+    /// The ID of the event they requested absence from
     pub event: i32,
+    /// The time this request was placed
     pub time: NaiveDateTime,
+    /// The reason the member petitioned for absence with
     pub reason: String,
+    /// The current state of the request (See [AbsenceRequestState](enum.AbsenceRequestState.html))
     pub state: AbsenceRequestState,
 }
 
+/// The required format for new absence requests.
+///
+/// | Field  |  Type  | Required? | Comments |
+/// |--------|--------|:---------:|----------|
+/// | reason | string |     ✓     |          |
 #[derive(Deserialize, Extract)]
 pub struct NewAbsenceRequest {
     pub reason: String,
 }
 
+/// The possible states of absence requests.
 #[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum AbsenceRequestState {
+    /// "approved" - The member is now excused from the given event
     #[strum(serialize = "approved")]
     Approved,
+    /// "denied" - The member was denied from an excused absence
     #[strum(serialize = "denied")]
     Denied,
+    /// "pending" - The request has not been handled yet
     #[strum(serialize = "pending")]
     Pending,
 }
 
-// CREATE TABLE active_semester (
-//   member varchar(50) NOT NULL,
-//   semester varchar(32) NOT NULL,
-//   enrollment enum('class', 'club') NOT NULL DEFAULT 'club',
-//   section varchar(20) DEFAULT NULL,
-
-//   PRIMARY KEY (member, semester),
-//   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (semester) REFERENCES semester (name) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (section) REFERENCES section_type (name) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model that records which semesters a member has been active during.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE active_semester (
+///   member varchar(50) NOT NULL,
+///   semester varchar(32) NOT NULL,
+///   enrollment enum('class', 'club') NOT NULL DEFAULT 'club',
+///   section varchar(20) DEFAULT NULL,
+///
+///   PRIMARY KEY (member, semester),
+///   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (semester) REFERENCES semester (name) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (section) REFERENCES section_type (name) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     member: string,
+///     semester: string,
+///     enrollment: string,
+///     section: string // optional
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, PartialEq, Debug)]
 #[table_name = "active_semester"]
 pub struct ActiveSemester {
+    /// The email of the active member
     pub member: String,
+    /// The name of the semester they were active during
     pub semester: String,
+    /// Whether they were in the class or the club (See [Enrollment](enum.Enrollment.html))
     pub enrollment: Enrollment,
+    /// Which section the member sang in (See [SectionType](struct.SectionType.html))
     #[serde(deserialize_with = "deser_opt_string")]
     pub section: Option<String>,
 }
 
+/// The required format for updating active semesters for members.
+///
+/// ## Expected Format:
+///
+/// |   Field    |  Type  | Required? | Comments |
+/// |------------|--------|:---------:|----------|
+/// | enrollment | string |     ✓     |          |
+/// | section    | string |           |          |
 #[derive(Deserialize, Extract)]
 pub struct ActiveSemesterUpdate {
     pub enrollment: Enrollment,
@@ -644,37 +751,72 @@ pub struct ActiveSemesterUpdate {
     pub section: Option<String>,
 }
 
+/// Whether a member is enrolled in the class or is just participating as a club member.
 #[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum Enrollment {
+    /// "class" - enrolled in the class
     #[strum(serialize = "class")]
     Class,
+    /// "club" - just a club member
     #[strum(serialize = "club")]
     Club,
 }
 
-// CREATE TABLE announcement (
-//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-//   member varchar(50) DEFAULT NULL,
-//   semester varchar(32) NOT NULL,
-//   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-//   content longtext NOT NULL,
-//   archived bool NOT NULL DEFAULT '0',
-
-//   FOREIGN KEY (member) REFERENCES member (email) ON DELETE SET NULL ON UPDATE CASCADE,
-//   FOREIGN KEY (semester) REFERENCES semester (name) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for announcements made to the club.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE announcement (
+///   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+///   member varchar(50) DEFAULT NULL,
+///   semester varchar(32) NOT NULL,
+///   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+///   content longtext NOT NULL,
+///   archived bool NOT NULL DEFAULT '0',
+///
+///   FOREIGN KEY (member) REFERENCES member (email) ON DELETE SET NULL ON UPDATE CASCADE,
+///   FOREIGN KEY (semester) REFERENCES semester (name) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     id: integer,
+///     member: string, // null if deleted
+///     semester: string,
+///     time: datetime,
+///     content: string,
+///     archived: boolean
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "announcement"]
 pub struct Announcement {
+    /// The ID of the announcement
     pub id: i32,
+    /// The email of the member who made the announcement (null if the member was later deleted)
     #[serde(deserialize_with = "deser_opt_string")]
     pub member: Option<String>,
+    /// The name of the semester the announcement was made during
     pub semester: String,
+    /// When the announcement was made
     pub time: NaiveDateTime,
+    /// The content of the announcement
     pub content: String,
+    /// Whether an officer archived the announcement
     pub archived: bool,
 }
 
+/// The required format for making new announcements.
+///
+/// ## Expected Format:
+///
+/// |  Field  |  Type  | Required? | Comments |
+/// |---------|--------|:---------:|----------|
+/// | content | string |     ✓     |          |
 #[derive(Deserialize, Extract)]
 pub struct NewAnnouncement {
     pub content: String,

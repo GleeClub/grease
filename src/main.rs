@@ -4,6 +4,10 @@
 //!
 //! ## All Routes:
 //!
+//! Below is the layout of the API. Click on the handler of any endpoint to find out more
+//! about what parameters are expected, more optional parameters, expected POST data formats,
+//! and returned JSON formats.
+//!
 //! ### Authorization:
 //!
 //!   Method   | Route   | Handler

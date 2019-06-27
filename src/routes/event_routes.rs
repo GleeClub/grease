@@ -10,37 +10,18 @@ use serde_json::{json, Value};
 /// Get a single event.
 ///
 /// ## Path Parameters:
-///   * id: integer (required) - The ID of the event
+///   * id: integer (*required*) - The ID of the event
 ///
 /// ## Query Parameters:
 ///   * full: boolean (optional) - Whether to include uniform and attendance.
 ///
 /// ## Return Format:
 ///
-/// |      Field       |      Type       | Null? |       Comments           |
-/// |------------------|-----------------|:-----:|--------------------------|
-/// | id               | integer         |       |                          |
-/// | name             | string          |       |                          |
-/// | semester         | string          |       |                          |
-/// | type             | string          |       | the event type           |
-/// | callTime         | datetime        |       |                          |
-/// | releaseTime      | datetime        |   ✓   |                          |
-/// | points           | integer         |       |                          |
-/// | comments         | string          |   ✓   |                          |
-/// | location         | string          |   ✓   |                          |
-/// | gigCount         | boolean         |       | for volunteer gigs       |
-/// | defaultAttend    | boolean         |       |                          |
-/// | section          | string          |   ✓   | name of the section      |
-/// | performanceTime  | datetime        |       |                          |
-/// | contactName      | string          |       |                          |
-/// | contactEmail     | string          |       |                          |
-/// | contactPhone     | string          |       |                          |
-/// | price            | integer         |   ✓   |                          |
-/// | public           | boolean         |       | show on external site    |
-/// | summary          | string          |   ✓   | public event summary     |
-/// | description      | string          |   ✓   | public event summary     |
-/// | uniform          | integer/Uniform |       | use `full` for object    |
-/// | attendance       | Attendance      |   ✓   | only present with `full` |
+/// If `full = true`, then the format from
+/// [to_json_full](../../db/models/event/struct.EventWithGig.html#method.to_json_full)
+/// will be returned. Otherwise, the format from
+/// [to_json](../../db/models/event/struct.EventWithGig.html#method.to_json)
+/// will be returned.
 pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseResult<Value> {
     Event::load(event_id, &mut user.conn).and_then(|event_with_gig| {
         if full.unwrap_or(false) {
@@ -60,7 +41,8 @@ pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseRes
 ///
 /// ## Return Format:
 ///
-/// See [get_event](fn.get_event.html) for format.
+/// Returns a list of JSON objects. See [get_event](fn.get_event.html) for the
+/// format of each individual event.
 pub fn get_events(
     full: Option<bool>,
     event_types: Option<String>,
@@ -107,62 +89,40 @@ pub fn get_events(
 ///
 /// ## Input Format:
 ///
-/// |     Field     |   Type   | Required? |          Comments           |
-/// |---------------|----------|:---------:|-----------------------------|
-/// | name          | string   |     ✓     |                             |
-/// | semester      | string   |     ✓     |                             |
-/// | type          | string   |     ✓     | event type                  |
-/// | callTime      | datetime |     ✓     |                             |
-/// | releaseTime   | datetime |           |                             |
-/// | points        | integer  |     ✓     |                             |
-/// | comments      | string   |           |                             |
-/// | location      | string   |           |                             |
-/// | gigCount      | boolean  |     ✓     | for volunteer gigs          |
-/// | defaultAttend | boolean  |     ✓     | assume members should go    |
-/// | repeat        | string   |     ✓     | [no, daily, weekly, biweekly, monthly, yearly] |
-/// | repeatUntil   | datetime |           | needed if repeat isn't "no" |
+/// See the [NewEvent](../../db/models/struct.NewEvent.html) format for the
+/// expected POST data.
 pub fn new_event((new_event, mut user): (NewEvent, User)) -> GreaseResult<Value> {
-    Event::create(new_event, None, &mut user.conn).map(|new_id| json!({ "id": new_id }))
+    if !user.has_permission("create-event", None)
+        && !user.has_permission("create-event", Some(&new_event.type_))
+    {
+        Err(GreaseError::Forbidden(Some("create-event".to_owned())))
+    } else {
+        Event::create(new_event, None, &mut user.conn).map(|new_id| json!({ "id": new_id }))
+    }
 }
 
 /// Update an existing event.
 ///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the event
+///
 /// ## Input Format:
 ///
-/// |      Field       |      Type      |      Required?       |       Comments        |
-/// |------------------|----------------|:--------------------:|-----------------------|
-/// | name             | string         |          ✓           |                       |
-/// | semester         | string         |          ✓           |                       |
-/// | type             | string         |          ✓           | the event type        |
-/// | callTime         | datetime       |          ✓           |                       |
-/// | releaseTime      | datetime       |                      |                       |
-/// | points           | integer        |          ✓           |                       |
-/// | comments         | string         |                      |                       |
-/// | location         | string         |                      |                       |
-/// | gigCount         | boolean        |          ✓           | for volunteer gigs    |
-/// | defaultAttend    | boolean        |          ✓           |                       |
-/// | section          | string         |                      | name of the section   |
-/// | performanceTime  | datetime       | for events with gigs |                       |
-/// | uniform          | integer        | for events with gigs |                       |
-/// | contactName      | string         |                      |                       |
-/// | contactEmail     | string         |                      |                       |
-/// | contactPhone     | string         |                      |                       |
-/// | price            | integer        |                      |                       |
-/// | public           | boolean        | for events with gigs | show on external site |
-/// | summary          | string         |                      | public event summary  |
-/// | description      | string         |                      | public event summary  |
+/// See the [EventUpdate](../../db/models/struct.EventUpdate.html) format for
+/// the expected POST data.
 pub fn update_event(
-    event_id: i32,
+    id: i32,
     (updated_event, mut user): (EventUpdate, User),
 ) -> GreaseResult<Value> {
-    Event::update(event_id, updated_event, &mut user.conn).map(|_| basic_success())
+    Event::update(id, updated_event, &mut user.conn).map(|_| basic_success())
 }
 
 /// Delete an event.
 ///
 /// ## Path Parameters:
-///   * id: integer (required) - The ID of the event
+///   * id: integer (*required*) - The ID of the event
 pub fn delete_event(id: i32, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "delete-event");
     Event::delete(id, &mut user.conn).map(|_| basic_success())
 }
 
@@ -175,13 +135,13 @@ pub fn delete_event(id: i32, mut user: User) -> GreaseResult<Value> {
 /// will be denied viewing privileges.
 ///
 /// ## Path Parameters:
-///   * id: integer (required) - The ID of the event
+///   * id: integer (*required*) - The ID of the event
 ///
 /// ## Return Format:
 ///
 /// ```json
 /// {
-///     <section>: [
+///     "<section>": [
 ///         {
 ///             "attendance": Attendance,
 ///             "member": Member,
@@ -201,8 +161,7 @@ pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
     let section = event.event.section.as_ref().map(|s| s.as_str());
 
     if user.has_permission("view-attendance", None) {
-        let all_attendance =
-            Attendance::load_for_event_separate_by_section(id, &mut user.conn)?;
+        let all_attendance = Attendance::load_for_event_separate_by_section(id, &mut user.conn)?;
         let mut attendance_json = json!({});
         for (section, section_attendance) in all_attendance.into_iter() {
             attendance_json[section] = section_attendance
