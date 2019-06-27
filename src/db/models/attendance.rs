@@ -79,18 +79,32 @@ impl Attendance {
     pub fn load_for_event_separate_by_section<C: Connection>(
         given_event_id: i32,
         conn: &mut C,
-    ) -> GreaseResult<HashMap<Option<String>, Vec<(Attendance, MemberForSemester)>>> {
-        Attendance::load_for_event(given_event_id, conn).map(|pairs| {
-            let mut section_attendance: HashMap<Option<String>, Vec<(_, _)>> = HashMap::new();
-            for (member_attendance, member_for_semester) in pairs {
-                section_attendance
-                    .entry(member_for_semester.active_semester.as_ref().and_then(|active_semester| active_semester.section.clone()))
-                    .or_default()
-                    .push((member_attendance, member_for_semester));
-            }
+    ) -> GreaseResult<HashMap<String, Vec<(Attendance, MemberForSemester)>>> {
+        let attendance_pairs = Attendance::load_for_event(given_event_id, conn)?;
+        let mut section_attendance: HashMap<String, Vec<(_, _)>> = HashMap::new();
+        let mut all_sections = conn.load::<String>(
+            Select::new(SectionType::table_name())
+                .fields(&["name"])
+                .order_by("name", Order::Asc),
+        )?;
+        all_sections.push("Unsorted".to_owned());
 
+        for (member_attendance, member_for_semester) in attendance_pairs {
+            let member_section = member_for_semester
+                .active_semester
+                .as_ref()
+                .and_then(|active_semester| active_semester.section.clone())
+                .unwrap_or("Unsorted".to_owned());
             section_attendance
-        })
+                .get_mut(&member_section)
+                .ok_or(GreaseError::ServerError(format!(
+                    "Member belonged to unknown section {}.",
+                    &member_section
+                )))?
+                .push((member_attendance, member_for_semester));
+        }
+
+        Ok(section_attendance)
     }
 
     pub fn load_for_member_at_all_events<C: Connection>(

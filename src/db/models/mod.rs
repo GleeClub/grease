@@ -214,7 +214,7 @@ pub struct SectionType {
 //   name varchar(32) NOT NULL PRIMARY KEY,
 //   weight int NOT NULL
 // ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
+#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, PartialEq)]
 #[table_name = "event_type"]
 pub struct EventType {
     pub name: String,
