@@ -18,67 +18,166 @@ pub mod song;
 pub mod testing;
 pub mod transaction;
 
-// CREATE TABLE member (
-//   email varchar(50) NOT NULL PRIMARY KEY,
-//   first_name varchar(25) NOT NULL,
-//   preferred_name varchar(25) DEFAULT NULL,
-//   last_name varchar(25) NOT NULL,
-//   pass_hash varchar(64) NOT NULL,
-//   phone_number varchar(16) NOT NULL,
-//   picture varchar(255) DEFAULT NULL,
-//   passengers int NOT NULL DEFAULT '0',
-//   location varchar(50) NOT NULL,
-//   on_campus tinyint(1) DEFAULT NULL,
-//   about varchar(500) DEFAULT NULL,
-//   major varchar(50) DEFAULT NULL,
-//   minor varchar(50) DEFAULT NULL,
-//   hometown varchar(50) DEFAULT NULL,
-//   arrived_at_tech int DEFAULT NULL, -- year
-//   gateway_drug varchar(500) DEFAULT NULL,
-//   conflicts varchar(500) DEFAULT NULL,
-//   dietary_restrictions varchar(500) DEFAULT NULL
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for members.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE member (
+///   email varchar(50) NOT NULL PRIMARY KEY,
+///   first_name varchar(25) NOT NULL,
+///   preferred_name varchar(25) DEFAULT NULL,
+///   last_name varchar(25) NOT NULL,
+///   pass_hash varchar(64) NOT NULL,
+///   phone_number varchar(16) NOT NULL,
+///   picture varchar(255) DEFAULT NULL,
+///   passengers int NOT NULL DEFAULT '0',
+///   location varchar(50) NOT NULL,
+///   on_campus tinyint(1) DEFAULT NULL,
+///   about varchar(500) DEFAULT NULL,
+///   major varchar(50) DEFAULT NULL,
+///   minor varchar(50) DEFAULT NULL,
+///   hometown varchar(50) DEFAULT NULL,
+///   arrived_at_tech int DEFAULT NULL, -- year
+///   gateway_drug varchar(500) DEFAULT NULL,
+///   conflicts varchar(500) DEFAULT NULL,
+///   dietary_restrictions varchar(500) DEFAULT NULL
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     email: string,
+///     firstName: string,
+///     preferredName: string, // optional
+///     lastName: string,
+///     fullName: string,
+///     phoneNumber: string,
+///     picture: string, // optional
+///     passengers: integer,
+///     location: string,
+///     onCampus: boolean, // optional
+///     about: string, // optional
+///     major: string, // optional
+///     minor: string, // optional
+///     hometown: string, // optional
+///     arrivedAtTech: integer, // optional
+///     gatewayDrug: string, // optional
+///     conflicts: string, // optional
+///     dietaryRestrictions: string // optional
+/// }
+/// ```
 #[derive(
     TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Debug, PartialEq, Clone,
 )]
 #[table_name = "member"]
 pub struct Member {
+    /// The member's email, which must be unique
     pub email: String,
+    /// The member's first name
     #[serde(rename = "firstName")]
+    /// The member's nick name
     pub first_name: String,
     #[serde(rename = "preferredName", deserialize_with = "deser_opt_string")]
     pub preferred_name: Option<String>,
+    /// The member's last name
     #[serde(rename = "lastName")]
     pub last_name: String,
+    /// The hash of the member's password
     #[serde(rename = "passHash")]
     pub pass_hash: String,
+    /// The member's phone number
     #[serde(rename = "phoneNumber")]
     pub phone_number: String,
+    /// An optional link to a profile picture for the member
     #[serde(deserialize_with = "deser_opt_string")]
     pub picture: Option<String>,
+    /// The number of people the member is able to drive for gigs
     pub passengers: i32,
+    /// Where the member lives
     pub location: String,
-    #[serde(default)]
-    #[serde(rename = "onCampus")]
+    /// Whether the member currently lives on campus (assumed false)
+    #[serde(default, rename = "onCampus")]
     pub on_campus: Option<bool>,
+    /// An optional bio for the member
     #[serde(deserialize_with = "deser_opt_string")]
     pub about: Option<String>,
+    /// The member's academic major
     #[serde(deserialize_with = "deser_opt_string")]
     pub major: Option<String>,
+    /// The member's academic minor
     #[serde(deserialize_with = "deser_opt_string")]
     pub minor: Option<String>,
+    /// Where the member originally comes from
     #[serde(deserialize_with = "deser_opt_string")]
     pub hometown: Option<String>,
+    /// What year the member arrived at Tech (e.g. 2012)
     #[serde(rename = "arrivedAtTech")]
     pub arrived_at_tech: Option<i32>,
+    /// What brought the member to Glee Club
     #[serde(rename = "gatewayDrug", deserialize_with = "deser_opt_string")]
     pub gateway_drug: Option<String>,
+    /// What conflicts during the week the member may have
     #[serde(deserialize_with = "deser_opt_string")]
     pub conflicts: Option<String>,
+    /// What dietary restrictions the member may have
     #[serde(rename = "dietaryRestrictions", deserialize_with = "deser_opt_string")]
     pub dietary_restrictions: Option<String>,
 }
 
+/// The required format for adding new members and updating existing ones.
+///
+/// ## Expected Format for New Members:
+///
+/// |        Field        |     Type     | Required? | Comments |
+/// |---------------------|--------------|:---------:|----------|
+/// | email               | string       |     ✓     |          |
+/// | firstName           | string       |     ✓     |          |
+/// | preferredName       | string       |           |          |
+/// | lastName            | string       |     ✓     |          |
+/// | passHash            | string       |     ✓     |          |
+/// | phoneNumber         | string       |     ✓     |          |
+/// | passengers          | integer      |     ✓     |          |
+/// | location            | string       |     ✓     |          |
+/// | onCampus            | boolean      |           |          |
+/// | about               | string       |           |          |
+/// | major               | string       |           |          |
+/// | minor               | string       |           |          |
+/// | hometown            | string       |           |          |
+/// | arrivedAtTech       | integer      |           |          |
+/// | gatewayDrug         | string       |           |          |
+/// | conflicts           | string       |           |          |
+/// | dietaryRestrictions | string       |           |          |
+/// | enrollment          | [Enrollment] |     ✓     |          |
+/// | section             | string       |     ✓     |          |
+///
+/// ## Expected Format for Member Updates:
+///
+/// |        Field        |     Type     | Required? | Comments |
+/// |---------------------|--------------|:---------:|----------|
+/// | email               | string       |     ✓     |          |
+/// | firstName           | string       |     ✓     |          |
+/// | preferredName       | string       |           |          |
+/// | lastName            | string       |     ✓     |          |
+/// | passHash            | string       |           | officers can't change members' passwords |
+/// | phoneNumber         | string       |     ✓     |          |
+/// | passengers          | integer      |     ✓     |          |
+/// | location            | string       |     ✓     |          |
+/// | onCampus            | boolean      |           |          |
+/// | about               | string       |           |          |
+/// | major               | string       |           |          |
+/// | minor               | string       |           |          |
+/// | hometown            | string       |           |          |
+/// | arrivedAtTech       | integer      |           |          |
+/// | gatewayDrug         | string       |           |          |
+/// | conflicts           | string       |           |          |
+/// | dietaryRestrictions | string       |           |          |
+/// | enrollment          | [Enrollment] |     ✓     |          |
+/// | section             | string       |     ✓     |          |
+///
+/// [Enrollment]: enum.Enrollment.html
 #[derive(Deserialize, Extract)]
 pub struct NewMember {
     pub email: String,
@@ -92,7 +191,7 @@ pub struct NewMember {
     pub pass_hash: Option<String>,
     #[serde(rename = "phoneNumber")]
     pub phone_number: String,
-    #[serde(deserialize_with = "deser_opt_string")]
+    #[serde(default, deserialize_with = "deser_opt_string")]
     pub picture: Option<String>,
     pub passengers: i32,
     pub location: String,
@@ -118,6 +217,20 @@ pub struct NewMember {
     pub section: String,
 }
 
+/// The required format when members confirm activity for a semester.
+///
+/// ## Expected Format:
+///
+/// |        Field        |     Type     | Required? | Comments |
+/// |---------------------|--------------|:---------:|----------|
+/// | location            | string       |     ✓     |          |
+/// | onCampus            | boolean      |           |          |
+/// | conflicts           | string       |           |          |
+/// | dietaryRestrictions | string       |           |          |
+/// | enrollment          | [Enrollment] |     ✓     |          |
+/// | section             | string       |     ✓     |          |
+///
+/// [Enrollment]: enum.Enrollment.html
 #[derive(Deserialize, Extract)]
 pub struct RegisterForSemesterForm {
     pub location: String,
@@ -131,26 +244,58 @@ pub struct RegisterForSemesterForm {
     pub section: String,
 }
 
-// CREATE TABLE semester (
-//   name varchar(32) NOT NULL PRIMARY KEY,
-//   start_date datetime NOT NULL,
-//   end_date datetime NOT NULL,
-//   gig_requirement int NOT NULL DEFAULT '5',
-//   current boolean NOT NULL DEFAULT '0'
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for semesters.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE semester (
+///   name varchar(32) NOT NULL PRIMARY KEY,
+///   start_date datetime NOT NULL,
+///   end_date datetime NOT NULL,
+///   gig_requirement int NOT NULL DEFAULT '5',
+///   current boolean NOT NULL DEFAULT '0'
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     name: string,
+///     startDate: datetime,
+///     endDate: datetime,
+///     gigRequirement: boolean,
+///     current: boolean
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable)]
 #[table_name = "semester"]
 pub struct Semester {
+    /// The name of the semester
     pub name: String,
+    /// When the semester starts
     #[serde(rename = "startDate")]
     pub start_date: NaiveDateTime,
+    /// When the semester ends
     #[serde(rename = "endDate")]
     pub end_date: NaiveDateTime,
+    /// How many volunteer gigs are required for the semester
     #[serde(rename = "gigRequirement")]
     pub gig_requirement: i32,
+    /// Whether this is the current semester
     pub current: bool,
 }
 
+/// The required format for updating semesters.
+///
+/// ## Expected Format:
+///
+/// |     Field      |   Type   | Required? |         Comments          |
+/// |----------------|----------|:---------:|---------------------------|
+/// | startDate      | datetime |     ✓     |                           |
+/// | endDate        | datetime |     ✓     | must be after `startDate` |
+/// | gigRequirement | integer  |     ✓     |                           |
 #[derive(TableName, Deserialize, FieldNames, Extract)]
 #[table_name = "semester"]
 pub struct SemesterUpdate {
@@ -162,6 +307,15 @@ pub struct SemesterUpdate {
     pub gig_requirement: i32,
 }
 
+/// The required format for creating semesters.
+///
+/// ## Expected Format:
+///
+/// |   Field   |   Type   | Required? |         Comments          |
+/// |-----------|----------|:---------:|---------------------------|
+/// | name      | string   |     ✓     |                           |
+/// | startDate | datetime |     ✓     |                           |
+/// | endDate   | datetime |     ✓     | must be after `startDate` |
 #[derive(TableName, Deserialize, FieldNames, Insertable, Extract)]
 #[table_name = "semester"]
 pub struct NewSemester {
@@ -172,95 +326,188 @@ pub struct NewSemester {
     pub end_date: NaiveDateTime,
 }
 
-// CREATE TABLE role (
-//   name varchar(20) NOT NULL PRIMARY KEY,
-//   `rank` int NOT NULL,
-//   max_quantity int NOT NULL
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for roles within the organization (a.k.a. officer positions).
+///
+/// ## Database Format:
+///
+/// ```sql
+///  CREATE TABLE role (
+///   name varchar(20) NOT NULL PRIMARY KEY,
+///   `rank` int NOT NULL,
+///   max_quantity int NOT NULL
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     name: string,
+///     rank: integer,
+///     maxQuantity: integer,
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "role"]
 pub struct Role {
+    /// The name of the role
     pub name: String,
+    /// Used for ordering the positions (e.g. President before Ombudsman)
     pub rank: i32,
+    /// The maximum number of the position allowed to be held at once.
+    /// If it is 0 or less, no maximum is enforced.
     #[serde(rename = "maxQuantity")]
     pub max_quantity: i32,
 }
 
-// CREATE TABLE member_role (
-//   member varchar(50) NOT NULL,
-//   role varchar(20) NOT NULL,
-
-//   PRIMARY KEY (member, role),
-//   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (role) REFERENCES role (name) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for the recording which member holds what role.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE member_role (
+///   member varchar(50) NOT NULL,
+///   role varchar(20) NOT NULL,
+///
+///   PRIMARY KEY (member, role),
+///   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (role) REFERENCES role (name) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     member: string,
+///     role: string,
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Extract)]
 #[table_name = "member_role"]
 pub struct MemberRole {
+    /// The email of the member holding the role
     pub member: String,
+    /// The name of the role being held
     pub role: String,
 }
 
-// CREATE TABLE section_type (
-//   name varchar(20) NOT NULL PRIMARY KEY
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The names of the sections that members sing in (e.g. Baritone).
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE section_type (
+///   name varchar(20) NOT NULL PRIMARY KEY
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     name: string,
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "section_type"]
 pub struct SectionType {
+    /// The name of the section type
     pub name: String,
 }
 
-// CREATE TABLE event_type (
-//   name varchar(32) NOT NULL PRIMARY KEY,
-//   weight int NOT NULL
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The types of events that members will attend.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE event_type (
+///   name varchar(32) NOT NULL PRIMARY KEY,
+///   weight int NOT NULL
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     name: string,
+///     weight: integer,
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, PartialEq)]
 #[table_name = "event_type"]
 pub struct EventType {
+    /// The name of the type of event
     pub name: String,
+    /// How many points this type is worth
     pub weight: i32,
 }
 
-// CREATE TABLE event (
-//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-//   name varchar(64) NOT NULL,
-//   semester varchar(32) NOT NULL,
-//   `type` varchar(32) NOT NULL,
-//   call_time datetime NOT NULL,
-//   release_time datetime DEFAULT NULL,
-//   points int NOT NULL,
-//   comments text DEFAULT NULL,
-//   location varchar(255) DEFAULT NULL,
-//   gig_count boolean NOT NULL DEFAULT '1',
-//   default_attend boolean NOT NULL DEFAULT '1',
-//   section varchar(20) DEFAULT NULL,
-
-//   FOREIGN KEY (semester) REFERENCES semester (name) ON UPDATE CASCADE ON DELETE CASCADE,
-//   FOREIGN KEY (`type`) REFERENCES event_type (name) ON UPDATE CASCADE ON DELETE CASCADE,
-//   FOREIGN KEY (section) REFERENCES section_type (name) ON UPDATE CASCADE ON DELETE SET NULL
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for events that members attend.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE event (
+///   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+///   name varchar(64) NOT NULL,
+///   semester varchar(32) NOT NULL,
+///   `type` varchar(32) NOT NULL,
+///   call_time datetime NOT NULL,
+///   release_time datetime DEFAULT NULL,
+///   points int NOT NULL,
+///   comments text DEFAULT NULL,
+///   location varchar(255) DEFAULT NULL,
+///   gig_count boolean NOT NULL DEFAULT '1',
+///   default_attend boolean NOT NULL DEFAULT '1',
+///   section varchar(20) DEFAULT NULL,
+///
+///   FOREIGN KEY (semester) REFERENCES semester (name) ON UPDATE CASCADE ON DELETE CASCADE,
+///   FOREIGN KEY (`type`) REFERENCES event_type (name) ON UPDATE CASCADE ON DELETE CASCADE,
+///   FOREIGN KEY (section) REFERENCES section_type (name) ON UPDATE CASCADE ON DELETE SET NULL
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// `Event`s are not directly serialized, see [to_json](event/struct.EventWithGig#method.to_json)
+/// for how `Event`s get serialized with `Gig`s.
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Debug, Clone)]
 #[table_name = "event"]
 pub struct Event {
+    /// The ID of the event
     pub id: i32,
+    /// The name of the event
     pub name: String,
+    /// The name of the [Semester](struct.Semester.html) this event belongs to
     pub semester: String,
+    /// The type of the event (see [EventType](struct.EventType.html))
     #[rename = "type"]
     #[serde(rename = "type")]
     pub type_: String,
+    /// When members are expected to arrive to the event
     #[serde(rename = "callTime")]
     pub call_time: NaiveDateTime,
+    /// When members are probably going to be released
     #[serde(rename = "releaseTime")]
     pub release_time: Option<NaiveDateTime>,
+    /// How many points attendance of this event is worth
     pub points: i32,
+    /// General information or details about this event
     #[serde(deserialize_with = "deser_opt_string")]
     pub comments: Option<String>,
+    /// Where this event will be held
     #[serde(deserialize_with = "deser_opt_string")]
     pub location: Option<String>,
+    /// Whether this event counts toward the volunteer gig count for the semester
     #[serde(rename = "gigCount")]
     pub gig_count: bool,
+    /// Whether members are assumed to attend (most events)
     #[serde(rename = "defaultAttend")]
     pub default_attend: bool,
+    /// If this event is for one singing [section](struct.SectionType.html) only,
+    /// this denotes which one (e.g. old sectionals)
     #[serde(deserialize_with = "deser_opt_string")]
     pub section: Option<String>,
 }
@@ -433,28 +680,51 @@ pub struct NewAnnouncement {
     pub content: String,
 }
 
-// CREATE TABLE attendance (
-//   member varchar(50) NOT NULL,
-//   event int NOT NULL,
-//   should_attend boolean NOT NULL DEFAULT '1',
-//   did_attend boolean NOT NULL DEFAULT '0', -- TODO: null or not if an event hasn't passed
-//   confirmed boolean NOT NULL DEFAULT '0',
-//   minutes_late int NOT NULL DEFAULT '0',
-
-//   PRIMARY KEY (member, event),
-//   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for member attendance.
+///
+/// ## Database Format:
+/// ```sql
+/// CREATE TABLE attendance (
+///   member varchar(50) NOT NULL,
+///   event int NOT NULL,
+///   should_attend boolean NOT NULL DEFAULT '1',
+///   did_attend boolean NOT NULL DEFAULT '0',
+///   confirmed boolean NOT NULL DEFAULT '0',
+///   minutes_late int NOT NULL DEFAULT '0',
+///
+///   PRIMARY KEY (member, event),
+///   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+/// ```json
+/// {
+///     member: string,
+///     event: integer,
+///     shouldAttend: boolean,
+///     didAttend: boolean,
+///     confirmed: boolean,
+///     minutesLate: integer
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Debug, PartialEq)]
 #[table_name = "attendance"]
 pub struct Attendance {
+    /// The email of the member this attendance belongs to
     pub member: String,
+    /// The ID of the event this attendance belongs to
     pub event: i32,
+    /// Whether the member is expected to attend the event
     #[serde(rename = "shouldAttend")]
     pub should_attend: bool,
+    /// Whether the member did attend the event
     #[serde(rename = "didAttend")]
     pub did_attend: bool,
+    /// Whether the member confirmed that they would attend
     pub confirmed: bool,
+    /// How late the member was if they attended
     #[serde(rename = "minutesLate")]
     pub minutes_late: i32,
 }

@@ -37,6 +37,10 @@ impl Member {
         ))
     }
 
+    /// Formats the member's full name.
+    ///
+    /// If the member's `preferred_name` is not `None`, then their full name is
+    /// `<preferred_name> <last_name>`. Otherwise, it defaults to `<first_name> <last_name>`.
     pub fn full_name(&self) -> String {
         format!(
             "{} {}",
@@ -45,26 +49,29 @@ impl Member {
         )
     }
 
+    /// Render this member's data to JSON.
+    ///
+    /// See the [JSON Format](struct.Member.html#json-format) above for what this returns.
     pub fn to_json(&self) -> Value {
         json!({
             "email": self.email,
-            "first_name": self.first_name,
-            "preferred_name": self.preferred_name,
-            "last_name": self.last_name,
-            "full_name": self.full_name(),
-            "phone_number": self.phone_number,
+            "firstName": self.first_name,
+            "preferredName": self.preferred_name,
+            "lastName": self.last_name,
+            "fullName": self.full_name(),
+            "phoneNumber": self.phone_number,
             "picture": self.picture,
             "passengers": self.passengers,
             "location": self.location,
-            "on_campus": self.on_campus,
+            "onCampus": self.on_campus,
             "about": self.about,
             "major": self.major,
             "minor": self.minor,
             "hometown": self.hometown,
-            "arrived_at_tech": self.arrived_at_tech,
-            "gateway_drug": self.gateway_drug,
+            "arrivedAtTech": self.arrived_at_tech,
+            "gatewayDrug": self.gateway_drug,
             "conflicts": self.conflicts,
-            "dietary_restrictions": self.dietary_restrictions
+            "dietaryRestrictions": self.dietary_restrictions
         })
     }
 
@@ -731,7 +738,7 @@ impl NewMember {
                 preferred_name: self.preferred_name,
                 last_name: self.last_name,
                 pass_hash: self.pass_hash.ok_or(GreaseError::BadRequest(
-                    "The pass_hash field is required for new member registration.".to_owned(),
+                    "The `pass_hash` field is required for new member registration.".to_owned(),
                 ))?,
                 phone_number: self.phone_number,
                 picture: self.picture,

@@ -124,7 +124,7 @@ CREATE TABLE attendance (
   member varchar(50) NOT NULL,
   event int NOT NULL,
   should_attend boolean NOT NULL DEFAULT '1',
-  did_attend boolean NOT NULL DEFAULT '0', -- TODO: null or not if an event hasn't passed
+  did_attend boolean NOT NULL DEFAULT '0',
   confirmed boolean NOT NULL DEFAULT '0',
   minutes_late int NOT NULL DEFAULT '0',
 

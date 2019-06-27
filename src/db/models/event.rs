@@ -388,7 +388,7 @@ impl Period {
             "monthly" => Ok(Some(Period::Monthly)),
             "yearly" => Ok(Some(Period::Yearly)),
             other => Err(GreaseError::BadRequest(format!(
-                "The repeat value '{}' is not allowed. The only allowed values \
+                "The repeat value {} is not allowed. The only allowed values \
                  are 'no', 'daily', 'weekly', 'biweekly', 'monthly', or 'yearly'.",
                 other
             ))),
@@ -403,6 +403,36 @@ pub struct EventWithGig {
 }
 
 impl EventWithGig {
+    /// Render this event and gig's data to JSON.
+    ///
+    /// ## JSON Format:
+    ///
+    /// ```json
+    /// {
+    ///     id: integer,
+    ///     name: string,
+    ///     semester: string,
+    ///     type: string,
+    ///     callTime: datetime,
+    ///     releaseTime: datetime, // optional
+    ///     points: integer,
+    ///     comments: string, // optional
+    ///     location: string, // optional
+    ///     gigCount: boolean,
+    ///     defaultAttend: boolean,
+    ///     section: string, // optional
+    ///     performanceTime: datetime, // present for gigs
+    ///     contactName: string, // optional for gigs
+    ///     contactEmail: string, // optional for gigs
+    ///     contactPhone: string, // optional for gigs
+    ///     contactPhone: string, // optional for gigs
+    ///     price: integer, // optional for gigs
+    ///     public: boolean, // present for gigs
+    ///     summary: string, // optional for gigs
+    ///     description: string, // optional for gigs
+    ///     uniform: integer // present for gigs
+    /// }
+    /// ```
     pub fn to_json(&self) -> Value {
         json!({
             "id": self.event.id,
@@ -429,6 +459,13 @@ impl EventWithGig {
         })
     }
 
+    /// Render this event and gig's data to JSON, including some additional data.
+    ///
+    /// On top of what is included for [to_json](#method.to_json), two other fields are included:
+    ///   * uniform: if the event has a gig, the gig's [Uniform](../struct.Uniform.html) is included
+    ///       in place of the uniform's id. It is null otherwise.
+    ///   * attendance: The current member's [Attendance](../struct.Attendance.html) for the gig is
+    ///       included if they were ever active during the semester of the event. It is null otherwise.
     pub fn to_json_full<C: Connection>(
         &self,
         member: &Member,

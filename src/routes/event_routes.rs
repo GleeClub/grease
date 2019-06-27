@@ -59,6 +59,7 @@ pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseRes
 ///       filter the events by. If unspecified, simply returns all events.
 ///
 /// ## Return Format:
+///
 /// See [get_event](fn.get_event.html) for format.
 pub fn get_events(
     full: Option<bool>,
@@ -165,13 +166,43 @@ pub fn delete_event(id: i32, mut user: User) -> GreaseResult<Value> {
     Event::delete(id, &mut user.conn).map(|_| basic_success())
 }
 
-pub fn get_attendance(event_id: i32, mut user: User) -> GreaseResult<Value> {
-    let event = Event::load(event_id, &mut user.conn)?;
+/// Load the attendance for an event.
+///
+/// If the current member can edit all attendance, they will be provided with
+/// all sections ["Baritone", "Bass", "Tenor 1", "Tenor 2", "Unsorted"]. If they
+/// can only edit their own section's attendance, then they will see just their
+/// section's attendance (only works for sorted members). Otherwise, anyone else
+/// will be denied viewing privileges.
+///
+/// ## Path Parameters:
+///   * id: integer (required) - The ID of the event
+///
+/// ## Return Format:
+///
+/// ```json
+/// {
+///     <section>: [
+///         {
+///             "attendance": Attendance,
+///             "member": Member,
+///         },
+///         ...
+///     ],
+///     ...
+/// }
+/// ```
+///
+/// See the [Attendance](../../db/models/struct.Attendance.html) and the
+/// [Member](../../db/models/struct.Member.html) models for how they will be
+/// returned.
+///
+pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
+    let event = Event::load(id, &mut user.conn)?;
     let section = event.event.section.as_ref().map(|s| s.as_str());
 
     if user.has_permission("view-attendance", None) {
         let all_attendance =
-            Attendance::load_for_event_separate_by_section(event_id, &mut user.conn)?;
+            Attendance::load_for_event_separate_by_section(id, &mut user.conn)?;
         let mut attendance_json = json!({});
         for (section, section_attendance) in all_attendance.into_iter() {
             attendance_json[section] = section_attendance
@@ -190,7 +221,7 @@ pub fn get_attendance(event_id: i32, mut user: User) -> GreaseResult<Value> {
         && user.has_permission("view-attendance", Some(event.event.type_.as_str()))
     {
         let section_attendance =
-            Attendance::load_for_event_for_section(event_id, section, &mut user.conn)?;
+            Attendance::load_for_event_for_section(id, section, &mut user.conn)?;
         Ok(json!({
             section.unwrap_or("Unsorted"): section_attendance
                 .into_iter()
