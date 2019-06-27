@@ -14,6 +14,11 @@ pub struct LoginInfo {
     pass_hash: String,
 }
 
+
+/// Login to Grease
+///
+/// Input Format:
+///
 pub fn login((form, mut conn): (LoginInfo, DbConn)) -> GreaseResult<Value> {
     if let Some(_member) = Member::check_login(&form.email, &form.pass_hash, &mut conn)? {
         if let Some(existing_session) = Session::load(&form.email, &mut conn)? {

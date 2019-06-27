@@ -7,41 +7,40 @@ use error::*;
 use pinto::query_builder::Order;
 use serde_json::{json, Value};
 
-/// GET /events/{id} - Get a single event.
+/// Get a single event.
 ///
 /// ## Path Parameters:
-///   * event_id: integer (required) - The ID of the event
+///   * id: integer (required) - The ID of the event
 ///
 /// ## Query Parameters:
 ///   * full: boolean (optional) - Whether to include uniform and attendance.
 ///
 /// ## Return Format:
 ///
-/// ```python
-/// {
-///     id: integer,
-///     name: string,
-///     semester: string,
-///     type: string, // The event type
-///     callTime: RFC 3339 datetime,
-///     releaseTime: RFC 3339 datetime, // optional
-///     points: integer,
-///     comments: string,
-///     location: ,
-///     gigCount: ,
-///     defaultAttend: ,
-///     section: ,
-///     performanceTime:
-///     uniform: string,
-///     contactName: string,
-///     contactEmail: string,
-///     contactPhone: string,
-///     price:
-///     public:
-///     summary: string,
-///     description: string,
-/// }
-/// ```
+/// |      Field       |      Type       | Null? |       Comments           |
+/// |------------------|-----------------|:-----:|--------------------------|
+/// | id               | integer         |       |                          |
+/// | name             | string          |       |                          |
+/// | semester         | string          |       |                          |
+/// | type             | string          |       | the event type           |
+/// | callTime         | datetime        |       |                          |
+/// | releaseTime      | datetime        |   ✓   |                          |
+/// | points           | integer         |       |                          |
+/// | comments         | string          |   ✓   |                          |
+/// | location         | string          |   ✓   |                          |
+/// | gigCount         | boolean         |       | for volunteer gigs       |
+/// | defaultAttend    | boolean         |       |                          |
+/// | section          | string          |   ✓   | name of the section      |
+/// | performanceTime  | datetime        |       |                          |
+/// | contactName      | string          |       |                          |
+/// | contactEmail     | string          |       |                          |
+/// | contactPhone     | string          |       |                          |
+/// | price            | integer         |   ✓   |                          |
+/// | public           | boolean         |       | show on external site    |
+/// | summary          | string          |   ✓   | public event summary     |
+/// | description      | string          |   ✓   | public event summary     |
+/// | uniform          | integer/Uniform |       | use `full` for object    |
+/// | attendance       | Attendance      |   ✓   | only present with `full` |
 pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseResult<Value> {
     Event::load(event_id, &mut user.conn).and_then(|event_with_gig| {
         if full.unwrap_or(false) {
@@ -52,40 +51,105 @@ pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseRes
     })
 }
 
+/// Get all events for the semester.
+///
+/// ## Query Parameters:
+///   * full: boolean (optional) - Whether to include uniform and attendance.
+///   * event_types: string (optional) - A comma-delimited list of event types to
+///       filter the events by. If unspecified, simply returns all events.
+///
+/// ## Return Format:
+/// See [get_event](fn.get_event.html) for format.
 pub fn get_events(
     full: Option<bool>,
-    event_type: Option<String>,
+    event_types: Option<String>,
     mut user: User,
 ) -> GreaseResult<Value> {
-    let events_with_gigs = if let Some(event_type) = event_type.filter(|type_| type_.len() > 0) {
-        let event_type = user.conn.first::<EventType>(
-            &EventType::filter(&format!("name = '{}'", event_type)),
-            format!("No event type exists named {}.", event_type),
-        )?;
-        Event::load_all_of_type_for_current_semester(&event_type.name, &mut user.conn)
-    } else {
-        Event::load_all_for_current_semester(&mut user.conn)
-    };
-
-    events_with_gigs.and_then(|events_with_gigs| {
-        events_with_gigs
-            .into_iter()
-            .map(|event_with_gig| {
-                if full.unwrap_or(false) {
-                    event_with_gig.to_json_full(&user.member.member, &mut user.conn)
-                } else {
-                    Ok(event_with_gig.to_json())
-                }
+    let mut events_with_gigs = Event::load_all_for_current_semester(&mut user.conn)?;
+    // if event types are provided,
+    if let Some(event_types) = event_types {
+        // load all of the event types with those names
+        let event_types = event_types
+            .split(",")
+            .map(|type_| {
+                user.conn.first::<EventType>(
+                    &EventType::filter(&format!("name = '{}'", type_)),
+                    format!("No event type exists named {}.", type_),
+                )
             })
-            .collect::<GreaseResult<Vec<Value>>>()
-            .map(|events_with_gigs| events_with_gigs.into())
-    })
+            .collect::<GreaseResult<Vec<EventType>>>()?;
+        // and filter the events by the provided types
+        events_with_gigs.retain(|event| {
+            event_types
+                .iter()
+                .filter(|type_| &event.event.type_ == &type_.name)
+                .next()
+                .is_some()
+        });
+    }
+
+    events_with_gigs
+        .into_iter()
+        .map(|event_with_gig| {
+            // include extra data if the `full` parameter is set to `true`
+            if full.unwrap_or(false) {
+                event_with_gig.to_json_full(&user.member.member, &mut user.conn)
+            } else {
+                Ok(event_with_gig.to_json())
+            }
+        })
+        .collect::<GreaseResult<Vec<Value>>>()
+        .map(|events_with_gigs| events_with_gigs.into())
 }
 
+/// Create a new event.
+///
+/// ## Input Format:
+///
+/// |     Field     |   Type   | Required? |          Comments           |
+/// |---------------|----------|:---------:|-----------------------------|
+/// | name          | string   |     ✓     |                             |
+/// | semester      | string   |     ✓     |                             |
+/// | type          | string   |     ✓     | event type                  |
+/// | callTime      | datetime |     ✓     |                             |
+/// | releaseTime   | datetime |           |                             |
+/// | points        | integer  |     ✓     |                             |
+/// | comments      | string   |           |                             |
+/// | location      | string   |           |                             |
+/// | gigCount      | boolean  |     ✓     | for volunteer gigs          |
+/// | defaultAttend | boolean  |     ✓     | assume members should go    |
+/// | repeat        | string   |     ✓     | [no, daily, weekly, biweekly, monthly, yearly] |
+/// | repeatUntil   | datetime |           | needed if repeat isn't "no" |
 pub fn new_event((new_event, mut user): (NewEvent, User)) -> GreaseResult<Value> {
     Event::create(new_event, None, &mut user.conn).map(|new_id| json!({ "id": new_id }))
 }
 
+/// Update an existing event.
+///
+/// ## Input Format:
+///
+/// |      Field       |      Type      |      Required?       |       Comments        |
+/// |------------------|----------------|:--------------------:|-----------------------|
+/// | name             | string         |          ✓           |                       |
+/// | semester         | string         |          ✓           |                       |
+/// | type             | string         |          ✓           | the event type        |
+/// | callTime         | datetime       |          ✓           |                       |
+/// | releaseTime      | datetime       |                      |                       |
+/// | points           | integer        |          ✓           |                       |
+/// | comments         | string         |                      |                       |
+/// | location         | string         |                      |                       |
+/// | gigCount         | boolean        |          ✓           | for volunteer gigs    |
+/// | defaultAttend    | boolean        |          ✓           |                       |
+/// | section          | string         |                      | name of the section   |
+/// | performanceTime  | datetime       | for events with gigs |                       |
+/// | uniform          | integer        | for events with gigs |                       |
+/// | contactName      | string         |                      |                       |
+/// | contactEmail     | string         |                      |                       |
+/// | contactPhone     | string         |                      |                       |
+/// | price            | integer        |                      |                       |
+/// | public           | boolean        | for events with gigs | show on external site |
+/// | summary          | string         |                      | public event summary  |
+/// | description      | string         |                      | public event summary  |
 pub fn update_event(
     event_id: i32,
     (updated_event, mut user): (EventUpdate, User),
@@ -93,8 +157,12 @@ pub fn update_event(
     Event::update(event_id, updated_event, &mut user.conn).map(|_| basic_success())
 }
 
-pub fn delete_event(event_id: i32, mut user: User) -> GreaseResult<Value> {
-    Event::delete(event_id, &mut user.conn).map(|_| basic_success())
+/// Delete an event.
+///
+/// ## Path Parameters:
+///   * id: integer (required) - The ID of the event
+pub fn delete_event(id: i32, mut user: User) -> GreaseResult<Value> {
+    Event::delete(id, &mut user.conn).map(|_| basic_success())
 }
 
 pub fn get_attendance(event_id: i32, mut user: User) -> GreaseResult<Value> {
@@ -106,7 +174,6 @@ pub fn get_attendance(event_id: i32, mut user: User) -> GreaseResult<Value> {
             Attendance::load_for_event_separate_by_section(event_id, &mut user.conn)?;
         let mut attendance_json = json!({});
         for (section, section_attendance) in all_attendance.into_iter() {
-            let section = section.unwrap_or("unsorted".to_owned());
             attendance_json[section] = section_attendance
                 .into_iter()
                 .map(|(attendance, member_for_semester)| {
@@ -125,7 +192,7 @@ pub fn get_attendance(event_id: i32, mut user: User) -> GreaseResult<Value> {
         let section_attendance =
             Attendance::load_for_event_for_section(event_id, section, &mut user.conn)?;
         Ok(json!({
-            section.unwrap_or("unsorted"): section_attendance
+            section.unwrap_or("Unsorted"): section_attendance
                 .into_iter()
                 .map(|(attendance, member_for_semester)| json!({
                     "attendance": attendance,

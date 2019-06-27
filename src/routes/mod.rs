@@ -1,11 +1,16 @@
-mod event_routes;
+pub mod event_routes;
 pub mod from_url;
-mod macros;
-mod member_routes;
-mod misc_routes;
-mod officers_routes;
-mod repertoire_routes;
+pub mod macros;
+pub mod member_routes;
+pub mod misc_routes;
+pub mod officer_routes;
+pub mod repertoire_routes;
 
+use self::event_routes::*;
+use self::member_routes::*;
+use self::misc_routes::*;
+use self::officer_routes::*;
+use self::repertoire_routes::*;
 use crate::error::{GreaseError, GreaseResult};
 use crate::router;
 use http::{
@@ -15,12 +20,6 @@ use http::{
 use serde_json::{json, Value};
 use std::panic::{self, AssertUnwindSafe};
 use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
-
-pub use self::event_routes::*;
-pub use self::member_routes::*;
-pub use self::misc_routes::*;
-pub use self::officers_routes::*;
-pub use self::repertoire_routes::*;
 
 #[macro_export]
 macro_rules! check_for_permission {
@@ -104,7 +103,7 @@ fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (DELETE) [/members/(email: String)?(confirm: Option<bool>)] => delete_member,
         // events
         (GET)    [/events/(id: i32)?(full: Option<bool>)] => get_event,
-        (GET)    [/events?(full: Option<bool>)?(event_type: Option<String>)] => get_events,
+        (GET)    [/events?(full: Option<bool>)?(event_types: Option<String>)] => get_events,
         (POST)   [/events] => new_event,
         (POST)   [/events/(id: i32)] => update_event,
         (DELETE) [/events/(id: i32)] => delete_event,
@@ -125,7 +124,7 @@ fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (POST)   [/absence_requests/(event_id: i32)/(member: String)/deny] => deny_absence_request,
         (POST)   [/absence_requests/(event_id: i32)] => submit_absence_request,
         // gig requests
-        (GET)    [/gig_requests?(id: i32)] => get_gig_request,
+        (GET)    [/gig_requests/(id: i32)] => get_gig_request,
         (GET)    [/gig_requests?(all: Option<bool>)] => get_gig_requests,
         (POST)   [/gig_requests] => new_gig_request,
         (POST)   [/gig_requests/(id: i32)/dismiss] => dismiss_gig_request,
@@ -133,7 +132,7 @@ fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (POST)   [/gig_requests/(id: i32)/create_event] => create_event_from_gig_request,
         // variables
         (GET)    [/variables/(key: String)] => get_variable,
-        (POST)   [/variables/(key: String)/(value: String)] => set_variable,
+        (POST)   [/variables/(key: String)] => set_variable,
         (DELETE) [/variables/(key: String)] => unset_variable,
         // announcements
         (GET)    [/announcements/(id: i32)] => get_announcement,
@@ -172,10 +171,10 @@ fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (POST)   [/repertoire/(id: i32)/not_current] => set_song_as_not_current,
         (DELETE) [/repertoire/(id: i32)] => delete_song,
         // song links
-        (POST)   [/repertoire/(id: i32)/link] => new_song_link,
-        (GET)    [/repertoire/link/(id: i32)] => get_song_link,
-        (DELETE) [/repertoire/link/(id: i32)] => remove_song_link,
-        (POST)   [/repertoire/link/(id: i32)] => update_song_link,
+        (POST)   [/repertoire/(id: i32)/links] => new_song_link,
+        (GET)    [/repertoire/links/(id: i32)] => get_song_link,
+        (DELETE) [/repertoire/links/(id: i32)] => remove_song_link,
+        (POST)   [/repertoire/links/(id: i32)] => update_song_link,
         (POST)   [/repertoire/upload] => upload_file,
         (GET)    [/repertoire/cleanup_files?(confirm: Option<bool>)] => cleanup_song_files,
         // semesters
@@ -193,6 +192,12 @@ fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (POST)   [/permissions/(position: String)/disable] => remove_permission_for_role,
         (POST)   [/roles/add] => add_officership,
         (POST)   [/roles/remove] => remove_officership,
+        // fees and transactions
+        (GET)    [/fees] => get_fees,
+        (POST)   [/fees/(name: String)/(new_amount: i32)] => update_fee_amount,
+        (POST)   [/fees/(name: String)/apply] => apply_fee_for_all_active_members,
+        (GET)    [/transactions/(member: String)] => get_member_transactions,
+        (POST)   [/transactions] => add_transactions,
         // static data
         (GET)    [/media_types] => get_media_types,
         (GET)    [/permissions] => get_permissions,
@@ -200,12 +205,6 @@ fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (GET)    [/event_types] => get_event_types,
         (GET)    [/section_types] => get_section_types,
         (GET)    [/transaction_types] => get_transaction_types,
-        // fees and transactions
-        (GET)    [/fees] => get_fees,
-        (POST)   [/fees/(name: String)/(new_amount: i32)] => update_fee_amount,
-        (POST)   [/fees/(name: String)/apply] => apply_fee_for_all_active_members,
-        (GET)    [/transactions/(member: String)] => get_member_transactions,
-        (POST)   [/transactions] => add_transactions,
     )
 }
 

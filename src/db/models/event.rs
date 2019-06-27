@@ -1,13 +1,10 @@
 use chrono::{Datelike, Duration, Local, NaiveDate, NaiveDateTime};
 use db::*;
 use error::*;
-#[cfg(test)]
-use mocktopus::macros::*;
 use pinto::query_builder::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-#[mockable]
 impl Event {
     pub fn load<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<EventWithGig> {
         conn.first(
@@ -421,7 +418,7 @@ impl EventWithGig {
             "defaultAttend": self.event.default_attend,
             "section": self.event.section,
             "performanceTime": self.gig.as_ref().map(|gig| gig.performance_time),
-            "uniform": self.gig.as_ref().map(|gig| &gig.uniform),
+            "uniform": self.gig.as_ref().map(|gig| gig.uniform),
             "contactName": self.gig.as_ref().map(|gig| &gig.contact_name),
             "contactEmail": self.gig.as_ref().map(|gig| &gig.contact_email),
             "contactPhone": self.gig.as_ref().map(|gig| &gig.contact_phone),
