@@ -75,6 +75,21 @@ impl Member {
         })
     }
 
+    /// Render this member's data to JSON, with some extra details.
+    ///
+    /// The extra field `semesters` is added, which is formatted as a
+    /// list of objects in the below format:
+    ///
+    /// ```json
+    /// {
+    ///     "semester": string,
+    ///     "enrollment": string,
+    ///     "section": string,
+    ///     "grades"L
+    /// }
+    /// ```
+    ///
+    /// if `active_semester` is not None, then
     pub fn to_json_full<C: Connection>(
         &self,
         active_semester: Option<ActiveSemester>,
@@ -560,9 +575,18 @@ impl MemberForSemester {
     }
 }
 
+/// The required format for modifying role permissions.
+///
+/// ## Expected Format:
+///
+/// |   Field   |  Type  | Required? | Comments |
+/// |-----------|--------|:---------:|----------|
+/// | name      | string |     ✓     |          |
+/// | eventType | string |           |          |
 #[derive(PartialEq, Debug, Serialize, Deserialize, grease_derive::Extract)]
 pub struct MemberPermission {
     pub name: String,
+    #[serde(rename = "eventType")]
     pub event_type: Option<String>,
 }
 
@@ -575,6 +599,7 @@ impl Into<MemberPermission> for (String, Option<String>) {
     }
 }
 
+///
 #[derive(Serialize)]
 pub struct Grades {
     pub final_grade: f32,

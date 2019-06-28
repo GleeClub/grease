@@ -8,7 +8,9 @@ impl Transaction {
         member: &str,
         conn: &mut C,
     ) -> GreaseResult<Vec<Transaction>> {
-        conn.load(Transaction::filter(&format!("member = '{}'", member)).order_by("time", Order::Asc))
+        conn.load(
+            Transaction::filter(&format!("member = '{}'", member)).order_by("time", Order::Asc),
+        )
     }
 
     pub fn load_all_of_type_for_semester<C: Connection>(

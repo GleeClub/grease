@@ -1,3 +1,5 @@
+//! All repertoire-focused routes.
+
 use super::basic_success;
 use crate::check_for_permission;
 use crate::util::FileUpload;
@@ -7,6 +9,20 @@ use error::{GreaseError, GreaseResult};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
+/// Get a single song.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the song
+///
+/// ## Query Parameters:
+///   * details: boolean (*optional*) - Whether to include the song's links
+///
+/// ## Return Format:
+///
+/// If `full = true`, then the format from
+/// [load_with_data](../../db/models/struct.Song.html#method.load_with_data)
+/// will be returned. Otherwise, a simple [Song](../../db/models/struct.Song.html)
+/// will be returned.
 pub fn get_song(id: i32, details: Option<bool>, mut user: User) -> GreaseResult<Value> {
     if details.unwrap_or(false) {
         Song::load_with_data(id, &mut user.conn).map(|song_data| json!(song_data))
@@ -15,6 +31,19 @@ pub fn get_song(id: i32, details: Option<bool>, mut user: User) -> GreaseResult<
     }
 }
 
+/// Get the entire club's repertoire.
+///
+/// ## Return Format:
+///
+/// ```json
+/// {
+///     "current": [Song],
+///     "other": [Song]
+/// }
+/// ```
+///
+/// Returns an object with the current repertoire and the remainder of the repertoire
+/// in two different field, each comprising a list of [Song](../../db/models/struct.Song.html)s.
 pub fn get_songs(mut user: User) -> GreaseResult<Value> {
     Song::load_all_separate_this_semester(&mut user.conn).map(|(current, other)| {
         json!({
@@ -24,34 +53,80 @@ pub fn get_songs(mut user: User) -> GreaseResult<Value> {
     })
 }
 
+/// Create a new song.
+///
+/// ## Input Format:
+///
+/// Expects a [NewSong](../../db/models/struct.NewSong.html).
 pub fn new_song((new_song, mut user): (NewSong, User)) -> GreaseResult<Value> {
     Song::create(&new_song, &mut user.conn).map(|new_id| json!({ "id": new_id }))
 }
 
-pub fn update_song(song_id: i32, (updated_song, mut user): (Song, User)) -> GreaseResult<Value> {
+/// Update a song from the repertoire.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the song
+///
+/// ## Input Format:
+///
+/// Expects a [SongUpdate](../../db/models/struct.SongUpdate.html).
+pub fn update_song(song_id: i32, (updated_song, mut user): (SongUpdate, User)) -> GreaseResult<Value> {
     Song::update(song_id, &updated_song, &mut user.conn).map(|_| basic_success())
 }
 
+/// Delete a song from the repertoire.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the song
 pub fn delete_song(song_id: i32, mut user: User) -> GreaseResult<Value> {
     Song::delete(song_id, &mut user.conn).map(|_| basic_success())
 }
 
+/// Add a song to the current semester's repertoire.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the song
 pub fn set_song_as_current(song_id: i32, mut user: User) -> GreaseResult<Value> {
     Song::set_current_status(song_id, true, &mut user.conn).map(|_| basic_success())
 }
 
+/// Remove a song from the current semester's repertoire.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the song
 pub fn set_song_as_not_current(song_id: i32, mut user: User) -> GreaseResult<Value> {
     Song::set_current_status(song_id, false, &mut user.conn).map(|_| basic_success())
 }
 
+/// Get all of the media types available.
+///
+/// ## Return Format:
+///
+/// Returns a list of [MediaType](../../db/models/struct.MediaType.html)s.
 pub fn get_media_types(mut user: User) -> GreaseResult<Value> {
     MediaType::load_all(&mut user.conn).map(|types| json!(types))
 }
 
+/// Get a single link belonging to a song.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the song link
+///
+/// ## Return Format:
+///
+/// Returns a [SongLink](../../db/models/struct.SongLink.html).
 pub fn get_song_link(link_id: i32, mut user: User) -> GreaseResult<Value> {
     SongLink::load(link_id, &mut user.conn).map(|link| json!(link))
 }
 
+/// Update a link belonging to a song.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the song link
+///
+/// ## Input Format:
+///
+/// Expects a [SongLinkUpdate](../../db/models/struct.SongLinkUpdate.html).
 pub fn update_song_link(
     link_id: i32,
     (updated_link, mut user): (SongLinkUpdate, User),
@@ -59,11 +134,24 @@ pub fn update_song_link(
     SongLink::update(link_id, updated_link, &mut user.conn).map(|_| basic_success())
 }
 
+/// Upload a file for a song link to refer to.
+///
+/// ## Input Format:
+///
+/// Expects a [FileUpload](../../db/models/struct.FileUpload.html).
 pub fn upload_file((file, user): (FileUpload, User)) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
     file.upload().map(|_| basic_success())
 }
 
+/// Create a new link belonging to a song.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the song
+///
+/// ## Input Format:
+///
+/// Expects a [NewSongLink](../../db/models/struct.NewSongLink.html).
 pub fn new_song_link(
     song_id: i32,
     (new_link, mut user): (NewSongLink, User),
@@ -71,10 +159,21 @@ pub fn new_song_link(
     SongLink::create(song_id, new_link, &mut user.conn).map(|new_id| json!({ "id": new_id }))
 }
 
+/// Remove a song link belonging to a song.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the song link
 pub fn remove_song_link(link_id: i32, mut user: User) -> GreaseResult<Value> {
     SongLink::delete(link_id, &mut user.conn).map(|_| basic_success())
 }
 
+/// Remove song files that aren't pointed to by song links.
+///
+/// If you don't pass `confirm=true`, then this returns a list of the file names
+/// that are dangling. If you do confirm, this endpoint will delete those files.
+///
+/// ## Query Parameters:
+///   * confirm: boolean (*optional*) - Confirm the deletion of the dangling files
 pub fn cleanup_song_files(confirm: Option<bool>, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
     let all_music_files = glob::glob("./music/*")

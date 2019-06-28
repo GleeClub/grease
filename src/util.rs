@@ -1,3 +1,5 @@
+//! Extra utilties for use elsewhere in the API.
+
 use error::{GreaseError, GreaseResult};
 // use lettre::{SmtpClient, Transport};
 // use lettre_email::EmailBuilder;

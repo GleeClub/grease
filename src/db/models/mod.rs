@@ -49,24 +49,24 @@ pub mod transaction;
 ///
 /// ```json
 /// {
-///     email: string,
-///     firstName: string,
-///     preferredName: string, // optional
-///     lastName: string,
-///     fullName: string,
-///     phoneNumber: string,
-///     picture: string, // optional
-///     passengers: integer,
-///     location: string,
-///     onCampus: boolean, // optional
-///     about: string, // optional
-///     major: string, // optional
-///     minor: string, // optional
-///     hometown: string, // optional
-///     arrivedAtTech: integer, // optional
-///     gatewayDrug: string, // optional
-///     conflicts: string, // optional
-///     dietaryRestrictions: string // optional
+///     "email": string,
+///     "firstName": string,
+///     "preferredName": string?,
+///     "lastName": string,
+///     "fullName": string,
+///     "phoneNumber": string,
+///     "picture": string?,
+///     "passengers": integer,
+///     "location": string,
+///     "onCampus": boolean?,
+///     "about": string?,
+///     "major": string?,
+///     "minor": string?,
+///     "hometown": string?,
+///     "arrivedAtTech": integer?,
+///     "gatewayDrug": string?,
+///     "conflicts": string?,
+///     "dietaryRestrictions": string?
 /// }
 /// ```
 #[derive(
@@ -262,11 +262,11 @@ pub struct RegisterForSemesterForm {
 ///
 /// ```json
 /// {
-///     name: string,
-///     startDate: datetime,
-///     endDate: datetime,
-///     gigRequirement: boolean,
-///     current: boolean
+///     "name": string,
+///     "startDate": datetime,
+///     "endDate": datetime,
+///     "gigRequirement": boolean,
+///     "current": boolean
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable)]
@@ -342,9 +342,9 @@ pub struct NewSemester {
 ///
 /// ```json
 /// {
-///     name: string,
-///     rank: integer,
-///     maxQuantity: integer,
+///     "name": string,
+///     "rank": integer,
+///     "maxQuantity": integer
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -379,8 +379,8 @@ pub struct Role {
 ///
 /// ```json
 /// {
-///     member: string,
-///     role: string,
+///     "member": string,
+///     "role": string
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Extract)]
@@ -406,7 +406,7 @@ pub struct MemberRole {
 ///
 /// ```json
 /// {
-///     name: string,
+///     "name": string
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -431,8 +431,8 @@ pub struct SectionType {
 ///
 /// ```json
 /// {
-///     name: string,
-///     weight: integer,
+///     "name": string,
+///     "weight": integer
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, PartialEq)]
@@ -528,10 +528,8 @@ pub struct Event {
 /// | location      | string   |           |                               |
 /// | gigCount      | boolean  |     ✓     | for volunteer gigs            |
 /// | defaultAttend | boolean  |     ✓     | assume members should go      |
-/// | repeat        | string   |     ✓     | see [Period]                  |
+/// | repeat        | string   |     ✓     | see [Period](event/enum.Period.html) |
 /// | repeatUntil   | datetime |           | needed if `repeat` isn't "no" |
-///
-/// [Period]: event/enum.Period.html
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract)]
 #[table_name = "event"]
 pub struct NewEvent {
@@ -648,11 +646,11 @@ pub struct EventUpdate {
 ///
 /// ```json
 /// {
-///     member: string,
-///     event: integer,
-///     time: datetime,
-///     reason: string,
-///     state: string,
+///     "member": string,
+///     "event": integer,
+///     "time": datetime,
+///     "reason": string,
+///     "state": string
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Clone)]
@@ -719,10 +717,10 @@ pub enum AbsenceRequestState {
 ///
 /// ```json
 /// {
-///     member: string,
-///     semester: string,
-///     enrollment: string,
-///     section: string // optional
+///     "member": string,
+///     "semester": string,
+///     "enrollment": string,
+///     "section": string?
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, PartialEq, Debug)]
@@ -789,12 +787,12 @@ pub enum Enrollment {
 ///
 /// ```json
 /// {
-///     id: integer,
-///     member: string, // null if deleted
-///     semester: string,
-///     time: datetime,
-///     content: string,
-///     archived: boolean
+///     "id": integer,
+///     "member": string, // null if deleted
+///     "semester": string,
+///     "time": datetime,
+///     "content": string,
+///     "archived": boolean
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -827,7 +825,6 @@ pub struct NewAnnouncement {
     pub content: String,
 }
 
-
 /// The model for member attendance.
 ///
 /// ## Database Format:
@@ -849,12 +846,12 @@ pub struct NewAnnouncement {
 /// ## JSON Format:
 /// ```json
 /// {
-///     member: string,
-///     event: integer,
-///     shouldAttend: boolean,
-///     didAttend: boolean,
-///     confirmed: boolean,
-///     minutesLate: integer
+///     "member": string,
+///     "event": integer,
+///     "shouldAttend": boolean,
+///     "didAttend": boolean,
+///     "confirmed": boolean,
+///     "minutesLate": integer
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Debug, PartialEq)]
@@ -877,6 +874,27 @@ pub struct Attendance {
     pub minutes_late: i32,
 }
 
+/// The required format for updating a member's attendance.
+///
+/// ## Expected Format:
+///
+/// |    Field     |  Type   | Required? | Comments |
+/// |--------------|---------|:---------:|----------|
+/// | shouldAttend | boolean |     ✓     |          |
+/// | didAttend    | boolean |     ✓     |          |
+/// | minutesLate  | integer |     ✓     |          |
+/// | confirmed    | boolean |     ✓     |          |
+#[derive(Debug, Serialize, Deserialize, Extract)]
+pub struct AttendanceForm {
+    #[serde(rename = "shouldAttend")]
+    pub should_attend: bool,
+    #[serde(rename = "didAttend")]
+    pub did_attend: bool,
+    #[serde(rename = "minutesLate")]
+    pub minutes_late: i32,
+    pub confirmed: bool,
+}
+
 /// The model for recording who is driving who for events.
 ///
 /// ## Datbase Format:
@@ -896,9 +914,9 @@ pub struct Attendance {
 ///
 /// ```json
 /// {
-///     id: integer,
-///     event: integer,
-///     driver: string
+///     "id": integer,
+///     "event": integer,
+///     "driver": string
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -931,11 +949,11 @@ pub struct NewCarpool {
 ///
 /// ## Expected Format:
 ///
-/// |    Field   |   Type   | Required? |                 Comments                  |
-/// |------------|----------|:---------:|-------------------------------------------|
-/// | id         | integer  |           | if updating an old carpool, pass the `id` |
-/// | driver     | string   |     ✓     | the email of the driver                   |
-/// | passengers | [string] |     ✓     | the emails of the passengers              |
+/// |    Field   |    Type    | Required? |                 Comments                  |
+/// |------------|------------|:---------:|-------------------------------------------|
+/// | id         | integer    |           | if updating an old carpool, pass the `id` |
+/// | driver     | string     |     ✓     | the email of the driver                   |
+/// | passengers | \[string\] |     ✓     | the emails of the passengers              |
 #[derive(Debug, Deserialize, Extract)]
 pub struct UpdatedCarpool {
     #[serde(default)]
@@ -960,9 +978,9 @@ pub struct UpdatedCarpool {
 ///
 /// ```json
 /// {
-///     name: string,
-///     description: string,
-///     amount: integer
+///     "name": string,
+///     "description": string,
+///     "amount": integer
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -991,10 +1009,17 @@ pub struct Fee {
 ///
 /// ```json
 /// {
-///     name: string,
-///     url: string
+///     "name": string,
+///     "url": string
 /// }
 /// ```
+///
+/// ## Expected Format for New Google Docs:
+///
+/// | Field |  Type  | Required? | Comments |
+/// |-------|--------|:---------:|----------|
+/// | name  | string |     ✓     |          |
+/// | url   | string |     ✓     |          |
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Extract)]
 #[table_name = "google_docs"]
 pub struct GoogleDoc {
@@ -1021,10 +1046,10 @@ pub struct GoogleDoc {
 ///
 /// ```json
 /// {
-///     id: integer,
-///     name: string,
-///     color: string, // optional
-///     description: string // optional
+///     "id": integer,
+///     "name": string,
+///     "color": string?,
+///     "description": string?
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Extract)]
@@ -1039,6 +1064,25 @@ pub struct Uniform {
     pub color: Option<String>,
     /// The explanation of what to wear when wearing the uniform
     #[serde(deserialize_with = "deser_opt_string")]
+    pub description: Option<String>,
+}
+
+/// The required format for new uniforms and uniform updates.
+///
+/// ## Expected Format:
+///
+/// |    Field    |  Type  | Required? |                   Comments                    |
+/// |-------------|--------|:---------:|-----------------------------------------------|
+/// | name        | string |     ✓     |                                               |
+/// | color       | string |           | must be formatted "#XXX", X being a hex digit |
+/// | description | string |           |                                               |
+#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Extract)]
+#[table_name = "uniform"]
+pub struct NewUniform {
+    pub name: String,
+    #[serde(default, deserialize_with = "deser_opt_string")]
+    pub color: Option<String>,
+    #[serde(default, deserialize_with = "deser_opt_string")]
     pub description: Option<String>,
 }
 
@@ -1161,18 +1205,18 @@ pub struct NewGig {
 ///
 /// ```json
 /// {
-///     id: integer,
-///     time: datetime,
-///     name: string,
-///     organization: string,
-///     event: integer, // optional
-///     contactName: string,
-///     contactEmail: string,
-///     contactPhone: string,
-///     startTime: datetime,
-///     location: string,
-///     comments: string, // optional
-///     status: string
+///     "id": integer,
+///     "time": datetime,
+///     "name": string,
+///     "organization": string,
+///     "event": integer?,
+///     "contactName": string,
+///     "contactEmail": string,
+///     "contactPhone": string,
+///     "startTime": datetime,
+///     "location": string,
+///     "comments": string?,
+///     "status": string
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -1257,7 +1301,7 @@ pub struct NewGigRequest {
 /// | comments        | string   |           |                               |
 /// | location        | string   |           |                               |
 /// | defaultAttend   | boolean  |     ✓     | assume members should go      |
-/// | repeat          | string   |     ✓     | see [Period]                  |
+/// | repeat          | string   |     ✓     | see [Period](event/enum.Period.html) |
 /// | repeatUntil     | datetime |           | needed if `repeat` isn't "no" |
 /// | performanceTime | datetime |     ✓     |                               |
 /// | uniform         | integer  |     ✓     |                               |
@@ -1315,13 +1359,13 @@ pub enum GigRequestStatus {
 ///
 /// ```json
 /// {
-///     id: integer,
-///     title: string,
-///     info: string, // optional
-///     current: boolean,
-///     key: string, // optional
-///     starting_pitch: string, // optional
-///     mode: string // optional
+///     "id": integer,
+///     "title": string,
+///     "info": string?,
+///     "current": boolean,
+///     "key": string?,
+///     "startingPitch": string?,
+///     "mode": string?
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract)]
@@ -1331,7 +1375,7 @@ pub struct Song {
     pub id: i32,
     /// The title of the song
     pub title: String,
-    /// Any information related to the song (minor changes to the music, who worte it, soloists, etc.)
+    /// Any information related to the song (minor changes to the music, who wrote it, soloists, etc.)
     #[serde(deserialize_with = "deser_opt_string")]
     pub info: Option<String>,
     /// Whether it is in this semester's repertoire
@@ -1345,8 +1389,7 @@ pub struct Song {
     pub mode: Option<SongMode>,
 }
 
-/// The required format for the creation of new events with gigs
-/// from gig requests.
+/// The required format for the creation of new songs.
 ///
 /// ## Expected Format:
 ///
@@ -1360,6 +1403,30 @@ pub struct NewSong {
     pub title: String,
     #[serde(deserialize_with = "deser_opt_string")]
     pub info: Option<String>,
+}
+
+/// The required format for the creation of new events with gigs
+/// from gig requests.
+///
+/// ## Expected Format:
+///
+/// |     Field     |  Type  | Required? |              Comments              |
+/// |---------------|--------|:---------:|------------------------------------|
+/// | title         | string |     ✓     |                                    |
+/// | info          | string |           |                                    |
+/// | key           | string |           | See [Pitch](enum.Pitch.html)       |
+/// | startingPitch | string |           | See [Pitch](enum.Pitch.html)       |
+/// | mode          | string |           | See [SongMode](enum.SongMode.html) |
+#[derive(TableName, Deserialize, Extract, Insertable)]
+#[table_name = "song"]
+pub struct SongUpdate {
+    pub title: String,
+    #[serde(deserialize_with = "deser_opt_string")]
+    pub info: Option<String>,
+    pub key: Option<Pitch>,
+    #[serde(rename = "startingPitch")]
+    pub starting_pitch: Option<Pitch>,
+    pub mode: Option<SongMode>,
 }
 
 /// All possible notes (ignoring microtonal tuning). Used for songs keys and starting pitches.
@@ -1484,9 +1551,9 @@ pub enum SongMode {
 ///
 /// ```json
 /// {
-///     event: integer,
-///     song: integer,
-///     order: integer
+///     "event": integer,
+///     "song": integer,
+///     "order": integer
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable)]
@@ -1528,9 +1595,9 @@ pub struct NewGigSong {
 ///
 /// ```json
 /// {
-///     name: string,
-///     order: integer,
-///     storage, string
+///     "name": string,
+///     "order": integer,
+///     "storage": string
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -1575,11 +1642,11 @@ pub enum StorageType {
 ///
 /// ```json
 /// {
-///     id: integer,
-///     name: string,
-///     date: date,
-///     private: string, // optional
-///     public: string // optional
+///     "id": integer,
+///     "name": string,
+///     "date": date,
+///     "private": string?,
+///     "public": string?
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -1595,6 +1662,38 @@ pub struct MeetingMinutes {
     #[serde(deserialize_with = "deser_opt_string")]
     pub private: Option<String>,
     /// The public, edited notes visible by all members
+    #[serde(deserialize_with = "deser_opt_string")]
+    pub public: Option<String>,
+}
+
+/// The required format for creating new meeting minutes.
+///
+/// ## Expected Format:
+///
+/// | Field |  Type  | Required? | Comments |
+/// |-------|--------|:---------:|----------|
+/// | name  | string |     ✓     |          |
+#[derive(TableName, Insertable, Deserialize, Extract)]
+#[table_name = "minutes"]
+pub struct NewMeetingMinutes {
+    pub name: String,
+}
+
+/// The required format for updating meeting minutes.
+///
+/// ## Expected Format:
+///
+/// |  Field  |  Type  | Required? | Comments |
+/// |---------|--------|:---------:|----------|
+/// | name    | string |     ✓     |          |
+/// | private | string |           |          |
+/// | public  | string |           |          |
+#[derive(TableName, Insertable, Deserialize, Extract)]
+#[table_name = "minutes"]
+pub struct UpdatedMeetingMinutes {
+    pub name: String,
+    #[serde(deserialize_with = "deser_opt_string")]
+    pub private: Option<String>,
     #[serde(deserialize_with = "deser_opt_string")]
     pub public: Option<String>,
 }
@@ -1615,9 +1714,9 @@ pub struct MeetingMinutes {
 ///
 /// ```json
 /// {
-///     name: string,
-///     description: string, // optional
-///     type: string
+///     "name": string,
+///     "description": string?,
+///     "type": string
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -1666,8 +1765,8 @@ pub enum PermissionType {
 ///
 /// ```json
 /// {
-///     member: string,
-///     carpool: integer
+///     "member": string,
+///     "carpool": integer
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable)]
@@ -1700,10 +1799,10 @@ pub struct RidesIn {
 ///
 /// ```json
 /// {
-///     id: integer,
-///     role: string,
-///     permission: string,
-///     eventType: string // optional
+///     "id": integer,
+///     "role": string,
+///     "permission": string,
+///     "eventType": string?
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -1741,11 +1840,11 @@ pub struct RolePermission {
 ///
 /// ```json
 /// {
-///     id: integer,
-///     song: integer,
-///     type: string,
-///     name: string,
-///     target: string
+///     "id": integer,
+///     "song": integer,
+///     "type": string,
+///     "name": string,
+///     "target": string
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -1817,10 +1916,10 @@ pub struct SongLinkUpdate {
 ///
 /// ```json
 /// {
-///     id: integer,
-///     text: string,
-///     member: string,
-///     completed: boolean
+///     "id": integer,
+///     "text": string,
+///     "member": string,
+///     "completed": boolean
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -1840,10 +1939,10 @@ pub struct Todo {
 ///
 /// ## Expected Format:
 ///
-/// |  Field  |   Type   | Required? |         Comments          |
-/// |---------|----------|:---------:|---------------------------|
-/// | text    |  string  |     ✓     | the task to do            |
-/// | members | [string] |     ✓     | the emails of the members |
+/// |  Field  |    Type    | Required? |         Comments          |
+/// |---------|------------|:---------:|---------------------------|
+/// | text    | string     |     ✓     | the task to do            |
+/// | members | \[string\] |     ✓     | the emails of the members |
 #[derive(Deserialize, Extract)]
 pub struct NewTodo {
     pub text: String,
@@ -1864,7 +1963,7 @@ pub struct NewTodo {
 ///
 /// ```json
 /// {
-///     name: string
+///     "name": string
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -1899,14 +1998,14 @@ pub struct TransactionType {
 ///
 /// ```json
 /// {
-///     id: integer,
-///     member: string,
-///     time: datetime,
-///     amount: integer,
-///     description: string,
-///     semester: string, // optional
-///     type: string,
-///     resolved: boolean
+///     "id": integer,
+///     "member": string,
+///     "time": datetime,
+///     "amount": integer,
+///     "description": string,
+///     "semester": string?,
+///     "type": string,
+///     "resolved": boolean
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
@@ -1976,8 +2075,8 @@ pub struct NewTransaction {
 ///
 /// ```json
 /// {
-///     member: string,
-///     key: string
+///     "member": string,
+///     "key": string
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Debug)]
@@ -1987,6 +2086,21 @@ pub struct Session {
     pub member: String,
     /// The login token unique to the member
     pub key: String,
+}
+
+/// The required format for logging in.
+///
+/// ## Expected Format:
+///
+/// |  Field   |  Type  | Required? | Comments |
+/// |----------|--------|:---------:|----------|
+/// | email    | string |     ✓     |          |
+/// | passHash | string |     ✓     |          |
+#[derive(Deserialize, Extract)]
+pub struct LoginInfo {
+    pub email: String,
+    #[serde(rename = "passHash")]
+    pub pass_hash: String,
 }
 
 /// The model for any other variables needed by the API.
@@ -2004,8 +2118,8 @@ pub struct Session {
 ///
 /// ```json
 /// {
-///     key: string,
-///     value: string
+///     "key": string,
+///     "value": string
 /// }
 /// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable)]
@@ -2014,6 +2128,18 @@ pub struct Variable {
     /// The name of the variable
     pub key: String,
     /// The value of the variable
+    pub value: String,
+}
+
+/// The required format for setting a variable.
+///
+/// ## Expected Format:
+///
+/// | Field |  Type  | Required? | Comments |
+/// |-------|--------|:---------:|----------|
+/// | value | string |     ✓     |          |
+#[derive(Deserialize, Extract)]
+pub struct NewValue {
     pub value: String,
 }
 

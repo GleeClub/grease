@@ -1,3 +1,7 @@
+//! All routes for the API.
+//!
+//! Check the root of the crate for the full API layout.
+
 pub mod event_routes;
 pub mod from_url;
 pub mod macros;
@@ -83,7 +87,7 @@ pub fn handle_request(mut request: cgi::Request) -> cgi::Response {
     }
 }
 
-fn handle(request: &cgi::Request) -> GreaseResult<Value> {
+pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
     router!(request,
         // authorization
         (POST)   [/login]  => login,
@@ -93,7 +97,7 @@ fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (GET)    [/members/(email: String)/attendance] => get_member_attendance_for_semester,
         (GET)    [/members?(grades: Option<bool>)?(include: Option<String>)] => get_members,
         (POST)   [/members] => new_member,
-        (POST)   [/members/register?(token: String)] => register_for_semester,
+        (POST)   [/members/confirm] => confirm_for_semester,
         (POST)   [/members/(email: String)/(semester: String)] => update_member_semester,
         (DELETE) [/members/(email: String)/(semester: String)] => mark_member_inactive_for_semester,
         (POST)   [/members] => new_member,
@@ -179,6 +183,7 @@ fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (GET)    [/repertoire/cleanup_files?(confirm: Option<bool>)] => cleanup_song_files,
         // semesters
         (GET)    [/semesters] => get_semesters,
+        (GET)    [/semesters/current] => get_current_semester,
         (GET)    [/semesters/(name: String)] => get_semester,
         (POST)   [/semesters] => new_semester,
         (POST)   [/semesters/(name: String)] => edit_semester,
@@ -208,6 +213,14 @@ fn handle(request: &cgi::Request) -> GreaseResult<Value> {
     )
 }
 
+/// Returns a basic success message.
+///
+/// Returns the following with a 200 status code:
+/// ```json
+/// {
+///     "message": "success!"
+/// }
+/// ```
 pub fn basic_success() -> Value {
     json!({ "message": "success!" })
 }

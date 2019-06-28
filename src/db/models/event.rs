@@ -408,28 +408,30 @@ impl EventWithGig {
     ///
     /// ```json
     /// {
-    ///     id: integer,
-    ///     name: string,
-    ///     semester: string,
-    ///     type: string,
-    ///     callTime: datetime,
-    ///     releaseTime: datetime, // optional
-    ///     points: integer,
-    ///     comments: string, // optional
-    ///     location: string, // optional
-    ///     gigCount: boolean,
-    ///     defaultAttend: boolean,
-    ///     section: string, // optional
-    ///     performanceTime: datetime, // present for gigs
-    ///     contactName: string, // optional for gigs
-    ///     contactEmail: string, // optional for gigs
-    ///     contactPhone: string, // optional for gigs
-    ///     contactPhone: string, // optional for gigs
-    ///     price: integer, // optional for gigs
-    ///     public: boolean, // present for gigs
-    ///     summary: string, // optional for gigs
-    ///     description: string, // optional for gigs
-    ///     uniform: integer // present for gigs
+    ///     "id": integer,
+    ///     "name": string,
+    ///     "semester": string,
+    ///     "type": string,
+    ///     "callTime": datetime,
+    ///     "releaseTime": datetime?,
+    ///     "points": integer,
+    ///     "comments": string?,
+    ///     "location": string?,
+    ///     "gigCount": boolean,
+    ///     "defaultAttend": boolean,
+    ///     "section": string?,
+    ///     // the below fields are included if
+    ///     // the event has an associated gig
+    ///     "performanceTime": datetime,
+    ///     "contactName": string?,
+    ///     "contactEmail": string?,
+    ///     "contactPhone": string?,
+    ///     "contactPhone": string?,
+    ///     "price": integer?,
+    ///     "public": boolean,
+    ///     "summary": string?,
+    ///     "description": string?,
+    ///     "uniform": integer
     /// }
     /// ```
     pub fn to_json(&self) -> Value {

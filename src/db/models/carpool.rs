@@ -168,6 +168,21 @@ pub struct EventCarpool {
 }
 
 impl EventCarpool {
+    /// Render this event's carpool data to JSON.
+    ///
+    /// ## JSON Format:
+    ///
+    /// ```json
+    /// {
+    ///     "driver": Member,
+    ///     "carpool": Carpool,
+    ///     "passengers": Member
+    /// }
+    /// ```
+    ///
+    /// See [Member](../struct.Member.html#json-format) and
+    /// [Carpool](../struct.Carpool.html#json-format) for their
+    /// respective JSON formats.
     pub fn to_json(&self) -> Value {
         json!({
             "driver": self.driver.to_json(),

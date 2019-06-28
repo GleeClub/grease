@@ -2,11 +2,38 @@
 //!
 //! The backend for the Georgia Tech Glee Club's website.
 //!
+//! The backend is a JSON API, agnostic of the platform of interaction. This
+//! leaves the site and its data to be available on other platforms in the future,
+//! including potentially a phone app or a CLI.
+//!
+//! ## Basic JSON information:
+//!
+//! The types of data returned as fields are notated as such:
+//!   * **string**: A string of characters
+//!   * **integer**: An integer number
+//!   * **float**: A floating-point number
+//!   * **boolean**: "true" or "false"
+//!   * **datetime**: An RFC 3339 datetime, formatted as a string
+//!   * **date**: An RFC 3339 date, formatted as a string
+//!   * **?**: Any field followed by a question mark can be null, otherwise it is never null
+//!
 //! ## All Routes:
 //!
-//! Below is the layout of the API. Click on the handler of any endpoint to find out more
-//! about what parameters are expected, more optional parameters, expected POST data formats,
-//! and returned JSON formats.
+//! Below is the layout of the API. Click on the handler of any endpoint to find
+//! out more about its usage.
+//!
+//! All routes have the following constraints:
+//!   * Path Parameters: A list of parameters, their types, whether they are required, and
+//!       a short description. If this section is missing, none are expected.
+//!   * Query Parameters: The same as path paramters. Assume none are accepted if
+//!       this section is missing.
+//!   * Required Permissions: Describes what permissions are required to use the endpoint.
+//!       If this section is missiong, anyone can use the endpoint.
+//!   * Input Format: The expected format of all input data for POST requests. If this
+//!       section is missing, POST data will be ignored.
+//!   * Return Format: The format of data to be returned. If this section is missing,
+//!       a [basic success](routes/fn.basic_success.html) is always returned by default
+//!       on success.
 //!
 //! ### Authorization:
 //!
@@ -161,6 +188,7 @@
 //!   Method   | Route                           | Handler
 //! -----------|---------------------------------|---------------------------------------------------------------------------
 //! **GET**    | /semesters                      | [get_semesters](routes/officer_routes/fn.get_semesters.html)
+//! **GET**    | /semester/current               | [get_current_semester](routes/officer_routes/fn.get_current_semester.html)
 //! **GET**    | /semesters/{*name*}             | [get_semester](routes/officer_routes/fn.get_semester.html)
 //! **POST**   | /semesters                      | [new_semester](routes/officer_routes/fn.new_semester.html)
 //! **POST**   | /semesters/{*name*}             | [edit_semester](routes/officer_routes/fn.edit_semester.html)
