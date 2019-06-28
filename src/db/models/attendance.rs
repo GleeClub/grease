@@ -114,7 +114,8 @@ impl Attendance {
                 .join(Attendance::table_name(), "id", "event", Join::Inner)
                 .fields(EventAttendanceRow::field_names())
                 .filter(&format!("member = '{}'", member))
-                .filter(&format!("semester = '{}'", semester)),
+                .filter(&format!("semester = '{}'", semester))
+                .order_by("call_time", Order::Asc),
         )
     }
 
@@ -187,14 +188,6 @@ pub struct NewAttendance {
     pub event: i32,
     pub should_attend: bool,
     pub member: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, grease_derive::Extract)]
-pub struct AttendanceForm {
-    pub should_attend: bool,
-    pub did_attend: bool,
-    pub minutes_late: i32,
-    pub confirmed: bool,
 }
 
 #[derive(grease_derive::FieldNames, grease_derive::FromRow)]

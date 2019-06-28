@@ -1,7 +1,6 @@
 use db::*;
 use error::*;
 use pinto::query_builder::*;
-use serde::Deserialize;
 use serde_json::{json, Value};
 
 impl MeetingMinutes {
@@ -25,7 +24,7 @@ impl MeetingMinutes {
 
     pub fn update<C: Connection>(
         meeting_id: i32,
-        updated_meeting: &NewMeetingMinutes,
+        updated_meeting: &UpdatedMeetingMinutes,
         conn: &mut C,
     ) -> GreaseResult<()> {
         conn.update(
@@ -58,14 +57,4 @@ impl MeetingMinutes {
 
         meeting
     }
-}
-
-#[derive(
-    grease_derive::TableName, grease_derive::Insertable, Deserialize, grease_derive::Extract,
-)]
-#[table_name = "minutes"]
-pub struct NewMeetingMinutes {
-    pub name: String,
-    pub private: Option<String>,
-    pub public: Option<String>,
 }

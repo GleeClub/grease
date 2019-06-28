@@ -4,7 +4,6 @@ use db::{
 };
 use error::{GreaseError, GreaseResult};
 use extract::Extract;
-use routes::from_url::parse_url;
 
 pub struct User {
     pub member: MemberForSemester,
@@ -26,10 +25,15 @@ impl User {
 impl Extract for User {
     fn extract(request: &cgi::Request) -> GreaseResult<Self> {
         let mut conn = DbConn::extract(request)?;
-        let (_segments, params) = parse_url(&request.uri().to_string())?;
-        let member = params
+        let member = request
+            .headers()
             .get("token")
             .ok_or(GreaseError::Unauthorized)
+            .and_then(|token_header| {
+                token_header.to_str().map_err(|err| {
+                    GreaseError::BadRequest(format!("invalid token header: {:?}", err))
+                })
+            })
             .and_then(|token| MemberForSemester::load_from_token(token, &mut conn))?;
         let permissions = member.permissions(&mut conn)?;
 

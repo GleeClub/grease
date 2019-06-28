@@ -75,7 +75,7 @@ impl Song {
 
     pub fn update<C: Connection>(
         song_id: i32,
-        updated_song: &Song,
+        updated_song: &SongUpdate,
         conn: &mut C,
     ) -> GreaseResult<()> {
         conn.update(
@@ -83,7 +83,6 @@ impl Song {
                 .filter(&format!("id = {}", song_id))
                 .set("title", &to_value(&updated_song.title))
                 .set("info", &to_value(&updated_song.info))
-                .set("current", &to_value(&updated_song.current))
                 .set("key", &to_value(&updated_song.key))
                 .set("starting_pitch", &to_value(&updated_song.starting_pitch))
                 .set("mode", &to_value(&updated_song.mode)),

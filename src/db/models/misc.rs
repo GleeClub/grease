@@ -101,7 +101,7 @@ impl Uniform {
         conn.load(&Uniform::select_all_in_order("name", Order::Asc))
     }
 
-    pub fn update<C: Connection>(id: i32, updated: &Uniform, conn: &mut C) -> GreaseResult<()> {
+    pub fn update<C: Connection>(id: i32, updated: &NewUniform, conn: &mut C) -> GreaseResult<()> {
         conn.update(
             Update::new(Uniform::table_name())
                 .filter(&format!("id = {}", id))
@@ -119,12 +119,11 @@ impl Uniform {
         )
     }
 
-    pub fn validate(&self) -> GreaseResult<()> {
+    pub fn validate_color(color: &Option<String>) -> GreaseResult<()> {
         let regex = regex::Regex::new(r"^#\w{3}$").unwrap();
 
         // if color string is invalid
-        if self
-            .color
+        if color
             .as_ref()
             .map(|color| !regex.is_match(&color))
             .unwrap_or(false)
@@ -178,11 +177,11 @@ impl Variable {
         }
     }
 
-    pub fn unset<C: Connection>(key: &str, conn: &mut C) -> GreaseResult<()> {
-        conn.delete(
-            Delete::new(Variable::table_name()).filter(&format!("`key` = '{}'", key)),
-            format!("No variable with key {}.", key),
-        )
+    pub fn unset<C: Connection>(key: &str, conn: &mut C) -> GreaseResult<Option<String>> {
+        let old_val = Variable::load(key, conn)?.map(|var| var.value);
+        conn.delete_opt(Delete::new(Variable::table_name()).filter(&format!("`key` = '{}'", key)))?;
+
+        Ok(old_val)
     }
 }
 
@@ -213,7 +212,9 @@ impl GigSong {
         event_id: i32,
         conn: &mut C,
     ) -> GreaseResult<Vec<GigSong>> {
-        conn.load(&GigSong::filter(&format!("event = {}", event_id)).order_by("`order`", Order::Asc))
+        conn.load(
+            &GigSong::filter(&format!("event = {}", event_id)).order_by("`order`", Order::Asc),
+        )
     }
 
     pub fn update_for_event(
@@ -328,13 +329,15 @@ impl RolePermission {
     }
 }
 
+// TODO: figure out what max quantity actually entails
 impl MemberRole {
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<(Member, Role)>> {
         conn.load_as::<MemberWithRoleRow, _>(
             Select::new(MemberRole::table_name())
                 .join(Member::table_name(), "member", "email", Join::Inner)
                 .join(Role::table_name(), "role", "name", Join::Inner)
-                .fields(MemberWithRoleRow::field_names()),
+                .fields(MemberWithRoleRow::field_names())
+                .order_by("rank", Order::Asc),
         )
     }
 }

@@ -28,7 +28,7 @@ pub fn extract(input: TokenStream) -> TokenStream {
                             format!("request body was not a string: {}", err)
                         ))?
                 ).map_err(|err| #error::BadRequest(
-                    format!("couldn't deserialize body: {}", err)
+                    format!("couldn't deserialize {}: {}", stringify!(#name), err)
                 ))
             }
         }
@@ -38,10 +38,10 @@ pub fn extract(input: TokenStream) -> TokenStream {
                 serde_json::from_str(
                     std::str::from_utf8(request.body())
                         .map_err(|err| #error::BadRequest(
-                            format!("request body was not a string: {}", err)
+                            format!("request body was not a valid string: {}", err)
                         ))?
                 ).map_err(|err| #error::BadRequest(
-                    format!("couldn't deserialize body: {}", err)
+                    format!("couldn't deserialize list of {}: {}", stringify!(#name), err)
                 ))
             }
         }
