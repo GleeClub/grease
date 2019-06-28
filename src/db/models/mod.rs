@@ -630,7 +630,7 @@ pub struct EventUpdate {
 ///
 /// ## Database Format:
 ///
-/// ``sql
+/// ```sql
 /// CREATE TABLE absence_request (
 ///   member varchar(50) NOT NULL,
 ///   event int NOT NULL,
@@ -684,12 +684,15 @@ pub struct NewAbsenceRequest {
 #[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum AbsenceRequestState {
     /// "approved" - The member is now excused from the given event
+    #[serde(rename = "approved")]
     #[strum(serialize = "approved")]
     Approved,
     /// "denied" - The member was denied from an excused absence
+    #[serde(rename = "denied")]
     #[strum(serialize = "denied")]
     Denied,
     /// "pending" - The request has not been handled yet
+    #[serde(rename = "pending")]
     #[strum(serialize = "pending")]
     Pending,
 }
@@ -755,9 +758,11 @@ pub struct ActiveSemesterUpdate {
 #[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum Enrollment {
     /// "class" - enrolled in the class
+    #[serde(rename = "class")]
     #[strum(serialize = "class")]
     Class,
     /// "club" - just a club member
+    #[serde(rename = "club")]
     #[strum(serialize = "club")]
     Club,
 }
@@ -1066,25 +1071,49 @@ pub struct Uniform {
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "gig"]
 pub struct Gig {
-    /// The ID of the event this
+    /// The ID of the event this gig belongs to
     pub event: i32,
+    /// When members are expected to actually perform
     #[serde(rename = "performanceTime")]
     pub performance_time: NaiveDateTime,
+    /// The ID of the uniform for this gig
     pub uniform: i32,
+    /// The name of the contact for this gig
     #[serde(rename = "contactName", deserialize_with = "deser_opt_string")]
     pub contact_name: Option<String>,
+    /// The email of the contact for this gig
     #[serde(rename = "contactEmail", deserialize_with = "deser_opt_string")]
     pub contact_email: Option<String>,
+    /// The phone of the contact for this gig
     #[serde(rename = "contactPhone", deserialize_with = "deser_opt_string")]
     pub contact_phone: Option<String>,
+    /// The price we are charging for this gig
     pub price: Option<i32>,
+    /// Whether this gig is visible on the external website
     pub public: bool,
     #[serde(deserialize_with = "deser_opt_string")]
+    /// A summary of this event for the external site (if it is public)
     pub summary: Option<String>,
     #[serde(deserialize_with = "deser_opt_string")]
+    /// A description of this event for the external site (if it is public)
     pub description: Option<String>,
 }
 
+/// The required format for the creation of new gigs.
+///
+/// ## Expected Format:
+///
+/// |     Field       |   Type   | Required? | Comments |
+/// |-----------------|----------|:---------:|----------|
+/// | performanceTime | datetime |     ✓     |          |
+/// | uniform         | integer  |     ✓     |          |
+/// | contactName     | string   |           |          |
+/// | contactEmail    | string   |           |          |
+/// | contactPhone    | string   |           |          |
+/// | price           | integer  |           |          |
+/// | public          | boolean  |     ✓     |          |
+/// | summary         | string   |           |          |
+/// | description     | string   |           |          |
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract)]
 #[table_name = "gig"]
 pub struct NewGig {
@@ -1105,44 +1134,95 @@ pub struct NewGig {
     pub description: Option<String>,
 }
 
-// CREATE TABLE gig_request (
-//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-//   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-//   name varchar(255) NOT NULL,
-//   organization varchar(255) NOT NULL,
-//   event int DEFAULT NULL,
-//   contact_name varchar(255) NOT NULL,
-//   contact_phone varchar(16) NOT NULL,
-//   contact_email varchar(50) NOT NULL,
-//   start_time datetime NOT NULL,
-//   location varchar(255) NOT NULL,
-//   comments text DEFAULT NULL,
-//   status enum('pending', 'accepted', 'dismissed') NOT NULL DEFAULT 'pending',
-
-//   FOREIGN KEY (event) REFERENCES event (id) ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for requests for Glee Club to perform.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE gig_request (
+///   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+///   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+///   name varchar(255) NOT NULL,
+///   organization varchar(255) NOT NULL,
+///   event int DEFAULT NULL,
+///   contact_name varchar(255) NOT NULL,
+///   contact_phone varchar(16) NOT NULL,
+///   contact_email varchar(50) NOT NULL,
+///   start_time datetime NOT NULL,
+///   location varchar(255) NOT NULL,
+///   comments text DEFAULT NULL,
+///   status enum('pending', 'accepted', 'dismissed') NOT NULL DEFAULT 'pending',
+///
+///   FOREIGN KEY (event) REFERENCES event (id) ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     id: integer,
+///     time: datetime,
+///     name: string,
+///     organization: string,
+///     event: integer, // optional
+///     contactName: string,
+///     contactEmail: string,
+///     contactPhone: string,
+///     startTime: datetime,
+///     location: string,
+///     comments: string, // optional
+///     status: string
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "gig_request"]
 pub struct GigRequest {
+    /// The ID of the gig request
     pub id: i32,
+    /// When the gig request was placed
     pub time: NaiveDateTime,
+    /// The name of the potential event
     pub name: String,
+    /// The organization requesting a performance from the Glee Club
     pub organization: String,
+    /// If and when an event is created from a request, this is the event's ID
     pub event: Option<i32>,
+    /// The name of the contact for the potential event
     #[serde(rename = "contactName")]
     pub contact_name: String,
+    /// The email of the contact for the potential event
     #[serde(rename = "contactEmail")]
     pub contact_email: String,
+    /// The phone number of the contact for the potential event
     #[serde(rename = "contactPhone")]
     pub contact_phone: String,
+    /// When the event will probably happen
     #[serde(rename = "startTime")]
     pub start_time: NaiveDateTime,
+    /// Where the event will be happening
     pub location: String,
+    /// Any comments about the event
     #[serde(deserialize_with = "deser_opt_string")]
     pub comments: Option<String>,
+    /// The current status of whether the request was accepted
     pub status: GigRequestStatus,
 }
 
+/// The required format for the creation of new gigs.
+///
+/// ## Expected Format:
+///
+/// |    Field     |   Type   | Required? | Comments |
+/// |--------------|----------|:---------:|----------|
+/// | name         | string   |     ✓     |          |
+/// | organization | string   |     ✓     |          |
+/// | contactName  | string   |     ✓     |          |
+/// | contactEmail | string   |     ✓     |          |
+/// | contactPhone | string   |     ✓     |          |
+/// | startTime    | datetime |     ✓     |          |
+/// | location     | string   |     ✓     |          |
+/// | comments     | string   |           |          |
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract, Insertable)]
 #[table_name = "gig_request"]
 pub struct NewGigRequest {
@@ -1161,6 +1241,33 @@ pub struct NewGigRequest {
     pub comments: Option<String>,
 }
 
+/// The required format for the creation of new events with gigs
+/// from gig requests.
+///
+/// ## Expected Format:
+///
+/// |      Field      |   Type   | Required? |           Comments            |
+/// |-----------------|----------|:---------:|-------------------------------|
+/// | name            | string   |     ✓     |                               |
+/// | semester        | string   |     ✓     |                               |
+/// | type            | string   |     ✓     | event type                    |
+/// | callTime        | datetime |     ✓     |                               |
+/// | releaseTime     | datetime |           |                               |
+/// | points          | integer  |     ✓     |                               |
+/// | comments        | string   |           |                               |
+/// | location        | string   |           |                               |
+/// | defaultAttend   | boolean  |     ✓     | assume members should go      |
+/// | repeat          | string   |     ✓     | see [Period]                  |
+/// | repeatUntil     | datetime |           | needed if `repeat` isn't "no" |
+/// | performanceTime | datetime |     ✓     |                               |
+/// | uniform         | integer  |     ✓     |                               |
+/// | contactName     | string   |           |                               |
+/// | contactEmail    | string   |           |                               |
+/// | contactPhone    | string   |           |                               |
+/// | price           | integer  |           |                               |
+/// | public          | boolean  |     ✓     |                               |
+/// | summary         | string   |           |                               |
+/// | description     | string   |           |                               |
 #[derive(Deserialize, Extract)]
 pub struct GigRequestForm {
     #[serde(flatten)]
@@ -1169,41 +1276,84 @@ pub struct GigRequestForm {
     pub gig: NewGig,
 }
 
+/// The possible states a gig request can be in during officer handling.
 #[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum GigRequestStatus {
+    /// "pending" - The officers haven't processed this gig request yet
+    #[serde(rename = "pending")]
     #[strum(serialize = "pending")]
     Pending,
+    /// "accepted" - The officers accepted the request and made an event for it
+    #[serde(rename = "accepted")]
     #[strum(serialize = "accepted")]
     Accepted,
+    /// "dismissed" - The officers decided to not accept the request for an event
+    #[serde(rename = "dismissed")]
     #[strum(serialize = "dismissed")]
     Dismissed,
 }
 
-// CREATE TABLE song (
-//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-//   title varchar(128) NOT NULL,
-//   info text DEFAULT NULL,
-//   current boolean NOT NULL DEFAULT '0',
-//   `key` enum('A♭', 'A', 'A#', 'B♭', 'B', 'B#', 'C♭', 'C', 'C♯', 'D♭', 'D', 'D♯', 'E♭',
-//              'E', 'E#', 'F♭', 'F', 'F♯', 'G♭', 'G', 'G#') DEFAULT NULL,
-//   starting_pitch enum('A♭', 'A', 'A#', 'B♭', 'B', 'B#', 'C♭', 'C', 'C♯', 'D♭', 'D', 'D♯',
-//                       'E♭', 'E', 'E#', 'F♭', 'F', 'F♯', 'G♭', 'G', 'G#') DEFAULT NULL,
-//   mode enum('major', 'minor') DEFAULT NULL
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for songs from our repertoire.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE song (
+///   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+///   title varchar(128) NOT NULL,
+///   info text DEFAULT NULL,
+///   current boolean NOT NULL DEFAULT '0',
+///   `key` enum('A♭', 'A', 'A#', 'B♭', 'B', 'B#', 'C♭', 'C', 'C♯', 'D♭', 'D', 'D♯', 'E♭',
+///              'E', 'E#', 'F♭', 'F', 'F♯', 'G♭', 'G', 'G#') DEFAULT NULL,
+///   starting_pitch enum('A♭', 'A', 'A#', 'B♭', 'B', 'B#', 'C♭', 'C', 'C♯', 'D♭', 'D', 'D♯',
+///                       'E♭', 'E', 'E#', 'F♭', 'F', 'F♯', 'G♭', 'G', 'G#') DEFAULT NULL,
+///   mode enum('major', 'minor') DEFAULT NULL
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     id: integer,
+///     title: string,
+///     info: string, // optional
+///     current: boolean,
+///     key: string, // optional
+///     starting_pitch: string, // optional
+///     mode: string // optional
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract)]
 #[table_name = "song"]
 pub struct Song {
+    /// The ID of the song
     pub id: i32,
+    /// The title of the song
     pub title: String,
+    /// Any information related to the song (minor changes to the music, who worte it, soloists, etc.)
     #[serde(deserialize_with = "deser_opt_string")]
     pub info: Option<String>,
+    /// Whether it is in this semester's repertoire
     pub current: bool,
+    /// The key of the song
     pub key: Option<Pitch>,
+    /// The starting pitch for the song
     #[serde(rename = "startingPitch")]
     pub starting_pitch: Option<Pitch>,
+    /// The mode of the song (Major or Minor)
     pub mode: Option<SongMode>,
 }
 
+/// The required format for the creation of new events with gigs
+/// from gig requests.
+///
+/// ## Expected Format:
+///
+/// | Field |  Type  | Required? | Comments |
+/// |-------|--------|:---------:|----------|
+/// | title | string |     ✓     |          |
+/// | info  | string |           |          |
 #[derive(TableName, Deserialize, Extract, Insertable)]
 #[table_name = "song"]
 pub struct NewSong {
@@ -1212,6 +1362,7 @@ pub struct NewSong {
     pub info: Option<String>,
 }
 
+/// All possible notes (ignoring microtonal tuning). Used for songs keys and starting pitches.
 #[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum Pitch {
     /// "A♭"
@@ -1300,157 +1451,329 @@ pub enum Pitch {
     GSharp,
 }
 
+/// Whether a song is major or minor.
 #[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum SongMode {
+    /// "major" - the song is in a major key
+    #[serde(rename = "major")]
     #[strum(serialize = "major")]
     Major,
+    /// "minor" - the song is in a minor key
+    #[serde(rename = "minor")]
     #[strum(serialize = "minor")]
     Minor,
 }
 
-// CREATE TABLE gig_song (
-//   event int NOT NULL,
-//   song int NOT NULL,
-//   `order` int NOT NULL,
-
-//   PRIMARY KEY (event, song),
-//   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (song) REFERENCES song (id) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// A model for songs in a setlist for an event.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE gig_song (
+///   event int NOT NULL,
+///   song int NOT NULL,
+///   `order` int NOT NULL,
+///
+///   PRIMARY KEY (event, song),
+///   FOREIGN KEY (event) REFERENCES event (id) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (song) REFERENCES song (id) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     event: integer,
+///     song: integer,
+///     order: integer
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable)]
 #[table_name = "gig_song"]
 pub struct GigSong {
+    /// The ID of the event this setlist refers to
     pub event: i32,
+    /// The ID of the song that belongs in this setlist
     pub song: i32,
+    /// When in the setlist this song appears
     pub order: i32,
 }
 
+/// The required format for creating the setlist for an event.
+///
+/// ## Expected Format:
+///
+/// | Field |  Type   | Required? | Comments |
+/// |-------|---------|:---------:|----------|
+/// | song  | integer |     ✓     |          |
 #[derive(Deserialize, Extract)]
 pub struct NewGigSong {
     pub song: i32,
 }
 
-// CREATE TABLE media_type (
-//   name varchar(50) NOT NULL PRIMARY KEY,
-//   `order` int NOT NULL UNIQUE,
-//   storage enum('local', 'remote') NOT NULL
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for all types of media referenced by links on a song.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE media_type (
+///   name varchar(50) NOT NULL PRIMARY KEY,
+///   `order` int NOT NULL UNIQUE,
+///   storage enum('local', 'remote') NOT NULL
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     name: string,
+///     order: integer,
+///     storage, string
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "media_type"]
 pub struct MediaType {
+    /// The name of the type of media
     pub name: String,
+    /// The order of where this media type appears in a song's link section
     pub order: i32,
+    /// The type of storage that this type of media points to
     pub storage: StorageType,
 }
 
+/// Whether a song link points to a file on the server or a link to the web.
 #[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum StorageType {
+    /// "local" - local storage in the internal site
+    #[serde(rename = "local")]
     #[strum(serialize = "local")]
     Local,
+    /// "remote" - a link to another website
+    #[serde(rename = "remote")]
     #[strum(serialize = "remote")]
     Remote,
 }
 
-// CREATE TABLE minutes (
-//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-//   name varchar(100) NOT NULL,
-//   `date` date NOT NULL,
-//   private longtext DEFAULT NULL,
-//   public longtext DEFAULT NULL
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for meeting minutes, or notes from officer meetings.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE minutes (
+///   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+///   name varchar(100) NOT NULL,
+///   `date` date NOT NULL,
+///   private longtext DEFAULT NULL,
+///   public longtext DEFAULT NULL
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     id: integer,
+///     name: string,
+///     date: date,
+///     private: string, // optional
+///     public: string // optional
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "minutes"]
 pub struct MeetingMinutes {
+    /// The id of the meeting minutes
     pub id: i32,
+    /// The name of the meeting
     pub name: String,
+    /// When these notes were initially created
     pub date: NaiveDate,
+    /// The private / redacted, complete officer notes
     #[serde(deserialize_with = "deser_opt_string")]
     pub private: Option<String>,
+    /// The public, edited notes visible by all members
     #[serde(deserialize_with = "deser_opt_string")]
     pub public: Option<String>,
 }
 
-// CREATE TABLE permission (
-//   name varchar(40) NOT NULL PRIMARY KEY,
-//   description text DEFAULT NULL,
-//   `type` enum('static', 'event') NOT NULL DEFAULT 'static'
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for permissions required for site actions.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE permission (
+///   name varchar(40) NOT NULL PRIMARY KEY,
+///   description text DEFAULT NULL,
+///   `type` enum('static', 'event') NOT NULL DEFAULT 'static'
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     name: string,
+///     description: string, // optional
+///     type: string
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "permission"]
 pub struct Permission {
+    /// The name of the permission
     pub name: String,
+    /// A descriptiion of what the permission entails
     #[serde(deserialize_with = "deser_opt_string")]
     pub description: Option<String>,
+    /// Whether the permission applies to a type of event or generally
     #[rename = "type"]
     #[serde(rename = "type")]
     pub type_: PermissionType,
 }
 
+/// Whether a permission applies to a specific event type
 #[derive(Debug, Clone, PartialEq, MysqlEnum, Serialize, Deserialize, Display, EnumString)]
 pub enum PermissionType {
+    /// "static" - A permission that is doesn't apply to a specific event type
+    #[serde(rename = "static")]
     #[strum(serialize = "static")]
     Static,
+    /// "event" - A permission that is applies to a specific event type
+    #[serde(rename = "event")]
     #[strum(serialize = "event")]
     Event,
 }
 
-// CREATE TABLE rides_in (
-//   member varchar(50) NOT NULL,
-//   carpool int NOT NULL,
-
-//   PRIMARY KEY (member, carpool),
-//   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (carpool) REFERENCES carpool (id) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model to record which members ride in which carpool for an event.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE rides_in (
+///   member varchar(50) NOT NULL,
+///   carpool int NOT NULL,
+///
+///   PRIMARY KEY (member, carpool),
+///   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (carpool) REFERENCES carpool (id) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     member: string,
+///     carpool: integer
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable)]
 #[table_name = "rides_in"]
 pub struct RidesIn {
+    /// The email of the member in the carpool
     pub member: String,
+    /// The ID of the carpool the member rides in
     pub carpool: i32,
 }
 
-// CREATE TABLE role_permission (
-//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-//   role varchar(20) NOT NULL,
-//   permission varchar(40) NOT NULL,
-//   event_type varchar(32) DEFAULT NULL,
-
-//   FOREIGN KEY (role) REFERENCES role (name) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (permission) REFERENCES permission (name) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (event_type) REFERENCES event_type (name) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model that records what permissions each officer role is awarded.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE role_permission (
+///   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+///   role varchar(20) NOT NULL,
+///   permission varchar(40) NOT NULL,
+///   event_type varchar(32) DEFAULT NULL,
+///
+///   FOREIGN KEY (role) REFERENCES role (name) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (permission) REFERENCES permission (name) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (event_type) REFERENCES event_type (name) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     id: integer,
+///     role: string,
+///     permission: string,
+///     eventType: string // optional
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "role_permission"]
 pub struct RolePermission {
+    /// The ID of the role permission
     pub id: i32,
+    /// The name of the role this junction refers to
     pub role: String,
+    /// The name of the permission the role is awarded
     pub permission: String,
+    /// The type of event the permission optionally applies to
     #[serde(rename = "eventType", deserialize_with = "deser_opt_string")]
     pub event_type: Option<String>,
 }
 
-// CREATE TABLE song_link (
-//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-//   song int NOT NULL,
-//   `type` varchar(50) NOT NULL,
-//   name varchar(128) NOT NULL,
-//   target varchar(255) NOT NULL,
-
-//   FOREIGN KEY (`type`) REFERENCES media_type (name) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (song) REFERENCES song (id) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for links on a song page.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE song_link (
+///   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+///   song int NOT NULL,
+///   `type` varchar(50) NOT NULL,
+///   name varchar(128) NOT NULL,
+///   target varchar(255) NOT NULL,
+///
+///   FOREIGN KEY (`type`) REFERENCES media_type (name) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (song) REFERENCES song (id) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     id: integer,
+///     song: integer,
+///     type: string,
+///     name: string,
+///     target: string
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "song_link"]
 pub struct SongLink {
+    /// The ID of the song link
     pub id: i32,
+    /// The ID of the song this link belongs to
     pub song: i32,
+    /// The type of this link (e.g. MIDI)
     #[rename = "type"]
     #[serde(rename = "type")]
     pub type_: String,
+    /// The name of this link
     pub name: String,
+    /// The target this link points to
     pub target: String,
 }
 
+/// The required format for creating a new song link.
+///
+/// ## Expected Format:
+///
+/// |  Field  |  Type  | Required? | Comments |
+/// |---------|--------|:---------:|----------|
+/// | type    | string |     ✓     |          |
+/// | name    | string |     ✓     |          |
+/// | target  | string |     ✓     |          |
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract)]
 #[table_name = "song_link"]
 pub struct NewSongLink {
@@ -1461,74 +1784,167 @@ pub struct NewSongLink {
     pub target: String,
 }
 
+/// The required format for updating a song link.
+///
+/// ## Expected Format:
+///
+/// |  Field  |  Type  | Required? | Comments |
+/// |---------|--------|:---------:|----------|
+/// | name    | string |     ✓     |          |
+/// | target  | string |     ✓     |          |
 #[derive(Deserialize, Extract)]
 pub struct SongLinkUpdate {
     pub name: String,
     pub target: String,
 }
 
-// CREATE TABLE todo (
-//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-//   `text` varchar(255) NOT NULL,
-//   member varchar(50) NOT NULL,
-//   completed boolean NOT NULL DEFAULT '0',
-
-//   FOREIGN KEY (member) REFERENCES member (email) ON UPDATE CASCADE ON DELETE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for tasks to do by members.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE todo (
+///   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+///   `text` varchar(255) NOT NULL,
+///   member varchar(50) NOT NULL,
+///   completed boolean NOT NULL DEFAULT '0',
+///
+///   FOREIGN KEY (member) REFERENCES member (email) ON UPDATE CASCADE ON DELETE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     id: integer,
+///     text: string,
+///     member: string,
+///     completed: boolean
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "todo"]
 pub struct Todo {
+    /// The ID of this todo
     pub id: i32,
+    /// The task for the member to do
     pub text: String,
+    /// The email of the member that needs to complete this task
     pub member: String,
+    /// Whether the task has been completed
     pub completed: bool,
 }
 
+/// The required format for creating a new todo.
+///
+/// ## Expected Format:
+///
+/// |  Field  |   Type   | Required? |         Comments          |
+/// |---------|----------|:---------:|---------------------------|
+/// | text    |  string  |     ✓     | the task to do            |
+/// | members | [string] |     ✓     | the emails of the members |
 #[derive(Deserialize, Extract)]
 pub struct NewTodo {
     pub text: String,
     pub members: Vec<String>,
 }
 
-// CREATE TABLE transaction_type (
-//   name varchar(40) NOT NULL PRIMARY KEY
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for the types of transaction.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE transaction_type (
+///   name varchar(40) NOT NULL PRIMARY KEY
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     name: string
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "transaction_type"]
 pub struct TransactionType {
+    /// The name of the transaction type
     pub name: String,
 }
 
-// CREATE TABLE transaction (
-//   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-//   member varchar(50) NOT NULL,
-//   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-//   amount int NOT NULL,
-//   description varchar(500) NOT NULL,
-//   semester varchar(32) DEFAULT NULL,
-//   `type` varchar(40) NOT NULL,
-//   resolved tinyint(1) NOT NULL DEFAULT '0',
-
-//   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (`type`) REFERENCES transaction_type (name) ON DELETE CASCADE ON UPDATE CASCADE,
-//   FOREIGN KEY (semester) REFERENCES semester (name) ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for transactions between members and the club.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE transaction (
+///   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+///   member varchar(50) NOT NULL,
+///   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+///   amount int NOT NULL,
+///   description varchar(500) NOT NULL,
+///   semester varchar(32) DEFAULT NULL,
+///   `type` varchar(40) NOT NULL,
+///   resolved tinyint(1) NOT NULL DEFAULT '0',
+///
+///   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (`type`) REFERENCES transaction_type (name) ON DELETE CASCADE ON UPDATE CASCADE,
+///   FOREIGN KEY (semester) REFERENCES semester (name) ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     id: integer,
+///     member: string,
+///     time: datetime,
+///     amount: integer,
+///     description: string,
+///     semester: string, // optional
+///     type: string,
+///     resolved: boolean
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
 #[table_name = "transaction"]
 pub struct Transaction {
+    /// The ID of the transaction
     pub id: i32,
+    /// The email of the member this transaction was charged to
     pub member: String,
+    /// When this transaction was charged
     pub time: NaiveDateTime,
+    /// How much this transaction was for
     pub amount: i32,
+    /// A description of what the member was charged for specifically
     pub description: String,
+    /// Optionally, the name of the semester this transaction was made during
     #[serde(deserialize_with = "deser_opt_string")]
     pub semester: Option<String>,
+    /// The name of the type of transaction
     #[rename = "type"]
     #[serde(rename = "type")]
     pub type_: String,
+    /// Whether the member has paid the amount requested in this transaction
     pub resolved: bool,
 }
 
+/// The required format for creating a new todo.
+///
+/// ## Expected Format:
+///
+/// |    Field    |  Type   | Required? | Comments |
+/// |-------------|---------|:---------:|----------|
+/// | member      | string  |     ✓     |          |
+/// | amount      | integer |     ✓     |          |
+/// | description | string  |     ✓     |          |
+/// | semester    | string  |           |          |
+/// | type        | string  |     ✓     |          |
+/// | resolved    | boolean |     ✓     |          |
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract, Insertable)]
 #[table_name = "transaction"]
 pub struct NewTransaction {
@@ -1543,30 +1959,65 @@ pub struct NewTransaction {
     pub resolved: bool,
 }
 
-// CREATE TABLE session (
-//   member varchar(50) NOT NULL PRIMARY KEY,
-//   `key` varchar(64) NOT NULL,
-
-//   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for login sessions for members.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE session (
+///   member varchar(50) NOT NULL PRIMARY KEY,
+///   `key` varchar(64) NOT NULL,
+///
+///   FOREIGN KEY (member) REFERENCES member (email) ON DELETE CASCADE ON UPDATE CASCADE
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     member: string,
+///     key: string
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Debug)]
 #[table_name = "session"]
 pub struct Session {
+    /// The email of the logged in member
     pub member: String,
+    /// The login token unique to the member
     pub key: String,
 }
 
-// CREATE TABLE variable (
-//   `key` varchar(255) NOT NULL PRIMARY KEY,
-//   value varchar(255) NOT NULL
-// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// The model for any other variables needed by the API.
+///
+/// ## Database Format:
+///
+/// ```sql
+/// CREATE TABLE variable (
+///   `key` varchar(255) NOT NULL PRIMARY KEY,
+///   value varchar(255) NOT NULL
+/// ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/// ```
+///
+/// ## JSON Format:
+///
+/// ```json
+/// {
+///     key: string,
+///     value: string
+/// }
+/// ```
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable)]
 #[table_name = "variable"]
 pub struct Variable {
+    /// The name of the variable
     pub key: String,
+    /// The value of the variable
     pub value: String,
 }
 
+/// Deserialize an Option<String> normally, but Some("") maps to None.
 fn deser_opt_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,

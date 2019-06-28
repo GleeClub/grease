@@ -161,11 +161,10 @@ impl Event {
                             .set("default_attend", &to_value(&new_event.default_attend))
                             .set("gig_count", &to_value(&new_event.gig_count)),
                     )?;
-                    Attendance::create_for_new_event(new_id, transaction)?;
-
                     if let Some((ref _gig_request, ref new_gig)) = from_request.as_ref() {
                         Gig::insert(new_id, &new_gig, transaction)?;
                     }
+                    Attendance::create_for_new_event(new_id, transaction)?;
 
                     Ok(new_id)
                 })
