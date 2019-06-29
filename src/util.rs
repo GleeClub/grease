@@ -163,7 +163,7 @@ pub fn log_panic(request: &cgi::Request, error_message: String) -> cgi::Response
     let json_val = serde_json::json!({
         "message": "Panicked during handling of request. Please contact an administrator with the following information:",
         "time": now.format("%c").to_string(),
-        "environment_variables": format!("{:?}", env_vars),
+        "environmentVariables": format!("{:?}", env_vars),
         "request": format!("{:?}", request),
         "error": error_message,
     });

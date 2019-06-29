@@ -1,8 +1,9 @@
+use auth::MemberPermission;
 use chrono::Local;
 use db::*;
 use error::*;
 use pinto::query_builder::*;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{json, Value};
 
 #[derive(Debug, PartialEq)]
@@ -572,30 +573,6 @@ impl MemberForSemester {
                 .fields(&["role"])
                 .filter(&format!("member = '{}'", self.member.email)),
         )
-    }
-}
-
-/// The required format for modifying role permissions.
-///
-/// ## Expected Format:
-///
-/// |   Field   |  Type  | Required? | Comments |
-/// |-----------|--------|:---------:|----------|
-/// | name      | string |     ✓     |          |
-/// | eventType | string |           |          |
-#[derive(PartialEq, Debug, Serialize, Deserialize, grease_derive::Extract)]
-pub struct MemberPermission {
-    pub name: String,
-    #[serde(rename = "eventType")]
-    pub event_type: Option<String>,
-}
-
-impl Into<MemberPermission> for (String, Option<String>) {
-    fn into(self) -> MemberPermission {
-        MemberPermission {
-            name: self.0,
-            event_type: self.1,
-        }
     }
 }
 

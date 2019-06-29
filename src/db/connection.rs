@@ -1,3 +1,5 @@
+//! Handles the connections to the MySQL database themselves.
+
 use crate::error::GreaseResult;
 use mysql::prelude::FromRow;
 use pinto::query_builder::*;
@@ -7,29 +9,44 @@ pub use self::conn::*;
 #[cfg(test)]
 pub use self::test_conn::*;
 
+/// Convenient, type-safe querying methods for database interaction.
 pub trait Connection {
+    /// Make a bare query. Only use this if nothing else fits the bill.
     fn query(&mut self, query: String) -> GreaseResult<()>;
 
+    /// Return the first row selected, or the given error message if none are found.
     fn first<T: FromRow>(&mut self, query: &Select, error_message: String) -> GreaseResult<T>;
 
+    /// Return the first row selected or None if no rows are returned.
     fn first_opt<T: FromRow>(&mut self, query: &Select) -> GreaseResult<Option<T>>;
 
+    /// Load all rows selected into a `Vec`.
     fn load<T: FromRow>(&mut self, query: &Select) -> GreaseResult<Vec<T>>;
 
+    /// Load the given rows and convert during the load to avoid iterating twice.
     fn load_as<T: FromRow + Into<I>, I>(&mut self, query: &Select) -> GreaseResult<Vec<I>>;
 
+    /// Insert a row into a table.
     fn insert(&mut self, query: &Insert) -> GreaseResult<()>;
 
+    /// Insert a multiple rows into a table.
     fn insert_multiple(&mut self, queries: Vec<&Insert>) -> GreaseResult<()>;
 
+    /// Insert a row into a table, and return the most recently created row's id.
+    /// This only works for models that have a primary key called "id", so use
+    /// with caution.
     fn insert_returning_id(&mut self, query: &Insert) -> GreaseResult<i32>;
 
+    /// Run an update, and return an error message if no rows are affected.
     fn update(&mut self, query: &Update, error_message: String) -> GreaseResult<()>;
 
+    /// Run an update, ignorning whether any rows were affected.
     fn update_opt(&mut self, query: &Update) -> GreaseResult<()>;
 
+    /// Delete a row, and return an error message if no rows were removed.
     fn delete(&mut self, query: &Delete, error_message: String) -> GreaseResult<()>;
 
+    /// Delete a row, ignoring if any rows were actually deleted.
     fn delete_opt(&mut self, query: &Delete) -> GreaseResult<()>;
 }
 
@@ -42,17 +59,23 @@ mod conn {
     use mysql::{prelude::GenericConnection, Conn};
     use pinto::query_builder::*;
 
+    /// The database connection wrapper.
     pub struct DbConn {
         conn: Conn,
     }
 
     impl Extract for DbConn {
+        /// Extracts a database connection from a request by reading
+        /// the "DATABASE_URL" environment variable either from the
+        /// environment or from the `.env` file using the [dotenv](dotenv)
+        /// crate.
         fn extract(_request: &cgi::Request) -> GreaseResult<Self> {
             DbConn::from_env_var("DATABASE_URL")
         }
     }
 
     impl DbConn {
+        /// The backing method for [extract](crate::extract::Extract)ing connections from requests.
         pub fn from_env_var(db_url_var_name: &'static str) -> GreaseResult<DbConn> {
             dotenv::dotenv().ok();
             let db_url = std::env::var(db_url_var_name)
@@ -62,6 +85,11 @@ mod conn {
             Ok(DbConn { conn })
         }
 
+        /// Make a transaction via a closure.
+        ///
+        /// By using a callback and passing a [DbTransaction](crate::db::connection::DbTransaction),
+        /// we can guarantee with RAII that the transaction is committed on success every time
+        /// and rolls back properly on failure.
         pub fn transaction<T, F: FnOnce(&mut DbTransaction) -> GreaseResult<T>>(
             &mut self,
             callback: F,
@@ -125,6 +153,7 @@ mod conn {
         }
     }
 
+    /// A transaction wrapper for use with `Connection`s.
     pub struct DbTransaction<'a> {
         conn: mysql::Transaction<'a>,
     }
@@ -334,6 +363,8 @@ mod test_conn {
     }
 
     impl Extract for DbConn {
+        /// direct extraction is not allowed, so testing explicitly states
+        /// what queries are expected (and their corresponding responses).
         fn extract(_request: &cgi::Request) -> GreaseResult<Self> {
             panic!("DbConn must always be mocked when testing extract");
         }
@@ -341,6 +372,10 @@ mod test_conn {
 
     #[mockable]
     impl DbConn {
+        /// Creates a mock database connection.
+        ///
+        /// Expects a list of expected queries and their corresponding data
+        /// returned by the database connection.
         pub fn setup(queries: Vec<(&str, serde_json::Value)>) -> DbConn {
             DbConn {
                 queries: queries
@@ -358,6 +393,11 @@ mod test_conn {
             callback(&mut transaction)
         }
 
+        /// Checks that the query being made matched what was expected.
+        ///
+        /// If it was correct, returns a list of MySQL rows, and otherwise
+        /// panics on a bad `assert!`. If too many queries were made, this
+        /// method `panic!`s accordingly.
         pub fn check_query(&mut self, expected_query: &str) -> Vec<mysql::Row> {
             if self.queries.len() > 0 {
                 let (query, to_return) = self.queries.remove(0);
@@ -368,6 +408,9 @@ mod test_conn {
             }
         }
 
+        /// Converts JSON data to MySQL rows.
+        ///
+        /// Expects either an array of JSON objects, a single JSON object, or a null value.
         pub fn json_to_rows(value: &serde_json::Value) -> Vec<self::mysql_common::row::Row> {
             match value {
                 serde_json::Value::Array(rows) => {
@@ -381,6 +424,10 @@ mod test_conn {
             }
         }
 
+        /// Convert a JSON object to a row.
+        ///
+        /// As [serde_json](serde_json) has the "preserve_order" feature enabled,
+        /// the order of a JSON object's fields is important.
         fn json_to_row(value: &serde_json::Value) -> self::mysql_common::row::Row {
             use self::smallvec::SmallVec;
 
@@ -405,6 +452,7 @@ mod test_conn {
             self::mysql_common::row::new_row(values, std::sync::Arc::new(columns))
         }
 
+        /// Converts atomic JSON items to MySQL values.
         fn json_to_mysql(value: &serde_json::Value) -> mysql::Value {
             use regex::Regex;
 
@@ -497,6 +545,9 @@ mod test_conn {
             }
         }
 
+        /// Makes a MySQL column object from a column name.
+        ///
+        /// Needed for the terrible things done to mock out rows using JSON data.
         fn column_from_str(name: &str) -> self::mysql_common::packets::Column {
             // const COLUMN_PACKET: &[u8] =
             //     b"\x03def\x06schema\x05table\x09org_table\x04name\

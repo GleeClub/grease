@@ -4,7 +4,7 @@
 
 pub mod event_routes;
 pub mod from_url;
-pub mod macros;
+pub mod router;
 pub mod member_routes;
 pub mod misc_routes;
 pub mod officer_routes;
@@ -25,20 +25,21 @@ use serde_json::{json, Value};
 use std::panic::{self, AssertUnwindSafe};
 use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
 
-#[macro_export]
-macro_rules! check_for_permission {
-    ($user:expr => $permission:expr) => {
-        if !$user.has_permission($permission, None) {
-            return Err(GreaseError::Forbidden(Some($permission.to_owned())));
-        }
-    };
-    ($user:expr => $permission:expr, $event_type:expr) => {
-        if !$user.has_permission($permission, Some($event_type)) {
-            return Err(GreaseError::Forbidden($permission.to_owned()));
-        }
-    };
-}
-
+/// The main entry-point for the whole crate.
+///
+/// Using the [cgi](cgi) crate, requests come in to `stdin` as a stream of
+/// bytes, and all headers are set using environment variables. The [cgi](cgi)
+/// crate handles putting this into a [Request](http::request::Request) from
+/// the [http](http) crate for us.
+///
+/// This method returns all data as "application/json" responses. On success,
+/// a 200 status code is returned, while all errors return appropriate error
+/// status codes (See [GreaseError](crate::error::GreaseError) for how those
+/// get mapped).
+///
+/// In the rare case that a `panic!` occurs, this function will attempt
+/// to catch it, log it with [log_panic](crate::util::log_panic), and then
+/// return a JSON object with some debug information.
 pub fn handle_request(mut request: cgi::Request) -> cgi::Response {
     let mut response = None;
 
@@ -87,6 +88,10 @@ pub fn handle_request(mut request: cgi::Request) -> cgi::Response {
     }
 }
 
+/// Handles routing of incoming requests.
+///
+/// See the root of the crate for the API layout and
+/// [router](router/macro.router.html) for the way this function works.
 pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
     router!(request,
         // authorization
@@ -224,6 +229,3 @@ pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
 pub fn basic_success() -> Value {
     json!({ "message": "success!" })
 }
-
-// ActiveSemester
-// Member

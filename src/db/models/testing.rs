@@ -1,3 +1,8 @@
+//! (Mock?) testing data for the API.
+//!
+//! This data, along with `mocktopus` and the DbConn's `compare_result`
+//! method, should be adequate for testing all endpoints.
+
 extern crate lazy_static;
 
 use self::lazy_static::lazy_static;

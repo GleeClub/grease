@@ -1,10 +1,15 @@
+//! Handles the parsing of URL's for routing.
+
 use crate::error::{GreaseError, GreaseResult};
 use std::collections::HashMap;
 use std::str::FromStr;
 use url::percent_encoding::percent_decode;
 use url::Url;
 
+/// Parse the given type from a url string for routing.
 pub trait FromUrlStr: Sized {
+    /// Attempt to parse the given type from a string, and
+    /// return None on failure.
     fn from_url_str(in_str: &str) -> Option<Self>;
 }
 
@@ -40,6 +45,7 @@ impl FromUrlStr for Option<String> {
     }
 }
 
+/// Parse a url into its path segments and query parameters for routing convenience.
 pub fn parse_url(url: &str) -> GreaseResult<(Vec<String>, HashMap<String, String>)> {
     let url = Url::from_str(url).map_err(|err| {
         GreaseError::BadRequest(format!("couldn't parse url: {} (url = {})", err, url))
