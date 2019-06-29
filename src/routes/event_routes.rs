@@ -19,9 +19,9 @@ use serde_json::{json, Value};
 /// ## Return Format:
 ///
 /// If `full = true`, then the format from
-/// [to_json_full](../../db/models/event/struct.EventWithGig.html#method.to_json_full)
+/// [to_json_full](crate::db::models::event::EventWithGig::to_json_full)
 /// will be returned. Otherwise, the format from
-/// [to_json](../../db/models/event/struct.EventWithGig.html#method.to_json)
+/// [to_json](crate::db::models::event::EventWithGig::to_json)
 /// will be returned.
 pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseResult<Value> {
     Event::load(event_id, &mut user.conn).and_then(|event_with_gig| {
@@ -43,8 +43,8 @@ pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseRes
 /// ## Return Format:
 ///
 /// Returns a list of `Event`s, ordered by
-/// [callTime](../../db/models/struct.Event.html#structfield.call_time).
-/// See [get_event](fn.get_event.html) for the format of each individual event.
+/// [callTime](crate::db::models::Event#structfield.call_time).
+/// See [get_event](crate::routes::event_routes::get_event) for the format of each individual event.
 pub fn get_events(
     full: Option<bool>,
     event_types: Option<String>,
@@ -91,7 +91,7 @@ pub fn get_events(
 ///
 /// ## Input Format:
 ///
-/// Expects a [NewEvent](../../db/models/struct.NewEvent.html).
+/// Expects a [NewEvent](crate::db::models::NewEvent).
 ///
 /// ## Return Format:
 ///
@@ -120,7 +120,7 @@ pub fn new_event((new_event, mut user): (NewEvent, User)) -> GreaseResult<Value>
 ///
 /// ## Input Format:
 ///
-/// Expects an [EventUpdate](../../db/models/struct.EventUpdate.html).
+/// Expects an [EventUpdate](crate::db::models::EventUpdate).
 pub fn update_event(
     id: i32,
     (updated_event, mut user): (EventUpdate, User),
@@ -164,8 +164,8 @@ pub fn delete_event(id: i32, mut user: User) -> GreaseResult<Value> {
 /// }
 /// ```
 ///
-/// See the [Attendance](../../db/models/struct.Attendance.html) and the
-/// [Member](../../db/models/struct.Member.html) models for how they will be
+/// See the [Attendance](crate::db::models::Attendance) and the
+/// [Member](crate::db::models::Member) models for how they will be
 /// returned.
 pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
     let event = Event::load(id, &mut user.conn)?;
@@ -214,7 +214,7 @@ pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Return Format:
 ///
-/// Returns an [Attendance](../../db/models/struct.Attendance.html#json-format).
+/// Returns an [Attendance](crate::db::models::Attendance).
 pub fn get_member_attendance(event_id: i32, member: String, mut user: User) -> GreaseResult<Value> {
     Attendance::load(&member, event_id, &mut user.conn).map(|attendance| json!(attendance))
 }
@@ -237,8 +237,8 @@ pub fn get_member_attendance(event_id: i32, member: String, mut user: User) -> G
 /// ```
 ///
 /// Returns a list of event/attendance pairs, ordered by
-/// [callTime](../../db/models/struct.Event.html#structfield.call_time).
-/// See [Attendance](../../db/models/struct.Attendance.html#json-format) for the
+/// [callTime](crate::db::models::Event#structfield.call_time).
+/// See [Attendance](crate::db::models::Attendance#json-format) for the
 /// JSON format for the fields.
 pub fn get_member_attendance_for_semester(member: String, mut user: User) -> GreaseResult<Value> {
     let current_semester = Semester::load_current(&mut user.conn)?;
@@ -266,7 +266,7 @@ pub fn get_member_attendance_for_semester(member: String, mut user: User) -> Gre
 ///
 /// ## Input Format:
 ///
-/// Expects an [AttendanceForm](../../db/models/struct.AttendanceForm.html).
+/// Expects an [AttendanceForm](crate::db::models::AttendanceForm).
 pub fn update_attendance(
     event_id: i32,
     member: String,
@@ -304,7 +304,7 @@ pub fn excuse_unconfirmed_for_event(event_id: i32, mut user: User) -> GreaseResu
 
 /// ## Return Format:
 ///
-/// Returns an [EventCarpool](../../db/models/carpool/struct.EventCarool.html#method.to_json).
+/// Returns an [EventCarpool](crate::db::models::carpool::EventCarpool#method.to_json).
 pub fn get_carpools(event_id: i32, mut user: User) -> GreaseResult<Value> {
     Carpool::load_for_event(event_id, &mut user.conn).map(|carpools| {
         carpools
@@ -322,7 +322,7 @@ pub fn get_carpools(event_id: i32, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Input Format:
 ///
-/// Returns an [UpdatedCarpool](../../db/models/struct.UpdatedCarpool.html#json-format).
+/// Returns an [UpdatedCarpool](crate::db::models::UpdatedCarpool).
 pub fn update_carpools(
     event_id: i32,
     (updated_carpools, mut user): (Vec<UpdatedCarpool>, User),
@@ -337,7 +337,7 @@ pub fn update_carpools(
 ///
 /// ## Return Format:
 ///
-/// Returns a list of [GigSong](../../db/models/struct.GigSong.html) objects.
+/// Returns a list of [GigSong](crate::db::models::GigSong)s.
 pub fn get_setlist(event_id: i32, mut user: User) -> GreaseResult<Value> {
     GigSong::load_for_event(event_id, &mut user.conn).map(|setlist| json!(setlist))
 }
@@ -349,7 +349,7 @@ pub fn get_setlist(event_id: i32, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Input Format:
 ///
-/// Expects a list of [NewGigSong](../../db/models/struct.NewGigSong.html) objects
+/// Expects a list of [NewGigSong](crate::db::models::NewGigSong)s
 /// in the order that the songs should appear for the setlist.
 pub fn edit_setlist(
     event_id: i32,
@@ -367,7 +367,7 @@ pub fn edit_setlist(
 ///
 /// ## Return Format:
 ///
-/// Returns an [AbsenceRequest](../../db/models/struct.AbsenceRequest.html).
+/// Returns an [AbsenceRequest](crate::db::models::AbsenceRequest).
 pub fn get_absence_request(event_id: i32, member: String, mut user: User) -> GreaseResult<Value> {
     AbsenceRequest::load(&member, event_id, &mut user.conn).map(|request| json!(request))
 }
@@ -376,7 +376,7 @@ pub fn get_absence_request(event_id: i32, member: String, mut user: User) -> Gre
 ///
 /// ## Return Format:
 ///
-/// Returns a list of [AbsenceRequest](../../db/models/struct.AbsenceRequest.html)s.
+/// Returns a list of [AbsenceRequest](crate::db::models::AbsenceRequest)s.
 pub fn get_absence_requests(mut user: User) -> GreaseResult<Value> {
     AbsenceRequest::load_all_for_this_semester(&mut user.conn).map(|requests| json!(requests))
 }
@@ -408,7 +408,7 @@ pub fn member_is_excused(event_id: i32, member: String, mut user: User) -> Greas
 ///
 /// ## Input Format:
 ///
-/// Expects a [NewAbsenceRequest](../../db/models/struct.NewAbsenceRequest.html).
+/// Expects a [NewAbsenceRequest](crate::db::models::NewAbsenceRequest).
 pub fn submit_absence_request(
     event_id: i32,
     (new_request, mut user): (NewAbsenceRequest, User),
@@ -448,7 +448,7 @@ pub fn deny_absence_request(event_id: i32, member: String, mut user: User) -> Gr
 ///
 /// ## Return Format:
 ///
-/// Returns a list of [EventType](../../db/models/struct.EventType.html)s.
+/// Returns a list of [EventType](crate::db::models::EventType)s.
 pub fn get_event_types(mut user: User) -> GreaseResult<Value> {
     user.conn
         .load::<EventType>(&EventType::select_all_in_order("name", Order::Asc))
@@ -459,7 +459,7 @@ pub fn get_event_types(mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Return Format:
 ///
-/// Returns a list of [SectionTypes](../../db/models/struct.SectionTypes.html)s.
+/// Returns a list of [SectionType](crate::db::models::SectionType)s.
 pub fn get_section_types(mut user: User) -> GreaseResult<Value> {
     user.conn
         .load::<SectionType>(&SectionType::select_all_in_order("name", Order::Asc))
@@ -473,7 +473,7 @@ pub fn get_section_types(mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Return Format:
 ///
-/// Returns a [GigRequest](../../db/models/struct.GigRequest.html).
+/// Returns a [GigRequest](crate::db::models::GigRequest).
 pub fn get_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {
     GigRequest::load(request_id, &mut user.conn).map(|request| json!(request))
 }
@@ -485,10 +485,10 @@ pub fn get_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Return Format:
 ///
-/// By default, all [GigRequest](../../db/models/struct.GigRequest.html)s
+/// By default, all [GigRequest](crate::db::models::GigRequest)s
 /// that are either from this semester or are still pending from other semesters
 /// are returned in a list ordered by
-/// [time](../../db/models/struct.GigRequest.html#structfield.time).
+/// [time](crate::db::models::GigRequest#structfield.time).
 /// If `all = true`, then simply all gig requests ever placed are loaded.
 pub fn get_gig_requests(all: Option<bool>, mut user: User) -> GreaseResult<Value> {
     let gig_requests = if all.unwrap_or(false) {
@@ -504,7 +504,7 @@ pub fn get_gig_requests(all: Option<bool>, mut user: User) -> GreaseResult<Value
 ///
 /// ## Input Format:
 ///
-/// Expects a [NewGigRequest](../../db/models/struct.NewGigRequest.html).
+/// Expects a [NewGigRequest](crate::db::models::NewGigRequest).
 ///
 /// ## Return Format:
 ///
@@ -546,9 +546,7 @@ pub fn reopen_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value
 ///
 /// ## Input Format:
 ///
-/// Expects a [GigRequestForm](../../db/models/struct.GigRequestForm.html).
-///
-/// ## Return Format:
+/// Expects a [GigRequestForm](crate::db::models::GigRequestForm).
 ///
 /// ## Return Format:
 ///

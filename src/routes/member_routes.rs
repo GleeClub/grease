@@ -12,7 +12,7 @@ use std::collections::HashSet;
 ///
 /// ## Input Format:
 ///
-/// Expects a [LoginInfo](../../db/models/struct.LoginInfo.html).
+/// Expects a [LoginInfo](crate::db::models::LoginInfo).
 ///
 /// ## Return Format:
 ///
@@ -58,12 +58,12 @@ pub fn logout(mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// If `details = true`, then the format from
-/// [to_json_full](../../db/models/struct.Member.html#method.to_json_full)
+/// [to_json_full](crate::db::models::Member#method.to_json_full)
 /// is used to return info on all semesters the member was active. Otherwise,
 /// if `grades = true`, then the format from
-/// [to_json_with_grades](../../db/models/struct.Member.html#method.to_json_with_grades)
+/// [to_json_with_grades](crate::db::models::Member#method.to_json_with_grades)
 /// is used. Otherwise, the simple format from
-/// [to_json](../../db/models/struct.Member.html#method.to_json)
+/// [to_json](crate::db::models::Member#method.to_json)
 /// is used.
 pub fn get_member(
     email: String,
@@ -103,9 +103,9 @@ pub fn get_member(
 /// ## Return Format:
 ///
 /// If `grades = true`, then the format from
-/// [to_json_with_grades](../../db/models/event/struct.EventWithGig.html#method.to_json_with_grades)
+/// [to_json_with_grades](crate::db::models::event::EventWithGig#method.to_json_with_grades)
 /// will be returned. Otherwise, the format from
-/// [to_json](../../db/models/event/struct.EventWithGig.html#method.to_json)
+/// [to_json](crate::db::models::event::EventWithGig#method.to_json)
 /// will be returned.
 pub fn get_members(
     grades: Option<bool>,
@@ -169,7 +169,7 @@ pub fn get_members(
 ///
 /// ## Input Format:
 ///
-/// Expects a [NewMember](../../db/models/struct.NewMember.html).
+/// Expects a [NewMember](crate::db::models::NewMember).
 pub fn new_member((new_member, mut conn): (NewMember, DbConn)) -> GreaseResult<Value> {
     Member::create(new_member, &mut conn).map(|_| basic_success())
 }
@@ -178,7 +178,7 @@ pub fn new_member((new_member, mut conn): (NewMember, DbConn)) -> GreaseResult<V
 ///
 /// ## Input Format:
 ///
-/// Expects a [RegisterForSemesterForm](../../db/models/struct.RegisterForSemesterForm.html).
+/// Expects a [RegisterForSemesterForm](crate::db::models::RegisterForSemesterForm).
 pub fn confirm_for_semester(
     (form, mut user): (RegisterForSemesterForm, User),
 ) -> GreaseResult<Value> {
@@ -208,7 +208,7 @@ pub fn mark_member_inactive_for_semester(
 ///
 /// ## Input Format:
 ///
-/// Expects an [ActiveSemesterUpdate](../../db/models/struct.ActiveSemesterUpdate.html).
+/// Expects an [ActiveSemesterUpdate](crate::db::models::ActiveSemesterUpdate).
 pub fn update_member_semester(
     member: String,
     semester: String,
@@ -222,7 +222,7 @@ pub fn update_member_semester(
 ///
 /// ## Input Format:
 ///
-/// Expects a [NewMember](../../db/models/struct.NewMember.html).
+/// Expects a [NewMember](crate::db::models::NewMember).
 pub fn update_member_profile((update, mut user): (NewMember, User)) -> GreaseResult<Value> {
     Member::update(&user.member.member.email, true, update, &mut user.conn).map(|_| basic_success())
 }
@@ -234,7 +234,7 @@ pub fn update_member_profile((update, mut user): (NewMember, User)) -> GreaseRes
 ///
 /// ## Input Format:
 ///
-/// Expects a [NewMember](../../db/models/struct.NewMember.html).
+/// Expects a [NewMember](crate::db::models::NewMember).
 pub fn update_member_as_officer(
     member: String,
     (update, mut user): (NewMember, User),
@@ -256,7 +256,7 @@ pub fn update_member_as_officer(
 /// }
 /// ```
 ///
-/// Returns an object with a newly generated API token for login as that member
+/// Returns an object with a newly generated API token for login as that member.
 pub fn login_as_member(member: String, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "switch-user");
     if member == user.member.member.email {

@@ -20,8 +20,8 @@ use std::path::PathBuf;
 /// ## Return Format:
 ///
 /// If `full = true`, then the format from
-/// [load_with_data](../../db/models/struct.Song.html#method.load_with_data)
-/// will be returned. Otherwise, a simple [Song](../../db/models/struct.Song.html)
+/// [load_with_data](crate::db::models::Song#method.load_with_data)
+/// will be returned. Otherwise, a simple [Song](crate::db::models::Song)
 /// will be returned.
 pub fn get_song(id: i32, details: Option<bool>, mut user: User) -> GreaseResult<Value> {
     if details.unwrap_or(false) {
@@ -43,7 +43,7 @@ pub fn get_song(id: i32, details: Option<bool>, mut user: User) -> GreaseResult<
 /// ```
 ///
 /// Returns an object with the current repertoire and the remainder of the repertoire
-/// in two different field, each comprising a list of [Song](../../db/models/struct.Song.html)s.
+/// in two different field, each comprising a list of [Song](crate::db::models::Song)s.
 pub fn get_songs(mut user: User) -> GreaseResult<Value> {
     Song::load_all_separate_this_semester(&mut user.conn).map(|(current, other)| {
         json!({
@@ -57,7 +57,7 @@ pub fn get_songs(mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Input Format:
 ///
-/// Expects a [NewSong](../../db/models/struct.NewSong.html).
+/// Expects a [NewSong](crate::db::models::NewSong).
 pub fn new_song((new_song, mut user): (NewSong, User)) -> GreaseResult<Value> {
     Song::create(&new_song, &mut user.conn).map(|new_id| json!({ "id": new_id }))
 }
@@ -69,7 +69,7 @@ pub fn new_song((new_song, mut user): (NewSong, User)) -> GreaseResult<Value> {
 ///
 /// ## Input Format:
 ///
-/// Expects a [SongUpdate](../../db/models/struct.SongUpdate.html).
+/// Expects a [SongUpdate](crate::db::models::SongUpdate).
 pub fn update_song(song_id: i32, (updated_song, mut user): (SongUpdate, User)) -> GreaseResult<Value> {
     Song::update(song_id, &updated_song, &mut user.conn).map(|_| basic_success())
 }
@@ -102,7 +102,7 @@ pub fn set_song_as_not_current(song_id: i32, mut user: User) -> GreaseResult<Val
 ///
 /// ## Return Format:
 ///
-/// Returns a list of [MediaType](../../db/models/struct.MediaType.html)s.
+/// Returns a list of [MediaType](crate::db::models::MediaType)s.
 pub fn get_media_types(mut user: User) -> GreaseResult<Value> {
     MediaType::load_all(&mut user.conn).map(|types| json!(types))
 }
@@ -114,7 +114,7 @@ pub fn get_media_types(mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Return Format:
 ///
-/// Returns a [SongLink](../../db/models/struct.SongLink.html).
+/// Returns a [SongLink](crate::db::models::SongLink).
 pub fn get_song_link(link_id: i32, mut user: User) -> GreaseResult<Value> {
     SongLink::load(link_id, &mut user.conn).map(|link| json!(link))
 }
@@ -126,7 +126,7 @@ pub fn get_song_link(link_id: i32, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Input Format:
 ///
-/// Expects a [SongLinkUpdate](../../db/models/struct.SongLinkUpdate.html).
+/// Expects a [SongLinkUpdate](crate::db::models::SongLinkUpdate).
 pub fn update_song_link(
     link_id: i32,
     (updated_link, mut user): (SongLinkUpdate, User),
@@ -138,7 +138,7 @@ pub fn update_song_link(
 ///
 /// ## Input Format:
 ///
-/// Expects a [FileUpload](../../db/models/struct.FileUpload.html).
+/// Expects a [FileUpload](crate::util::FileUpload).
 pub fn upload_file((file, user): (FileUpload, User)) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
     file.upload().map(|_| basic_success())
@@ -151,7 +151,7 @@ pub fn upload_file((file, user): (FileUpload, User)) -> GreaseResult<Value> {
 ///
 /// ## Input Format:
 ///
-/// Expects a [NewSongLink](../../db/models/struct.NewSongLink.html).
+/// Expects a [NewSongLink](crate::db::models::NewSongLink).
 pub fn new_song_link(
     song_id: i32,
     (new_link, mut user): (NewSongLink, User),

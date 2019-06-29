@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 ///
 /// ## Return Format:
 ///
-/// Returns a [Variable](../../db/models/) or null.
+/// Returns a [Variable](crate::db::models::Variable) or null.
 pub fn get_variable(key: String, mut user: User) -> GreaseResult<Value> {
     Variable::load(&key, &mut user.conn).map(|var| json!(var))
 }
@@ -24,7 +24,7 @@ pub fn get_variable(key: String, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Input Format:
 ///
-/// Expects a [NewValue](../../db/models/struct.NewValue.html).
+/// Expects a [NewValue](crate::db::models::NewValue).
 ///
 /// ## Return Format:
 ///

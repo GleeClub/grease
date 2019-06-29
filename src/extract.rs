@@ -1,7 +1,7 @@
 //! Deserialization of request data into usuable formats.
 //!
 //! The `grease_derive` sub-crate in this repository allows the
-//! procedural derivation of the [Extract](trait.Extract.html) trait
+//! procedural derivation of the [Extract](crate::extract::Extract) trait
 //! for anything that implements [Deserialize](serde::Deserialize).
 
 use crate::error::GreaseResult;

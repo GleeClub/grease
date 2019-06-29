@@ -48,7 +48,7 @@ pub enum GreaseError {
     /// }
     /// ```
     ///
-    /// See [Member](../db/models/struct.Member.html) for its JSON format.
+    /// See [Member](crate::db::models::Member) for its JSON format.
     NotActiveYet(Member),
     /// \[403\] The current member does not have currently have permission to use the endpoint.
     ///
