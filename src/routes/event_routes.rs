@@ -128,6 +128,18 @@ pub fn update_event(
     Event::update(id, updated_event, &mut user.conn).map(|_| basic_success())
 }
 
+/// RSVP for an event.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the event
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and active for the semester of the event.
+pub fn rsvp_for_event(id: i32, mut user: User) -> GreaseResult<Value> {
+    Event::rsvp(id, &user.member.member.email, &mut user.conn).map(|_| basic_success())
+}
+
 /// Delete an event.
 ///
 /// ## Path Parameters:

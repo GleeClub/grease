@@ -62,7 +62,7 @@
 //! ### Events:
 //!
 //!   Method   | Route          | Handler
-//! -----------|----------------|-------------
+//! -----------|----------------|----------------------------------------------------------
 //! **GET**    | /events/{*id*} | [get_event](crate::routes::event_routes::get_event)
 //! **GET**    | /events        | [get_events](crate::routes::event_routes::get_events)
 //! **POST**   | /events        | [new_event](crate::routes::event_routes::new_event)
@@ -72,10 +72,11 @@
 //! ### Event Details:
 //!
 //!   Method   | Route                                        | Handler
-//! -----------|----------------------------------------------|-----------------------------------------------------------------------------------------
+//! -----------|----------------------------------------------|------------------------------------------------------------------------------------------
 //! **GET**    | /events/{*id*}/attendance                    | [get_attendance](crate::routes::event_routes::get_attendance)
 //! **GET**    | /events/{*id*}/attendance/{*member*}         | [get_member_attendance](crate::routes::event_routes::get_member_attendance)
 //! **POST**   | /events/{*id*}/attendance/{*member*}         | [update_attendance](crate::routes::event_routes::update_attendance)
+//! **POST**   | /events/{*id*}/rsvp                          | [rsvp_for_event](crate::routes::event_routes::rsvp_for_event)
 //! **POST**   | /events/{*id*}/attendance/excuse_unconfirmed | [excuse_unconfirmed_for_event](crate::routes::event_routes::excuse_unconfirmed_for_event)
 //! **GET**    | /events/{*id*}/carpools                      | [get_carpools](crate::routes::event_routes::get_carpools)
 //! **POST**   | /events/{*id*}/carpools                      | [update_carpools](crate::routes::event_routes::update_carpools)
@@ -84,19 +85,19 @@
 //!
 //! ### Absence Requests:
 //!
-//!   Method   | Route                                               | Handler
-//! -----------|-----------------------------------------------------|-------------------------------------------------------------------------------
-//! **GET**    | /absence_requests                                   | [get_absence_requests](crate::routes::event_routes::get_absence_requests)
-//! **GET**    | /absence_requests/{*eventId*}/{*member*}            | [get_absence_request](crate::routes::event_routes::get_absence_request)
-//! **GET**    | /absence_requests/{*eventId*}/{*member*}/is_excused | [member_is_excused](crate::routes::event_routes::member_is_excused)
-//! **POST**   | /absence_requests/{*eventId*}/{*member*}/approve    | [approve_absence_request](crate::routes::event_routes::approve_absence_request)
-//! **POST**   | /absence_requests/{*eventId*}/{*member*}/deny       | [deny_absence_request](crate::routes::event_routes::deny_absence_request)
-//! **POST**   | /absence_requests/{*eventId*}                       | [submit_absence_request](crate::routes::event_routes::submit_absence_request)
+//!   Method   | Route                                            | Handler
+//! -----------|--------------------------------------------------|-------------------------------------------------------------------------------
+//! **GET**    | /absence_requests                                | [get_absence_requests](crate::routes::event_routes::get_absence_requests)-
+//! **GET**    | /absence_requests/{*eventId*}                    | [get_absence_request](crate::routes::event_routes::get_absence_request)
+//! **GET**    | /absence_requests/{*eventId*}/is_excused         | [member_is_excused](crate::routes::event_routes::member_is_excused)
+//! **POST**   | /absence_requests/{*eventId*}/{*member*}/approve | [approve_absence_request](crate::routes::event_routes::approve_absence_request)
+//! **POST**   | /absence_requests/{*eventId*}/{*member*}/deny    | [deny_absence_request](crate::routes::event_routes::deny_absence_request)
+//! **POST**   | /absence_requests/{*eventId*}                    | [submit_absence_request](crate::routes::event_routes::submit_absence_request)
 //!
 //! ### Gig Requests:
 //!
 //!   Method   | Route                             | Handler
-//! -----------|-----------------------------------|-------------------------------------------------------------------------------------------
+//! -----------|-----------------------------------|--------------------------------------------------------------------------------------------
 //! **GET**    | /gig_requests/{*id*}              | [get_gig_request](crate::routes::event_routes::get_gig_request)
 //! **GET**    | /gig_requests                     | [get_gig_requests](crate::routes::event_routes::get_gig_requests)
 //! **POST**   | /gig_requests                     | [new_gig_request](crate::routes::event_routes::new_gig_request)
@@ -107,7 +108,7 @@
 //! ### Variables:
 //!
 //!   Method   | Route              | Handler
-//! -----------|--------------------|------------------------------------------------------------
+//! -----------|--------------------|-------------------------------------------------------------
 //! **GET**    | /variables/{*key*} | [get_variable](crate::routes::misc_routes::get_variable)
 //! **POST**   | /variables/{*key*} | [set_variable](crate::routes::misc_routes::set_variable)
 //! **DELETE** | /variables/{*key*} | [unset_variable](crate::routes::misc_routes::unset_variable)
@@ -134,7 +135,7 @@
 //! ### Meeting Minutes:
 //!
 //!   Method   | Route                         | Handler
-//! -----------|-------------------------------|---------------------------------------------------------------------------------
+//! -----------|-------------------------------|----------------------------------------------------------------------------------
 //! **GET**    | /meeting_minutes/{*id*}       | [get_meeting_minutes](crate::routes::officer_routes::get_meeting_minutes)
 //! **GET**    | /meeting_minutes              | [get_all_meeting_minutes](crate::routes::officer_routes::get_all_meeting_minutes)
 //! **POST**   | /meeting_minutes              | [new_meeting_minutes](crate::routes::officer_routes::new_meeting_minutes)
@@ -145,7 +146,7 @@
 //! ### Uniforms:
 //!
 //!   Method   | Route            | Handler
-//! -----------|------------------|---------------------------------------------------------------
+//! -----------|------------------|----------------------------------------------------------------
 //! **GET**    | /uniforms/{*id*} | [get_uniform](crate::routes::officer_routes::get_uniform)
 //! **GET**    | /uniforms]       | [get_uniforms](crate::routes::officer_routes::get_uniforms)
 //! **POST**   | /uniforms]       | [new_uniform](crate::routes::officer_routes::new_uniform)
@@ -155,7 +156,7 @@
 //! ### Todos:
 //!
 //!   Method   | Route         | Handler
-//! -----------|---------------|-----------------------------------------------------------------------------
+//! -----------|---------------|------------------------------------------------------------------------------
 //! **GET**    | /todos        | [get_todos](crate::routes::officer_routes::get_todos)
 //! **POST**   | /todos        | [add_todo_for_members](crate::routes::officer_routes::add_todo_for_members)
 //! **POST**   | /todos/{*id*} | [mark_todo_as_complete](crate::routes::officer_routes::mark_todo_as_complete)
@@ -163,7 +164,7 @@
 //! ### Songs:
 //!
 //!   Method   | Route                          | Handler
-//! -----------|--------------------------------|------------------------------------------------------------------------------------
+//! -----------|--------------------------------|-------------------------------------------------------------------------------------
 //! **GET**    | /repertoire/{*id*}             | [get_song](crate::routes::repertoire_routes::get_song)
 //! **GET**    | /repertoire                    | [get_songs](crate::routes::repertoire_routes::get_songs)
 //! **POST**   | /repertoire                    | [new_song](crate::routes::repertoire_routes::new_song)
@@ -175,7 +176,7 @@
 //! ### Song Links:
 //!
 //!   Method   | Route                     | Handler
-//! -----------|---------------------------|--------------------------------------------------------------------------
+//! -----------|---------------------------|---------------------------------------------------------------------------
 //! **POST**   | /repertoire/{*id*}/links  | [new_song_link](crate::routes::repertoire_routes::new_song_link)
 //! **GET**    | /repertoire/links/{*id*}  | [get_song_link](crate::routes::repertoire_routes::get_song_link)
 //! **DELETE** | /repertoire/links/{*id*}  | [remove_song_link](crate::routes::repertoire_routes::remove_song_link)
@@ -186,7 +187,7 @@
 //! ### Semesters:
 //!
 //!   Method   | Route                           | Handler
-//! -----------|---------------------------------|---------------------------------------------------------------------------
+//! -----------|---------------------------------|----------------------------------------------------------------------------
 //! **GET**    | /semesters                      | [get_semesters](crate::routes::officer_routes::get_semesters)
 //! **GET**    | /semester/current               | [get_current_semester](crate::routes::officer_routes::get_current_semester)
 //! **GET**    | /semesters/{*name*}             | [get_semester](crate::routes::officer_routes::get_semester)
@@ -198,7 +199,7 @@
 //! ### Permissions and Roles:
 //!
 //!   Method   | Route                             | Handler
-//! -----------|-----------------------------------|-------------------------------------------------------------------------------------------
+//! -----------|-----------------------------------|--------------------------------------------------------------------------------------------
 //! **GET**    | /role_permissions                 | [get_current_role_permissions](crate::routes::officer_routes::get_current_role_permissions)
 //! **GET**    | /member_roles                     | [get_current_officers](crate::routes::officer_routes::get_current_officers)
 //! **GET**    | /permissions/{*member*}           | [member_permissions](crate::routes::officer_routes::member_permissions)
@@ -210,7 +211,7 @@
 //! ### Fees and Transactions:
 //!
 //!   Method   | Route                         | Handler
-//! -----------|-------------------------------|---------------------------------------------------------------------------------------------------
+//! -----------|-------------------------------|----------------------------------------------------------------------------------------------------
 //! **GET**    | /fees                         | [get_fees](crate::routes::officer_routes::get_fees)
 //! **POST**   | /fees/{*name*}/{*new_amount*} | [update_fee_amount](crate::routes::officer_routes::update_fee_amount)
 //! **POST**   | /fees/{*name*}/apply          | [apply_fee_for_all_active_members](crate::routes::officer_routes::apply_fee_for_all_active_members)
@@ -220,7 +221,7 @@
 //! ### Static Data:
 //!
 //!   Method   | Route              | Handler
-//! -----------|--------------------|-----------------------------------------------------------------------------
+//! -----------|--------------------|------------------------------------------------------------------------------
 //! **GET**    | /media_types       | [get_media_types](crate::routes::repertoire_routes::get_media_types)
 //! **GET**    | /permissions       | [get_permissions](crate::routes::officer_routes::get_permissions)
 //! **GET**    | /roles             | [get_roles](crate::routes::officer_routes::get_roles)

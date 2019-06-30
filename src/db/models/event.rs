@@ -339,6 +339,21 @@ impl Event {
         })
     }
 
+    pub fn rsvp<C: Connection>(event_id: i32, member: &str, conn: &mut C) -> GreaseResult<()> {
+        let event = Event::load(event_id, conn)?;
+        let _active_semester = conn.first::<ActiveSemester>(
+            &ActiveSemester::filter(&format!("member = '{}' AND semester = '{}'", member, &event.event.semester)),
+            "Members must be active to RSVP to events.".to_owned(),
+        )?;
+
+        conn.update(
+            Update::new(Attendance::table_name())
+                .filter(&format!("event = {} AND member = '{}'", event_id, member))
+                .set("confirmed", "true"),
+            format!("No attendance exists for member {} at event with id {}.", member, event_id),
+        )
+    }
+
     pub fn delete<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<()> {
         conn.delete(
             Delete::new(Event::table_name()).filter(&format!("id = {}", event_id)),
