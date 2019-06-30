@@ -17,6 +17,10 @@ use std::path::PathBuf;
 /// ## Query Parameters:
 ///   * details: boolean (*optional*) - Whether to include the song's links
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// If `full = true`, then the format from
@@ -32,6 +36,10 @@ pub fn get_song(id: i32, details: Option<bool>, mut user: User) -> GreaseResult<
 }
 
 /// Get the entire club's repertoire.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
@@ -55,10 +63,15 @@ pub fn get_songs(mut user: User) -> GreaseResult<Value> {
 
 /// Create a new song.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-repertoire" generally.
+///
 /// ## Input Format:
 ///
 /// Expects a [NewSong](crate::db::models::NewSong).
 pub fn new_song((new_song, mut user): (NewSong, User)) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-repertoire");
     Song::create(&new_song, &mut user.conn).map(|new_id| json!({ "id": new_id }))
 }
 
@@ -67,10 +80,15 @@ pub fn new_song((new_song, mut user): (NewSong, User)) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the song
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-repertoire" generally.
+///
 /// ## Input Format:
 ///
 /// Expects a [SongUpdate](crate::db::models::SongUpdate).
 pub fn update_song(song_id: i32, (updated_song, mut user): (SongUpdate, User)) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-repertoire");
     Song::update(song_id, &updated_song, &mut user.conn).map(|_| basic_success())
 }
 
@@ -78,7 +96,12 @@ pub fn update_song(song_id: i32, (updated_song, mut user): (SongUpdate, User)) -
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the song
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-repertoire" generally.
 pub fn delete_song(song_id: i32, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-repertoire");
     Song::delete(song_id, &mut user.conn).map(|_| basic_success())
 }
 
@@ -86,7 +109,12 @@ pub fn delete_song(song_id: i32, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the song
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-repertoire" generally.
 pub fn set_song_as_current(song_id: i32, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-repertoire");
     Song::set_current_status(song_id, true, &mut user.conn).map(|_| basic_success())
 }
 
@@ -94,11 +122,20 @@ pub fn set_song_as_current(song_id: i32, mut user: User) -> GreaseResult<Value> 
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the song
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-repertoire" generally.
 pub fn set_song_as_not_current(song_id: i32, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-repertoire");
     Song::set_current_status(song_id, false, &mut user.conn).map(|_| basic_success())
 }
 
 /// Get all of the media types available.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
@@ -112,6 +149,10 @@ pub fn get_media_types(mut user: User) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the song link
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns a [SongLink](crate::db::models::SongLink).
@@ -124,6 +165,10 @@ pub fn get_song_link(link_id: i32, mut user: User) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the song link
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-repertoire" generally.
+///
 /// ## Input Format:
 ///
 /// Expects a [SongLinkUpdate](crate::db::models::SongLinkUpdate).
@@ -131,10 +176,15 @@ pub fn update_song_link(
     link_id: i32,
     (updated_link, mut user): (SongLinkUpdate, User),
 ) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-repertoire");
     SongLink::update(link_id, updated_link, &mut user.conn).map(|_| basic_success())
 }
 
 /// Upload a file for a song link to refer to.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-repertoire" generally.
 ///
 /// ## Input Format:
 ///
@@ -149,6 +199,10 @@ pub fn upload_file((file, user): (FileUpload, User)) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the song
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-repertoire" generally.
+///
 /// ## Input Format:
 ///
 /// Expects a [NewSongLink](crate::db::models::NewSongLink).
@@ -156,6 +210,7 @@ pub fn new_song_link(
     song_id: i32,
     (new_link, mut user): (NewSongLink, User),
 ) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-repertoire");
     SongLink::create(song_id, new_link, &mut user.conn).map(|new_id| json!({ "id": new_id }))
 }
 
@@ -163,7 +218,12 @@ pub fn new_song_link(
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the song link
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-repertoire" generally.
 pub fn remove_song_link(link_id: i32, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-repertoire");
     SongLink::delete(link_id, &mut user.conn).map(|_| basic_success())
 }
 
@@ -174,6 +234,10 @@ pub fn remove_song_link(link_id: i32, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Query Parameters:
 ///   * confirm: boolean (*optional*) - Confirm the deletion of the dangling files
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-repertoire" generally.
 pub fn cleanup_song_files(confirm: Option<bool>, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
     let all_music_files = glob::glob("./music/*")

@@ -26,13 +26,14 @@ pub struct User {
 
 impl User {
     /// Checks if a member has a permission.
+    ///
+    /// If `event_type` is None, simply searches the user's permissions. If
+    /// it is not None, searches either for a static permission or a permission
+    /// with the given event type.
     pub fn has_permission(&self, permission_name: &str, event_type: Option<&str>) -> bool {
-        let permission = MemberPermission {
-            name: permission_name.to_owned(),
-            event_type: event_type.map(|type_| type_.to_owned()),
-        };
-
-        self.permissions.contains(&permission)
+        self.permissions.iter().any(|permission| {
+            permission.name == permission_name && (permission.event_type.is_none() || permission.event_type.as_ref().map(|type_| type_.as_str()) == event_type)
+        })
     }
 }
 
@@ -116,7 +117,7 @@ macro_rules! check_for_permission {
     };
     ($user:expr => $permission:expr, $event_type:expr) => {
         if !$user.has_permission($permission, Some($event_type)) {
-            return Err(crate::error::GreaseError::Forbidden($permission.to_owned()));
+            return Err(crate::error::GreaseError::Forbidden(Some($permission.to_owned())));
         }
     };
 }

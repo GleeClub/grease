@@ -16,6 +16,10 @@ use serde_json::{json, Value};
 /// ## Query Parameters:
 ///   * full: boolean (*optional*) - Whether to include uniform and attendance.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// If `full = true`, then the format from
@@ -40,9 +44,13 @@ pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseRes
 ///   * event_types: string (*optional*) - A comma-delimited list of event types to
 ///       filter the events by. If unspecified, simply returns all events.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
-/// Returns a list of `Event`s, ordered by
+/// Returns a list of [Event](crate::db::models::Event)s, ordered by
 /// [callTime](crate::db::models::Event#structfield.call_time).
 /// See [get_event](crate::routes::event_routes::get_event) for the format of each individual event.
 pub fn get_events(
@@ -93,6 +101,11 @@ pub fn get_events(
 ///
 /// Expects a [NewEvent](crate::db::models::NewEvent).
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in, and must be able to either
+/// "create-event" generally or "create-event" for the specified type.
+///
 /// ## Return Format:
 ///
 /// ```json
@@ -104,19 +117,22 @@ pub fn get_events(
 /// Returns an object containing the id of the newly created event
 /// (the first one if multiple were created).
 pub fn new_event((new_event, mut user): (NewEvent, User)) -> GreaseResult<Value> {
-    if !user.has_permission("create-event", None)
-        && !user.has_permission("create-event", Some(&new_event.type_))
-    {
-        Err(GreaseError::Forbidden(Some("create-event".to_owned())))
-    } else {
-        Event::create(new_event, None, &mut user.conn).map(|new_id| json!({ "id": new_id }))
-    }
+    check_for_permission!(user => "create-event", &new_event.type_);
+    Event::create(new_event, None, &mut user.conn)
+        .map(|new_id| json!({
+            "id": new_id
+        }))
 }
 
 /// Update an existing event.
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in, and must be able to either
+/// "edit-all-events" generally or "modify-event" of the specified type.
 ///
 /// ## Input Format:
 ///
@@ -125,6 +141,11 @@ pub fn update_event(
     id: i32,
     (updated_event, mut user): (EventUpdate, User),
 ) -> GreaseResult<Value> {
+    if !user.has_permission("edit-all-events", None) {
+        let event = Event::load(id, &mut user.conn)?;
+        check_for_permission!(user => "modify-event", &event.event.type_);
+    }
+
     Event::update(id, updated_event, &mut user.conn).map(|_| basic_success())
 }
 
@@ -144,8 +165,15 @@ pub fn rsvp_for_event(id: i32, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in, and must be able to "delete-event"
+/// generally or for the specified event's type.
 pub fn delete_event(id: i32, mut user: User) -> GreaseResult<Value> {
-    check_for_permission!(user => "delete-event");
+    let event = Event::load(id, &mut user.conn)?;
+    check_for_permission!(user => "delete-event", &event.event.type_);
+
     Event::delete(id, &mut user.conn).map(|_| basic_success())
 }
 
@@ -160,6 +188,12 @@ pub fn delete_event(id: i32, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in. To view all attendance, a user must be
+/// able to "view-attendance" generally. If they can't, they must be
+/// able to "view-attendance-own-section" for their own section.
 ///
 /// ## Return Format:
 ///
@@ -181,7 +215,11 @@ pub fn delete_event(id: i32, mut user: User) -> GreaseResult<Value> {
 /// returned.
 pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
     let event = Event::load(id, &mut user.conn)?;
-    let section = event.event.section.as_ref().map(|s| s.as_str());
+    let member_section = user.member.active_semester
+        .as_ref()
+        .and_then(|active_semester| active_semester.section
+            .as_ref()
+            .map(|section| section.as_str()));
 
     if user.has_permission("view-attendance", None) {
         let all_attendance = Attendance::load_for_event_separate_by_section(id, &mut user.conn)?;
@@ -199,13 +237,13 @@ pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
                 .into();
         }
         Ok(attendance_json)
-    } else if section.is_some()
-        && user.has_permission("view-attendance", Some(event.event.type_.as_str()))
+    } else if member_section.is_some()
+        && user.has_permission("view-attendance-own-section", Some(event.event.type_.as_str()))
     {
         let section_attendance =
-            Attendance::load_for_event_for_section(id, section, &mut user.conn)?;
+            Attendance::load_for_event_for_section(id, member_section, &mut user.conn)?;
         Ok(json!({
-            section.unwrap_or("Unsorted"): section_attendance
+            member_section.unwrap_or("Unsorted"): section_attendance
                 .into_iter()
                 .map(|(attendance, member_for_semester)| json!({
                     "attendance": attendance,
@@ -224,10 +262,20 @@ pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
 ///   * id: integer (*required*) - The ID of the event
 ///   * member: string (*required*) - The email of the requested member
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in. To view another member's attendance, the user must be
+/// able to "view-attendance" generally or for the given event's type.
+///
 /// ## Return Format:
 ///
 /// Returns an [Attendance](crate::db::models::Attendance).
 pub fn get_member_attendance(event_id: i32, member: String, mut user: User) -> GreaseResult<Value> {
+    if &member != &user.member.member.email {
+        let event = Event::load(event_id, &mut user.conn)?;
+        check_for_permission!(user => "view-attendance", &event.event.type_);
+    }
+
     Attendance::load(&member, event_id, &mut user.conn).map(|attendance| json!(attendance))
 }
 
@@ -235,6 +283,11 @@ pub fn get_member_attendance(event_id: i32, member: String, mut user: User) -> G
 ///
 /// ## Path Parameters:
 ///   * member: string (*required*) - The email of the requested member
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in. To view another member's attendance,
+/// the user must be able to "view-attendance" generally.
 ///
 /// ## Return Format:
 ///
@@ -253,6 +306,10 @@ pub fn get_member_attendance(event_id: i32, member: String, mut user: User) -> G
 /// See [Attendance](crate::db::models::Attendance#json-format) for the
 /// JSON format for the fields.
 pub fn get_member_attendance_for_semester(member: String, mut user: User) -> GreaseResult<Value> {
+    if &member != &user.member.member.email {
+        check_for_permission!(user => "view-attendance");
+    }
+
     let current_semester = Semester::load_current(&mut user.conn)?;
     Attendance::load_for_member_at_all_events(&member, &current_semester.name, &mut user.conn).map(
         |event_attendance_pairs| {
@@ -276,6 +333,14 @@ pub fn get_member_attendance_for_semester(member: String, mut user: User) -> Gre
 ///   * id: integer (*required*) - The ID of the event
 ///   * member: string (*required*) - The email of the requested member
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in. To edit another member's attendance,
+/// the user must be able to either "edit-attendance" generally or for
+/// the given event's type, or "edit-attendance-own-section" generally
+/// or for the given event's type only when the current user is in the
+/// same section as the member whose attendance they are editing.
+///
 /// ## Input Format:
 ///
 /// Expects an [AttendanceForm](crate::db::models::AttendanceForm).
@@ -285,27 +350,35 @@ pub fn update_attendance(
     (mut user, attendance_form): (User, AttendanceForm),
 ) -> GreaseResult<Value> {
     let event = Event::load(event_id, &mut user.conn)?;
-    if event.event.section.is_some() {
-        if user.has_permission("edit-attendance", None)
-            || user.has_permission("edit-attendance", Some(event.event.type_.as_str()))
-        {
-            Attendance::update(event_id, &member, &attendance_form, &mut user.conn)
-                .map(|_| basic_success())
-        } else {
-            Err(GreaseError::Forbidden(Some("edit-attendance".to_owned())))
-        }
-    } else {
-        check_for_permission!(user => "edit-attendance");
+    let user_section = user.member.active_semester
+        .as_ref()
+        .and_then(|active_semester| active_semester.section.clone());
+    let member_section = ActiveSemester::load(&member, &event.event.semester, &mut user.conn)?
+        .and_then(|active_semester| active_semester.section);
+
+    if user.has_permission("edit-attendance", Some(event.event.type_.as_str())) ||
+        (user_section == member_section && user.has_permission("edit-attendance-own-section", Some(event.event.type_.as_str())))
+    {
         Attendance::update(event_id, &member, &attendance_form, &mut user.conn)
             .map(|_| basic_success())
+    } else {
+        Err(GreaseError::Forbidden(Some("edit-attendance".to_owned())))
     }
 }
 
 /// Excuse the absence of all members that didn't confirm attendance to an event.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-attendance"
+/// either generally or for the given event's type.
+///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
 pub fn excuse_unconfirmed_for_event(event_id: i32, mut user: User) -> GreaseResult<Value> {
+    let event = Event::load(event_id, &mut user.conn)?;
+    check_for_permission!(user => "edit-attendance", event.event.type_.as_str());
+
     Attendance::excuse_unconfirmed(event_id, &mut user.conn).map(|_| basic_success())
 }
 
@@ -313,7 +386,11 @@ pub fn excuse_unconfirmed_for_event(event_id: i32, mut user: User) -> GreaseResu
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
-
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns an [EventCarpool](crate::db::models::carpool::EventCarpool#method.to_json).
@@ -332,6 +409,11 @@ pub fn get_carpools(event_id: i32, mut user: User) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-carpool"
+/// either generally or for the given event's type.
+///
 /// ## Input Format:
 ///
 /// Returns an [UpdatedCarpool](crate::db::models::UpdatedCarpool).
@@ -339,6 +421,9 @@ pub fn update_carpools(
     event_id: i32,
     (updated_carpools, mut user): (Vec<UpdatedCarpool>, User),
 ) -> GreaseResult<Value> {
+    let event = Event::load(event_id, &mut user.conn)?;
+    check_for_permission!(user => "edit-carpool", &event.event.type_.as_str());
+
     Carpool::update_for_event(event_id, updated_carpools, &mut user.conn).map(|_| basic_success())
 }
 
@@ -346,6 +431,10 @@ pub fn update_carpools(
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in  .
 ///
 /// ## Return Format:
 ///
@@ -359,6 +448,11 @@ pub fn get_setlist(event_id: i32, mut user: User) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-setlist"
+/// either generally or for the given event's type.
+///
 /// ## Input Format:
 ///
 /// Expects a list of [NewGigSong](crate::db::models::NewGigSong)s
@@ -367,37 +461,51 @@ pub fn edit_setlist(
     event_id: i32,
     (updated_setlist, mut user): (Vec<NewGigSong>, User),
 ) -> GreaseResult<Value> {
+    let event = Event::load(event_id, &mut user.conn)?;
+    check_for_permission!(user => "edit-carpool", &event.event.type_.as_str());
+
     GigSong::update_for_event(event_id, updated_setlist, &mut user.conn)
         .map(|setlist| json!(setlist))
 }
 
-/// Get an absence request for a member from an event.
+/// Check for an absence request for the current member from an event.
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
-///   * member: string (*required*) - The email of the requested member
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
 /// Returns an [AbsenceRequest](crate::db::models::AbsenceRequest).
-pub fn get_absence_request(event_id: i32, member: String, mut user: User) -> GreaseResult<Value> {
-    AbsenceRequest::load(&member, event_id, &mut user.conn).map(|request| json!(request))
+pub fn get_absence_request(event_id: i32, mut user: User) -> GreaseResult<Value> {
+    AbsenceRequest::load(&user.member.member.email, event_id, &mut user.conn).map(|request| json!(request))
 }
 
 /// Get all absence requests for the current semester.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "process-gig-requests" generally.
 ///
 /// ## Return Format:
 ///
 /// Returns a list of [AbsenceRequest](crate::db::models::AbsenceRequest)s.
 pub fn get_absence_requests(mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "process-gig-requests");
     AbsenceRequest::load_all_for_this_semester(&mut user.conn).map(|requests| json!(requests))
 }
 
-/// Check if a member is excused from an event.
+/// Check if the current member is excused from an event.
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
-///   * member: string (*required*) - The email of the requested member
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
@@ -408,8 +516,8 @@ pub fn get_absence_requests(mut user: User) -> GreaseResult<Value> {
 /// ```
 ///
 /// Returns an object indicating whether the member has been excused.
-pub fn member_is_excused(event_id: i32, member: String, mut user: User) -> GreaseResult<Value> {
-    AbsenceRequest::excused_for_event(&member, event_id, &mut user.conn)
+pub fn member_is_excused(event_id: i32, mut user: User) -> GreaseResult<Value> {
+    AbsenceRequest::excused_for_event(&user.member.member.email, event_id, &mut user.conn)
         .map(|excused| json!({ "excused": excused }))
 }
 
@@ -436,6 +544,10 @@ pub fn submit_absence_request(
 
 /// Approve an absence request.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "process-gig-requests" generally.
+///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
 ///   * member: string (*required*) - The email of the requested member
@@ -444,19 +556,29 @@ pub fn approve_absence_request(
     member: String,
     mut user: User,
 ) -> GreaseResult<Value> {
+    check_for_permission!(user => "process-gig-requests");
     AbsenceRequest::approve(&member, event_id, &mut user.conn).map(|_| basic_success())
 }
 
 /// Deny an absence request.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "process-gig-requests" generally.
+///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
 ///   * member: string (*required*) - The email of the requested member
 pub fn deny_absence_request(event_id: i32, member: String, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "process-gig-requests");
     AbsenceRequest::deny(&member, event_id, &mut user.conn).map(|_| basic_success())
 }
 
 /// Get all event types.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
@@ -468,6 +590,10 @@ pub fn get_event_types(mut user: User) -> GreaseResult<Value> {
 }
 
 /// Get all section types.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
@@ -483,10 +609,15 @@ pub fn get_section_types(mut user: User) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the gig request
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "process-gig-requests" generally.
+///
 /// ## Return Format:
 ///
 /// Returns a [GigRequest](crate::db::models::GigRequest).
 pub fn get_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "process-gig-requests");
     GigRequest::load(request_id, &mut user.conn).map(|request| json!(request))
 }
 
@@ -494,6 +625,10 @@ pub fn get_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Query Parameters:
 ///   * all: boolean (*optional*) - Whether to load all gig requests ever.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "process-gig-requests" generally.
 ///
 /// ## Return Format:
 ///
@@ -503,6 +638,7 @@ pub fn get_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {
 /// [time](crate::db::models::GigRequest#structfield.time).
 /// If `all = true`, then simply all gig requests ever placed are loaded.
 pub fn get_gig_requests(all: Option<bool>, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "process-gig-requests");
     let gig_requests = if all.unwrap_or(false) {
         GigRequest::load_all(&mut user.conn)
     } else {
@@ -535,23 +671,33 @@ pub fn new_gig_request((new_request, mut conn): (NewGigRequest, DbConn)) -> Grea
 
 /// Dismiss a gig request.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "process-gig-requests" generally.
+///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the gig request
 pub fn dismiss_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "process-gig-requests");
     GigRequest::set_status(request_id, GigRequestStatus::Dismissed, &mut user.conn)
         .map(|_| basic_success())
 }
 
 /// Re-open a gig request.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "process-gig-requests" generally.
+///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the gig request
 pub fn reopen_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "process-gig-requests");
     GigRequest::set_status(request_id, GigRequestStatus::Pending, &mut user.conn)
         .map(|_| basic_success())
 }
 
-/// Create a new event or events.
+/// Create a new event or events from a gig request.
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the gig request
@@ -559,6 +705,10 @@ pub fn reopen_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value
 /// ## Input Format:
 ///
 /// Expects a [GigRequestForm](crate::db::models::GigRequestForm).
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "process-gig-requests" generally.
 ///
 /// ## Return Format:
 ///
@@ -574,6 +724,7 @@ pub fn create_event_from_gig_request(
     request_id: i32,
     (form, mut user): (GigRequestForm, User),
 ) -> GreaseResult<Value> {
+    check_for_permission!(user => "process-gig-requests");
     let request = GigRequest::load(request_id, &mut user.conn)?;
     if request.status != GigRequestStatus::Pending {
         Err(GreaseError::BadRequest(

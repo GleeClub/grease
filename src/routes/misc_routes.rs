@@ -10,6 +10,10 @@ use serde_json::{json, Value};
 /// ## Path Parameters:
 ///   * key: string (*required*) - The name of the variable
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns a [Variable](crate::db::models::Variable) or null.
@@ -21,6 +25,10 @@ pub fn get_variable(key: String, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Path Parameters:
 ///   * key: string (*required*) - The name of the variable
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Input Format:
 ///
@@ -47,6 +55,10 @@ pub fn set_variable(key: String, (new_value, mut user): (NewValue, User)) -> Gre
 ///
 /// ## Path Parameters:
 ///   * key: string (*required*) - The name of the variable
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///

@@ -14,6 +14,10 @@ use serde_json::{json, Value};
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the announcement
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns an [Announcement](crate::db::models::Announcement).
@@ -25,6 +29,10 @@ pub fn get_announcement(id: i32, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Query Parameters:
 ///   * all: boolean (*optional*) - Simply return all announcements ever made
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
@@ -40,6 +48,10 @@ pub fn get_announcements(all: Option<bool>, mut user: User) -> GreaseResult<Valu
 }
 
 /// Make a new announcement.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-announcements" generally.
 ///
 /// ## Input Format:
 ///
@@ -60,6 +72,10 @@ pub fn make_new_announcement(
 
 /// Archive an announcement.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-announcements" generally.
+///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the announcement
 pub fn archive_announcement(announcement_id: i32, mut user: User) -> GreaseResult<Value> {
@@ -72,6 +88,10 @@ pub fn archive_announcement(announcement_id: i32, mut user: User) -> GreaseResul
 /// ## Path Parameters:
 ///   * name: string (*required*) - The name of the Google Doc
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns an [GoogleDoc](crate::db::models::GoogleDoc).
@@ -81,6 +101,10 @@ pub fn get_google_doc(name: String, mut user: User) -> GreaseResult<Value> {
 
 /// Get all of the Google Docs.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns a list of [GoogleDoc](crate::db::models::GoogleDoc)s.
@@ -89,6 +113,10 @@ pub fn get_google_docs(mut user: User) -> GreaseResult<Value> {
 }
 
 /// Create a new Google Doc.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-links" generally.
 ///
 /// ## Input Format:
 ///
@@ -103,6 +131,10 @@ pub fn new_google_doc((mut user, new_doc): (User, GoogleDoc)) -> GreaseResult<Va
 /// ## Path Parameters:
 ///   * name: string (*required*) - The current name of the Google Doc
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-links" generally.
+///
 /// ## Input Format:
 ///
 /// Expects a [GoogleDoc](crate::db::models::GoogleDoc).
@@ -116,6 +148,10 @@ pub fn modify_google_doc(
 
 /// Delete a Google Doc.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-links" generally.
+///
 /// ## Path Parameters:
 ///   * name: string (*required*) - The name of the Google Doc
 pub fn delete_google_doc(name: String, mut user: User) -> GreaseResult<Value> {
@@ -128,6 +164,11 @@ pub fn delete_google_doc(name: String, mut user: User) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the meeting minutes
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in. To view the officer's version of meeting
+/// minutes, the user needs to be able to "view-complete-minutes" generally.
+///
 /// ## Return Format:
 ///
 /// Returns a [MeetingMinutes](crate::db::models::MeetingMinutes).
@@ -138,6 +179,11 @@ pub fn get_meeting_minutes(minutes_id: i32, mut user: User) -> GreaseResult<Valu
 }
 
 /// Returns all meeting minutes ever recorded.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in. To view the officer's version of meeting
+/// minutes, the user needs to be able to "view-complete-minutes" generally.
 ///
 /// ## Return Format:
 ///
@@ -158,6 +204,10 @@ pub fn get_all_meeting_minutes(mut user: User) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the meeting minutes
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-minutes" generally.
+///
 /// ## Input Format:
 ///
 /// Expects an [UpdatedMeetingMinutes](crate::db::models::UpdatedMeetingMinutes).
@@ -170,6 +220,10 @@ pub fn modify_meeting_minutes(
 }
 
 /// Create a new meeting minutes.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-minutes" generally.
 ///
 /// ## Input Format:
 ///
@@ -192,11 +246,15 @@ pub fn get_todos(mut user: User) -> GreaseResult<Value> {
 
 /// Add a todo action for multiple members to have to complete.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "add-multi-todo" generally.
+///
 /// ## Input Format:
 ///
 /// Expects a [NewTodo](crate::db::models::NewTodo).
 pub fn add_todo_for_members((new_todo, mut user): (NewTodo, User)) -> GreaseResult<Value> {
-    check_for_permission!(user => "add-multi-todos");
+    check_for_permission!(user => "add-multi-todo");
     Todo::create(new_todo, &mut user.conn).map(|_| basic_success())
 }
 
@@ -220,6 +278,10 @@ pub fn mark_todo_as_complete(todo_id: i32, mut user: User) -> GreaseResult<Value
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the meeting minutes
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-minutes" generally.
 pub fn send_minutes_as_email(_id: i32, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-minutes");
     // TODO: implement this functionality (figure out how to compile SSL statically)
@@ -232,6 +294,10 @@ pub fn send_minutes_as_email(_id: i32, user: User) -> GreaseResult<Value> {
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the meeting minutes
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-minutes" generally.
 pub fn delete_meeting_minutes(id: i32, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-minutes");
     MeetingMinutes::delete(id, &mut user.conn).map(|_| basic_success())
@@ -242,6 +308,10 @@ pub fn delete_meeting_minutes(id: i32, mut user: User) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the uniform
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns a [Uniform](crate::db::models::Uniform).
@@ -251,6 +321,10 @@ pub fn get_uniform(id: i32, mut user: User) -> GreaseResult<Value> {
 
 /// Get all of the club's uniforms.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns a [Uniform](crate::db::models::Uniform) ordered by name.
@@ -259,6 +333,10 @@ pub fn get_uniforms(mut user: User) -> GreaseResult<Value> {
 }
 
 /// Create a new uniform.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-uniforms" generally.
 ///
 /// ## Input Format:
 ///
@@ -286,6 +364,10 @@ pub fn new_uniform((mut user, new_uniform): (User, NewUniform)) -> GreaseResult<
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the uniform
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-uniforms" generally.
+///
 /// ## Input Format:
 ///
 /// Expects a [NewUniform](crate::db::models::NewUniform).
@@ -302,6 +384,10 @@ pub fn modify_uniform(
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the uniform
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-uniforms" generally.
 pub fn delete_uniform(id: i32, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-uniforms");
     Uniform::delete(id, &mut user.conn).map(|_| basic_success())
@@ -312,6 +398,10 @@ pub fn delete_uniform(id: i32, mut user: User) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * name: string (*required*) - The name of the semester
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns a [Semester](crate::db::models::Semester).
@@ -320,6 +410,10 @@ pub fn get_semester(name: String, mut user: User) -> GreaseResult<Value> {
 }
 
 /// Get the current semester.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
@@ -330,6 +424,10 @@ pub fn get_current_semester(mut user: User) -> GreaseResult<Value> {
 
 /// Get all semesters.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns a list of [Semester](crate::db::models::Semester)s
@@ -339,6 +437,10 @@ pub fn get_semesters(mut user: User) -> GreaseResult<Value> {
 }
 
 /// Create a new semester.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-semester" generally.
 ///
 /// ## Input Format:
 ///
@@ -354,6 +456,7 @@ pub fn get_semesters(mut user: User) -> GreaseResult<Value> {
 ///
 /// Returns an object containing the name of the new semester.
 pub fn new_semester((new_semester, mut user): (NewSemester, User)) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-semester");
     Semester::create(new_semester, &mut user.conn).map(|name| json!({ "name": name }))
 }
 
@@ -361,7 +464,12 @@ pub fn new_semester((new_semester, mut user): (NewSemester, User)) -> GreaseResu
 ///
 /// ## Path Parameters:
 ///   * name: string (*required*) - The name of the selected semester
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-semester" generally.
 pub fn set_current_semester(name: String, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-semester");
     Semester::set_current(&name, &mut user.conn).map(|_| basic_success())
 }
 
@@ -370,6 +478,10 @@ pub fn set_current_semester(name: String, mut user: User) -> GreaseResult<Value>
 /// ## Path Parameters:
 ///   * name: string (*required*) - The name of the semester
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-semester" generally.
+///
 /// ## Input Format:
 ///
 /// Expects a [SemesterUpdate](crate::db::models::SemesterUpdate).
@@ -377,6 +489,7 @@ pub fn edit_semester(
     name: String,
     (updated_semester, mut user): (SemesterUpdate, User),
 ) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-semester");
     Semester::update(&name, &updated_semester, &mut user.conn).map(|_| basic_success())
 }
 
@@ -392,6 +505,10 @@ pub fn edit_semester(
 /// ## Query Parameters:
 ///   * confirm: boolean (*optional*) - Confirm the deletion of the semester
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-semester" generally.
+///
 /// ## Return Format:
 ///
 /// ```json
@@ -402,6 +519,7 @@ pub fn edit_semester(
 ///
 /// Returns an object containing the name of the new current semester.
 pub fn delete_semester(name: String, confirm: Option<bool>, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-semester");
     if confirm.unwrap_or(false) {
         Err(GreaseError::BadRequest(
             "make sure to pass `confirm=true` to actually delete the semester".to_owned(),
@@ -412,6 +530,10 @@ pub fn delete_semester(name: String, confirm: Option<bool>, mut user: User) -> G
 }
 
 /// Get all permissions of the site.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
@@ -424,6 +546,10 @@ pub fn get_permissions(mut user: User) -> GreaseResult<Value> {
 
 /// Get all roles on the site.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns a list of [Role](crate::db::models::Role)s.
@@ -434,6 +560,10 @@ pub fn get_roles(mut user: User) -> GreaseResult<Value> {
 }
 
 /// Get the current officers of the club.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
@@ -470,6 +600,11 @@ pub fn get_current_officers(mut user: User) -> GreaseResult<Value> {
 /// ## Path Parameters:
 ///   * member: string (*required*) - The email of the member
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in. If they are checking someone else's permissions,
+/// they need to be able to "edit-permissions" generally.
+///
 /// ## Return Format:
 ///
 /// ```json
@@ -498,10 +633,15 @@ pub fn member_permissions(member: String, mut user: User) -> GreaseResult<Value>
 
 /// Get all permissions held by each role.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-permissions" generally.
+///
 /// ## Return Format:
 ///
 /// Returns a list of [RolePermission](crate::db::models::RolePermission)s.
 pub fn get_current_role_permissions(mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-permissions");
     user.conn
         .load::<RolePermission>(&RolePermission::select_all())
         .map(|role_permissions| json!(role_permissions))
@@ -511,6 +651,10 @@ pub fn get_current_role_permissions(mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Path Parameters:
 ///   * position: string (*required*) - The name of the position
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-permissions" generally.
 ///
 /// ## Input Format:
 ///
@@ -534,6 +678,10 @@ pub fn add_permission_for_role(
 /// ## Path Parameters:
 ///   * position: string (*required*) - The name of the position
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-permissions" generally.
+///
 /// ## Input Format:
 ///
 /// Expects a [MemberPermission](crate::auth::MemberPermission).
@@ -552,6 +700,10 @@ pub fn remove_permission_for_role(
 }
 
 /// Award a member an officer position.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-officers" generally.
 ///
 /// ## Input Format:
 ///
@@ -591,6 +743,10 @@ pub fn add_officership((member_role, mut user): (MemberRole, User)) -> GreaseRes
 
 /// Remove a member's officer position.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-officers" generally.
+///
 /// ## Input Format:
 ///
 /// Expects a [MemberRole](crate::db::models::MemberRole).
@@ -615,6 +771,11 @@ pub fn remove_officership((member_role, mut user): (MemberRole, User)) -> Grease
 /// ## Path Parameters:
 ///   * member: string (*required*) - The email of the member
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in. If they are viewing another member's transactions,
+/// they need to be able to "view-transactions" generally.
+///
 /// ## Return Format:
 ///
 /// Returns a list of [Transaction](crate::db::models::Transaction)s in
@@ -627,6 +788,10 @@ pub fn get_member_transactions(email: String, mut user: User) -> GreaseResult<Va
 }
 
 /// Add multiple transactions.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-transaction" generally.
 ///
 /// ## Input Format:
 ///
@@ -647,6 +812,10 @@ pub fn add_transactions(
 
 /// Get all transaction types.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Return Format:
 ///
 /// Returns a list of [TransactionType](crate::db::models::TransactionType)s
@@ -657,21 +826,15 @@ pub fn get_transaction_types(mut user: User) -> GreaseResult<Value> {
         .map(|types| json!(types))
 }
 
-/// Get a single event.
+/// Get all the types of fees in the club.
 ///
-/// ## Path Parameters:
-///   * id: integer (*required*) - The ID of the event
+/// ## Required Permissions:
 ///
-/// ## Query Parameters:
-///   * full: boolean (*optional*) - Whether to include uniform and attendance.
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
-/// If `full = true`, then the format from
-/// [to_json_full](crate::db::models::event::EventWithGig#method.to_json_full)
-/// will be returned. Otherwise, the format from
-/// [to_json](crate::db::models::event::EventWithGig#method.to_json)
-/// will be returned.
+/// Returns a list of [Fee](crate::db::models::Fee)s.
 pub fn get_fees(mut user: User) -> GreaseResult<Value> {
     Fee::load_all(&mut user.conn).map(|fees| json!(fees))
 }
@@ -682,6 +845,10 @@ pub fn get_fees(mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Path Parameters:
 ///   * name: string (*required*) - The name of the fee
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-transaction" generally.
 pub fn apply_fee_for_all_active_members(name: String, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-transaction");
     let fee = Fee::load(&name, &mut user.conn)?;
@@ -695,6 +862,11 @@ pub fn apply_fee_for_all_active_members(name: String, mut user: User) -> GreaseR
 /// ## Path Parameters:
 ///   * name: string (*required*) - The name of the fee
 ///   * amount: integer (*required*) - The new amount to charge
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-transaction" generally.
 pub fn update_fee_amount(name: String, new_amount: i32, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-transaction");
     Fee::update_amount(&name, new_amount, &mut user.conn).map(|_| basic_success())
 }

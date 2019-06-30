@@ -121,9 +121,8 @@ impl Attendance {
 
     pub fn create_for_new_member(member: &str, conn: &mut DbTransaction) -> GreaseResult<()> {
         let now = Local::now().naive_local();
-        Event::load_all_for_current_semester(conn)?
-            .into_iter()
-            .map(|event_with_gig| NewAttendance {
+        for event_with_gig in Event::load_all_for_current_semester(conn)? {
+            let new_attendance = NewAttendance {
                 event: event_with_gig.event.id,
                 should_attend: if now > event_with_gig.event.call_time {
                     false
@@ -131,9 +130,16 @@ impl Attendance {
                     event_with_gig.event.default_attend
                 },
                 member: member.to_owned(),
-            })
-            .map(|new_attendance| new_attendance.insert(conn))
-            .collect::<GreaseResult<()>>()
+            };
+
+            if conn.first_opt::<Attendance>(
+                &Attendance::filter(&format!("member = '{}' AND event = {}", member, new_attendance.event))
+            )?.is_none() {
+                new_attendance.insert(conn)?;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn create_for_new_event<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<()> {

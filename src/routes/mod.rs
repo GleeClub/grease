@@ -120,6 +120,7 @@ pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (GET)    [/events/(id: i32)/attendance] => get_attendance,
         (GET)    [/events/(id: i32)/attendance/(member: String)] => get_member_attendance,
         (POST)   [/events/(id: i32)/attendance/(member: String)] => update_attendance,
+        (POST)   [/events/(id: i32)/rsvp] => rsvp_for_event,
         (POST)   [/events/(id: i32)/attendance/excuse_unconfirmed] => excuse_unconfirmed_for_event,
         (GET)    [/events/(id: i32)/carpools] => get_carpools,
         (POST)   [/events/(id: i32)/carpools] => update_carpools,
@@ -127,8 +128,8 @@ pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (POST)   [/events/(id: i32)/setlist] => edit_setlist,
         // absence requests
         (GET)    [/absence_requests] => get_absence_requests,
-        (GET)    [/absence_requests/(event_id: i32)/(member: String)] => get_absence_request,
-        (GET)    [/absence_requests/(event_id: i32)/(member: String)/is_excused] => member_is_excused,
+        (GET)    [/absence_requests/(event_id: i32)] => get_absence_request,
+        (GET)    [/absence_requests/(event_id: i32)/is_excused] => member_is_excused,
         (POST)   [/absence_requests/(event_id: i32)/(member: String)/approve] => approve_absence_request,
         (POST)   [/absence_requests/(event_id: i32)/(member: String)/deny] => deny_absence_request,
         (POST)   [/absence_requests/(event_id: i32)] => submit_absence_request,

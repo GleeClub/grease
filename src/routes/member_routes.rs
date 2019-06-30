@@ -42,6 +42,10 @@ pub fn login((form, mut conn): (LoginInfo, DbConn)) -> GreaseResult<Value> {
 }
 
 /// Log out of the API.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
 pub fn logout(mut user: User) -> GreaseResult<Value> {
     Session::delete(&user.member.member.email, &mut user.conn).map(|_| basic_success())
 }
@@ -54,6 +58,12 @@ pub fn logout(mut user: User) -> GreaseResult<Value> {
 /// ## Query Parameters:
 ///   * grades: boolean (*optional*) - Whether to include the member's grades.
 ///   * details: boolean (*optional*) - Whether to include extra details.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in. If they are retrieving data about another member,
+/// they will need to be able to "view-users" generally. If `details=true` is passed,
+/// they will need to be able to "view-user-private-details" generally.
 ///
 /// ## Return Format:
 ///
@@ -73,7 +83,11 @@ pub fn get_member(
 ) -> GreaseResult<Value> {
     if &email != &user.member.member.email {
         check_for_permission!(user => "view-users");
+        if *details.as_ref().unwrap_or(&false) {
+            check_for_permission!(user => "view-user-private-details");
+        }
     }
+
     let current_semester = Semester::load_current(&mut user.conn)?;
     Member::load(&email, &mut user.conn).and_then(|member| {
         if details.unwrap_or(false) {
@@ -99,6 +113,10 @@ pub fn get_member(
 ///   * include: string (*optional*) - Which members to include. Expects a comma-delimited
 ///       list of types from the allowed values of "class", "club", and "inactive".
 ///       If `include` isn't provided, defaults to returning only all currently active members.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "view-users" generally.
 ///
 /// ## Return Format:
 ///
@@ -176,6 +194,10 @@ pub fn new_member((new_member, mut conn): (NewMember, DbConn)) -> GreaseResult<V
 
 /// Confirms that an inactive member will be active for the current semester.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Input Format:
 ///
 /// Expects a [RegisterForSemesterForm](crate::db::models::RegisterForSemesterForm).
@@ -187,6 +209,10 @@ pub fn confirm_for_semester(
 }
 
 /// Mark a member as no longer active for a given semester.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-user" generally.
 ///
 /// ## Path Parameters:
 ///   * member: string (*required*) - The email of the member
@@ -201,6 +227,10 @@ pub fn mark_member_inactive_for_semester(
 }
 
 /// Update a member's activity for a semester.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-user" generally.
 ///
 /// ## Path Parameters:
 ///   * member: string (*required*) - The email of the member
@@ -220,6 +250,10 @@ pub fn update_member_semester(
 
 /// Update a member's account from their profile.
 ///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
 /// ## Input Format:
 ///
 /// Expects a [NewMember](crate::db::models::NewMember).
@@ -231,6 +265,10 @@ pub fn update_member_profile((update, mut user): (NewMember, User)) -> GreaseRes
 ///
 /// ## Path Parameters:
 ///   * member: string (*required*) - The email of the member
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-user" generally.
 ///
 /// ## Input Format:
 ///
@@ -247,6 +285,10 @@ pub fn update_member_as_officer(
 ///
 /// ## Path Parameters:
 ///   * member: string (*required*) - The email of the member
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "switch-user" generally.
 ///
 /// ## Return Format:
 ///
@@ -279,6 +321,10 @@ pub fn login_as_member(member: String, mut user: User) -> GreaseResult<Value> {
 ///
 /// ## Query Parameters:
 ///   * confirm: boolean (*optional*) - Confirm the deletion
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "delete-user" generally.
 pub fn delete_member(member: String, confirm: Option<bool>, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "delete-user");
     if confirm.unwrap_or(false) {
