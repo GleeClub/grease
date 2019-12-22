@@ -24,8 +24,7 @@ impl Attendance {
     ) -> GreaseResult<Vec<(Attendance, MemberForSemester)>> {
         // to ensure that the event exists
         let _found_event = Event::load(event_id, conn)?;
-
-        conn.load_as::<AttendanceMemberRow, (Attendance, MemberForSemester)>(
+        let mut rows = conn.load_as::<AttendanceMemberRow, (Attendance, MemberForSemester)>(
             Select::new(Attendance::table_name())
                 .join(
                     Member::table_name(),
@@ -42,7 +41,10 @@ impl Attendance {
                 .fields(AttendanceMemberRow::field_names())
                 .filter(&format!("event = {}", event_id))
                 .order_by("last_name, first_name", Order::Asc),
-        )
+        )?;
+        rows.dedup_by_key(|(attendance, _member)| (attendance.event, attendance.member.clone()));
+
+        Ok(rows)
     }
 
     pub fn load_for_event_for_section<C: Connection>(
@@ -79,12 +81,6 @@ impl Attendance {
     ) -> GreaseResult<HashMap<String, Vec<(Attendance, MemberForSemester)>>> {
         let attendance_pairs = Attendance::load_for_event(given_event_id, conn)?;
         let mut section_attendance: HashMap<String, Vec<(_, _)>> = HashMap::new();
-        let mut all_sections = conn.load::<String>(
-            Select::new(SectionType::table_name())
-                .fields(&["name"])
-                .order_by("name", Order::Asc),
-        )?;
-        all_sections.push("Unsorted".to_owned());
 
         for (member_attendance, member_for_semester) in attendance_pairs {
             let member_section = member_for_semester
@@ -93,11 +89,8 @@ impl Attendance {
                 .and_then(|active_semester| active_semester.section.clone())
                 .unwrap_or("Unsorted".to_owned());
             section_attendance
-                .get_mut(&member_section)
-                .ok_or(GreaseError::ServerError(format!(
-                    "Member belonged to unknown section {}.",
-                    &member_section
-                )))?
+                .entry(member_section)
+                .or_default()
                 .push((member_attendance, member_for_semester));
         }
 
@@ -132,9 +125,13 @@ impl Attendance {
                 member: member.to_owned(),
             };
 
-            if conn.first_opt::<Attendance>(
-                &Attendance::filter(&format!("member = '{}' AND event = {}", member, new_attendance.event))
-            )?.is_none() {
+            if conn
+                .first_opt::<Attendance>(&Attendance::filter(&format!(
+                    "member = '{}' AND event = {}",
+                    member, new_attendance.event
+                )))?
+                .is_none()
+            {
                 new_attendance.insert(conn)?;
             }
         }

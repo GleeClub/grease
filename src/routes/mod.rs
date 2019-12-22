@@ -4,11 +4,11 @@
 
 pub mod event_routes;
 pub mod from_url;
-pub mod router;
 pub mod member_routes;
 pub mod misc_routes;
 pub mod officer_routes;
 pub mod repertoire_routes;
+pub mod router;
 
 use self::event_routes::*;
 use self::member_routes::*;
@@ -45,6 +45,23 @@ pub fn handle_request(mut request: cgi::Request) -> cgi::Response {
 
     let result = {
         panic::catch_unwind(AssertUnwindSafe(|| {
+            if request.method() == "OPTIONS" {
+                response = Some(
+                    response::Builder::new()
+                        .status(200)
+                        .header("Allow", "GET, POST, DELETE, OPTIONS")
+                        .header("Access-Control-Allow-Origin", "*")
+                        .header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+                        .header(
+                            "Access-Control-Allow-Headers",
+                            "token,access-control-allow-origin,content-type",
+                        )
+                        .body("OK".to_owned().into_bytes())
+                        .unwrap(),
+                );
+                return;
+            }
+
             let uri = {
                 let path = request
                     .headers()
@@ -75,6 +92,7 @@ pub fn handle_request(mut request: cgi::Request) -> cgi::Response {
                 response::Builder::new()
                     .status(status)
                     .header(CONTENT_TYPE, "application/json")
+                    .header("Access-Control-Allow-Origin", "*")
                     .header(CONTENT_LENGTH, body.len().to_string().as_str())
                     .body(body)
                     .unwrap(),
@@ -98,6 +116,7 @@ pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (POST)   [/login]  => login,
         (GET)    [/logout] => logout,
         // members
+        (GET)    [/user] => get_current_user,
         (GET)    [/members/(email: String)?(grades: Option<bool>)?(details: Option<bool>)] => get_member,
         (GET)    [/members/(email: String)/attendance] => get_member_attendance_for_semester,
         (GET)    [/members?(grades: Option<bool>)?(include: Option<String>)] => get_members,
@@ -118,9 +137,10 @@ pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (DELETE) [/events/(id: i32)] => delete_event,
         // event details
         (GET)    [/events/(id: i32)/attendance] => get_attendance,
+        (GET)    [/events/(id: i32)/see_whos_attending] => see_whos_attending,
         (GET)    [/events/(id: i32)/attendance/(member: String)] => get_member_attendance,
         (POST)   [/events/(id: i32)/attendance/(member: String)] => update_attendance,
-        (POST)   [/events/(id: i32)/rsvp] => rsvp_for_event,
+        (POST)   [/events/(id: i32)/rsvp/(attending: bool)] => rsvp_for_event,
         (POST)   [/events/(id: i32)/attendance/excuse_unconfirmed] => excuse_unconfirmed_for_event,
         (GET)    [/events/(id: i32)/carpools] => get_carpools,
         (POST)   [/events/(id: i32)/carpools] => update_carpools,
@@ -210,6 +230,7 @@ pub fn handle(request: &cgi::Request) -> GreaseResult<Value> {
         (GET)    [/transactions/(member: String)] => get_member_transactions,
         (POST)   [/transactions] => add_transactions,
         // static data
+        (GET)    [/static] => static_data,
         (GET)    [/media_types] => get_media_types,
         (GET)    [/permissions] => get_permissions,
         (GET)    [/roles] => get_roles,

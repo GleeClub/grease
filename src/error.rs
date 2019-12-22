@@ -18,7 +18,8 @@ pub enum GreaseError {
     ///
     /// ```json
     /// {
-    ///     "message": "resource not found"
+    ///     "message": "resource not found",
+    ///     "statusCode": 404
     /// }
     /// ```
     NotFound,
@@ -27,6 +28,7 @@ pub enum GreaseError {
     /// ```json
     /// {
     ///     "message": "member already logged in",
+    ///     "statusCode": 400,
     ///     "token": <API token>
     /// }
     /// ```
@@ -35,7 +37,8 @@ pub enum GreaseError {
     ///
     /// ```json
     /// {
-    ///     "message": "login required"
+    ///     "message": "login required",
+    ///     "statusCode": 401
     /// }
     /// ```
     Unauthorized,
@@ -44,6 +47,7 @@ pub enum GreaseError {
     /// ```json
     /// {
     ///     "message": "member not active yet",
+    ///     "statusCode": 401,
     ///     "member": Member
     /// }
     /// ```
@@ -55,6 +59,7 @@ pub enum GreaseError {
     /// ```json
     /// {
     ///     "message": "access forbidden",
+    ///     "statusCode": 403,
     ///     "requiredPermission": <permission name>?
     /// }
     /// ```
@@ -68,6 +73,7 @@ pub enum GreaseError {
     /// ```json
     /// {
     ///     "message": "server error",
+    ///     "statusCode": 500,
     ///     "error": <error message>
     /// }
     /// ```
@@ -77,6 +83,7 @@ pub enum GreaseError {
     /// ```json
     /// {
     ///     "message": "bad request",
+    ///     "statusCode": 400,
     ///     "reason": <reason>
     /// }
     /// ```
@@ -86,6 +93,7 @@ pub enum GreaseError {
     /// ```json
     /// {
     ///     "message": "database error",
+    ///     "statusCode": 500,
     ///     "error": <error message>
     /// }
     /// ```
@@ -95,6 +103,7 @@ pub enum GreaseError {
     /// ```json
     /// {
     ///     "message": "database error (error deserializing from returned row)",
+    ///     "statusCode": 500,
     ///     "error": <error message>
     /// }
     /// ```
@@ -113,13 +122,15 @@ impl GreaseError {
             GreaseError::Unauthorized => (
                 401,
                 json!({
-                    "message": "login required"
+                    "message": "login required",
+                    "statusCode": 401
                 }),
             ),
             GreaseError::NotActiveYet(member) => (
                 401,
                 json!({
                     "message": "member not active yet",
+                    "statusCode": 401,
                     "member": member.to_json()
                 }),
             ),
@@ -127,6 +138,7 @@ impl GreaseError {
                 400,
                 json!({
                     "message": "member already logged in",
+                    "statusCode": 400,
                     "token": token
                 }),
             ),
@@ -134,25 +146,29 @@ impl GreaseError {
                 403,
                 json!({
                     "message": "access forbidden",
+                    "statusCode": 403,
                     "requiredPermission": permission
                 }),
             ),
             GreaseError::Forbidden(None) => (
                 403,
                 json!({
-                    "message": "access forbidden"
+                    "message": "access forbidden",
+                    "statusCode": 403
                 }),
             ),
             GreaseError::NotFound => (
                 404,
                 json!({
-                    "message": "resource not found"
+                    "message": "resource not found",
+                    "statusCode": 404
                 }),
             ),
             GreaseError::BadRequest(reason) => (
                 400,
                 json!({
                     "message": "bad request",
+                    "statusCode": 400,
                     "reason": reason
                 }),
             ),
@@ -160,6 +176,7 @@ impl GreaseError {
                 500,
                 json!({
                     "message": "server error",
+                    "statusCode": 500,
                     "error": error
                 }),
             ),
@@ -167,6 +184,7 @@ impl GreaseError {
                 500,
                 json!({
                     "message": "database error",
+                    "statusCode": 500,
                     "error": format!("{:?}", error)
                 }),
             ),
@@ -174,6 +192,7 @@ impl GreaseError {
                 500,
                 json!({
                     "message": "database error (error deserializing from returned row)",
+                    "statusCode": 500,
                     "error": format!("{:?}", error)
                 }),
             ),

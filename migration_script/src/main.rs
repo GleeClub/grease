@@ -1,5 +1,6 @@
 #![feature(drain_filter)]
 
+extern crate bcrypt;
 extern crate chrono;
 extern crate mysql;
 extern crate structopt;
@@ -99,10 +100,10 @@ pub fn run_migration(passwords: &Passwords) -> MigrateResult<()> {
     let (old_section_types, _new_section_types) = NewSectionType::migrate(&old_db, &new_db, &())?;
 
     println!("Migrating event types...");
-    let (_old_event_types, _new_event_types) = NewEventType::migrate(&old_db, &new_db, &())?;
+    let (old_event_types, _new_event_types) = NewEventType::migrate(&old_db, &new_db, &())?;
 
     println!("Migrating events...");
-    let (old_events, _new_events) = NewEvent::migrate(&old_db, &new_db, &old_section_types)?;
+    let (old_events, _new_events) = NewEvent::migrate(&old_db, &new_db, &(old_section_types.clone(), old_event_types.clone()))?;
 
     println!("Migrating uniforms...");
     let (old_uniforms, new_uniforms) = NewUniform::migrate(&old_db, &new_db, &())?;
@@ -162,7 +163,7 @@ pub fn run_migration(passwords: &Passwords) -> MigrateResult<()> {
 
     println!("Migrating role permissions...");
     let (_old_role_permissions, _new_role_permissions) =
-        NewRolePermission::migrate(&old_db, &new_db, &old_roles)?;
+        NewRolePermission::migrate(&old_db, &new_db, &(old_roles, old_event_types))?;
 
     println!("Migrating todos...");
     let (_old_todos, _new_todos) = NewTodo::migrate(&old_db, &new_db, &new_members)?;

@@ -2,7 +2,7 @@ use chrono::{NaiveDate, NaiveDateTime};
 use grease_derive::*;
 use mysql::prelude::ToValue;
 use mysql_enum::MysqlEnum;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{de::Error as _, de::Unexpected, Deserialize, Deserializer, Serialize};
 use strum_macros::{Display, EnumString};
 
 pub mod absence_request;
@@ -183,7 +183,11 @@ pub struct NewMember {
     pub email: String,
     #[serde(rename = "firstName")]
     pub first_name: String,
-    #[serde(rename = "preferredName", deserialize_with = "deser_opt_string")]
+    #[serde(
+        default,
+        rename = "preferredName",
+        deserialize_with = "deser_opt_string"
+    )]
     pub preferred_name: Option<String>,
     #[serde(rename = "lastName")]
     pub last_name: String,
@@ -197,24 +201,30 @@ pub struct NewMember {
     pub location: String,
     #[serde(default, rename = "onCampus")]
     pub on_campus: Option<bool>,
-    #[serde(deserialize_with = "deser_opt_string")]
+    #[serde(default, deserialize_with = "deser_opt_string")]
     pub about: Option<String>,
-    #[serde(deserialize_with = "deser_opt_string")]
+    #[serde(default, deserialize_with = "deser_opt_string")]
     pub major: Option<String>,
-    #[serde(deserialize_with = "deser_opt_string")]
+    #[serde(default, deserialize_with = "deser_opt_string")]
     pub minor: Option<String>,
-    #[serde(deserialize_with = "deser_opt_string")]
+    #[serde(default, deserialize_with = "deser_opt_string")]
     pub hometown: Option<String>,
-    #[serde(rename = "arrivedAtTech")]
+    #[serde(default, rename = "arrivedAtTech")]
     pub arrived_at_tech: Option<i32>,
-    #[serde(rename = "gatewayDrug", deserialize_with = "deser_opt_string")]
+    #[serde(default, rename = "gatewayDrug", deserialize_with = "deser_opt_string")]
     pub gateway_drug: Option<String>,
-    #[serde(deserialize_with = "deser_opt_string")]
+    #[serde(default, deserialize_with = "deser_opt_string")]
     pub conflicts: Option<String>,
-    #[serde(rename = "dietaryRestrictions", deserialize_with = "deser_opt_string")]
+    #[serde(
+        default,
+        rename = "dietaryRestrictions",
+        deserialize_with = "deser_opt_string"
+    )]
     pub dietary_restrictions: Option<String>,
-    pub enrollment: Enrollment,
-    pub section: String,
+    #[serde(default)]
+    pub enrollment: Option<Enrollment>,
+    #[serde(default, deserialize_with = "deser_opt_string")]
+    pub section: Option<String>,
 }
 
 /// The required format when members confirm activity for a semester.
@@ -275,10 +285,10 @@ pub struct Semester {
     /// The name of the semester
     pub name: String,
     /// When the semester starts
-    #[serde(rename = "startDate")]
+    #[serde(rename = "startDate", with = "naivedatetime_posix")]
     pub start_date: NaiveDateTime,
     /// When the semester ends
-    #[serde(rename = "endDate")]
+    #[serde(rename = "endDate", with = "naivedatetime_posix")]
     pub end_date: NaiveDateTime,
     /// How many volunteer gigs are required for the semester
     #[serde(rename = "gigRequirement")]
@@ -287,43 +297,26 @@ pub struct Semester {
     pub current: bool,
 }
 
-/// The required format for updating semesters.
+/// The required format for creating and updating semesters.
 ///
 /// ## Expected Format:
 ///
 /// |     Field      |   Type   | Required? |         Comments          |
 /// |----------------|----------|:---------:|---------------------------|
+/// | name           | string   |     ✓     |                           |
 /// | startDate      | datetime |     ✓     |                           |
 /// | endDate        | datetime |     ✓     | must be after `startDate` |
 /// | gigRequirement | integer  |     ✓     |                           |
-#[derive(TableName, Deserialize, FieldNames, Extract)]
-#[table_name = "semester"]
-pub struct SemesterUpdate {
-    #[serde(rename = "startDate")]
-    pub start_date: NaiveDateTime,
-    #[serde(rename = "endDate")]
-    pub end_date: NaiveDateTime,
-    #[serde(rename = "gigRequirement")]
-    pub gig_requirement: i32,
-}
-
-/// The required format for creating semesters.
-///
-/// ## Expected Format:
-///
-/// |   Field   |   Type   | Required? |         Comments          |
-/// |-----------|----------|:---------:|---------------------------|
-/// | name      | string   |     ✓     |                           |
-/// | startDate | datetime |     ✓     |                           |
-/// | endDate   | datetime |     ✓     | must be after `startDate` |
 #[derive(TableName, Deserialize, FieldNames, Insertable, Extract)]
 #[table_name = "semester"]
 pub struct NewSemester {
     pub name: String,
-    #[serde(rename = "startDate")]
+    #[serde(rename = "startDate", with = "naivedatetime_posix")]
     pub start_date: NaiveDateTime,
-    #[serde(rename = "endDate")]
+    #[serde(rename = "endDate", with = "naivedatetime_posix")]
     pub end_date: NaiveDateTime,
+    #[serde(rename = "gigRequirement")]
+    pub gig_requirement: i32,
 }
 
 /// The model for roles within the organization (a.k.a. officer positions).
@@ -409,7 +402,7 @@ pub struct MemberRole {
 ///     "name": string
 /// }
 /// ```
-#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames)]
+#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Debug)]
 #[table_name = "section_type"]
 pub struct SectionType {
     /// The name of the section type
@@ -487,10 +480,10 @@ pub struct Event {
     #[serde(rename = "type")]
     pub type_: String,
     /// When members are expected to arrive to the event
-    #[serde(rename = "callTime")]
+    #[serde(rename = "callTime", with = "naivedatetime_posix")]
     pub call_time: NaiveDateTime,
     /// When members are probably going to be released
-    #[serde(rename = "releaseTime")]
+    #[serde(rename = "releaseTime", with = "optional_naivedatetime_posix")]
     pub release_time: Option<NaiveDateTime>,
     /// How many points attendance of this event is worth
     pub points: i32,
@@ -538,9 +531,9 @@ pub struct NewEvent {
     #[rename = "type"]
     #[serde(rename = "type")]
     pub type_: String,
-    #[serde(rename = "callTime")]
+    #[serde(rename = "callTime", with = "naivedatetime_posix")]
     pub call_time: NaiveDateTime,
-    #[serde(rename = "releaseTime")]
+    #[serde(rename = "releaseTime", with = "optional_naivedatetime_posix")]
     pub release_time: Option<NaiveDateTime>,
     pub points: i32,
     #[serde(deserialize_with = "deser_opt_string")]
@@ -552,7 +545,7 @@ pub struct NewEvent {
     #[serde(rename = "defaultAttend")]
     pub default_attend: bool,
     pub repeat: String,
-    #[serde(rename = "repeatUntil")]
+    #[serde(rename = "repeatUntil", with = "optional_naivedate_posix")]
     pub repeat_until: Option<NaiveDate>,
 }
 
@@ -591,9 +584,9 @@ pub struct EventUpdate {
     #[rename = "type"]
     #[serde(rename = "type")]
     pub type_: String,
-    #[serde(rename = "callTime")]
+    #[serde(rename = "callTime", with = "naivedatetime_posix")]
     pub call_time: NaiveDateTime,
-    #[serde(rename = "releaseTime")]
+    #[serde(rename = "releaseTime", with = "optional_naivedatetime_posix")]
     pub release_time: Option<NaiveDateTime>,
     pub points: i32,
     #[serde(deserialize_with = "deser_opt_string")]
@@ -607,7 +600,7 @@ pub struct EventUpdate {
     #[serde(deserialize_with = "deser_opt_string")]
     pub section: Option<String>,
     // gig fields
-    #[serde(rename = "performanceTime")]
+    #[serde(rename = "performanceTime", with = "optional_naivedatetime_posix")]
     pub performance_time: Option<NaiveDateTime>,
     pub uniform: Option<i32>,
     #[serde(rename = "contactName", deserialize_with = "deser_opt_string")]
@@ -661,6 +654,7 @@ pub struct AbsenceRequest {
     /// The ID of the event they requested absence from
     pub event: i32,
     /// The time this request was placed
+    #[serde(with = "naivedatetime_posix")]
     pub time: NaiveDateTime,
     /// The reason the member petitioned for absence with
     pub reason: String,
@@ -747,7 +741,8 @@ pub struct ActiveSemester {
 /// | section    | string |           |          |
 #[derive(Deserialize, Extract)]
 pub struct ActiveSemesterUpdate {
-    pub enrollment: Enrollment,
+    #[serde(deserialize_with = "deser_enrollment")]
+    pub enrollment: Option<Enrollment>,
     #[serde(deserialize_with = "deser_opt_string")]
     pub section: Option<String>,
 }
@@ -806,6 +801,7 @@ pub struct Announcement {
     /// The name of the semester the announcement was made during
     pub semester: String,
     /// When the announcement was made
+    #[serde(with = "naivedatetime_posix")]
     pub time: NaiveDateTime,
     /// The content of the announcement
     pub content: String,
@@ -854,7 +850,7 @@ pub struct NewAnnouncement {
 ///     "minutesLate": integer
 /// }
 /// ```
-#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Debug, PartialEq)]
+#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Debug, PartialEq, Clone)]
 #[table_name = "attendance"]
 pub struct Attendance {
     /// The email of the member this attendance belongs to
@@ -1118,7 +1114,7 @@ pub struct Gig {
     /// The ID of the event this gig belongs to
     pub event: i32,
     /// When members are expected to actually perform
-    #[serde(rename = "performanceTime")]
+    #[serde(rename = "performanceTime", with = "naivedatetime_posix")]
     pub performance_time: NaiveDateTime,
     /// The ID of the uniform for this gig
     pub uniform: i32,
@@ -1161,7 +1157,7 @@ pub struct Gig {
 #[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Extract)]
 #[table_name = "gig"]
 pub struct NewGig {
-    #[serde(rename = "performanceTime")]
+    #[serde(rename = "performanceTime", with = "naivedatetime_posix")]
     pub performance_time: NaiveDateTime,
     pub uniform: i32,
     #[serde(rename = "contactName", deserialize_with = "deser_opt_string")]
@@ -1225,6 +1221,7 @@ pub struct GigRequest {
     /// The ID of the gig request
     pub id: i32,
     /// When the gig request was placed
+    #[serde(with = "naivedatetime_posix")]
     pub time: NaiveDateTime,
     /// The name of the potential event
     pub name: String,
@@ -1242,7 +1239,7 @@ pub struct GigRequest {
     #[serde(rename = "contactPhone")]
     pub contact_phone: String,
     /// When the event will probably happen
-    #[serde(rename = "startTime")]
+    #[serde(rename = "startTime", with = "naivedatetime_posix")]
     pub start_time: NaiveDateTime,
     /// Where the event will be happening
     pub location: String,
@@ -1278,7 +1275,7 @@ pub struct NewGigRequest {
     pub contact_email: String,
     #[serde(rename = "contactPhone")]
     pub contact_phone: String,
-    #[serde(rename = "startTime")]
+    #[serde(rename = "startTime", with = "naivedatetime_posix")]
     pub start_time: NaiveDateTime,
     pub location: String,
     #[serde(deserialize_with = "deser_opt_string")]
@@ -1657,6 +1654,7 @@ pub struct MeetingMinutes {
     /// The name of the meeting
     pub name: String,
     /// When these notes were initially created
+    #[serde(with = "naivedate_posix")]
     pub date: NaiveDate,
     /// The private / redacted, complete officer notes
     #[serde(deserialize_with = "deser_opt_string")]
@@ -1769,7 +1767,7 @@ pub enum PermissionType {
 ///     "carpool": integer
 /// }
 /// ```
-#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable)]
+#[derive(TableName, FromRow, Serialize, Deserialize, FieldNames, Insertable, Debug)]
 #[table_name = "rides_in"]
 pub struct RidesIn {
     /// The email of the member in the carpool
@@ -2016,6 +2014,7 @@ pub struct Transaction {
     /// The email of the member this transaction was charged to
     pub member: String,
     /// When this transaction was charged
+    #[serde(with = "naivedatetime_posix")]
     pub time: NaiveDateTime,
     /// How much this transaction was for
     pub amount: i32,
@@ -2148,5 +2147,110 @@ fn deser_opt_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    String::deserialize(deserializer).map(|s| Some(s).filter(|s| s.len() > 0))
+    Option::<String>::deserialize(deserializer).map(|s| s.filter(|s| s.len() > 0))
+}
+
+/// Deserialize an Option<Enrollment>.
+fn deser_enrollment<'de, D>(deserializer: D) -> Result<Option<Enrollment>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    if let Some(s) = Option::<String>::deserialize(deserializer)? {
+        match s.as_str() {
+            "" | "inactive" => Ok(None),
+            "class" => Ok(Some(Enrollment::Class)),
+            "club" => Ok(Some(Enrollment::Club)),
+            other => Err(D::Error::invalid_value(
+                Unexpected::Str(other),
+                &"\"inactive\", \"class\", \"club\", or null",
+            )),
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+pub mod naivedatetime_posix {
+    use chrono::NaiveDateTime;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(dt: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_i64(dt.timestamp() * 1000)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        i64::deserialize(deserializer).map(|posix| NaiveDateTime::from_timestamp(posix / 1000, 0))
+    }
+}
+
+pub mod optional_naivedatetime_posix {
+    use chrono::NaiveDateTime;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(dt: &Option<NaiveDateTime>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match dt {
+            Some(dt) => serializer.serialize_i64(dt.timestamp() * 1000),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<NaiveDateTime>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Option::<i64>::deserialize(deserializer)
+            .map(|posix| posix.map(|p| NaiveDateTime::from_timestamp(p / 1000, 0)))
+    }
+}
+
+pub mod naivedate_posix {
+    use chrono::{NaiveDate, NaiveDateTime};
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(dt: &NaiveDate, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_i64(dt.and_hms(0, 0, 0).timestamp() * 1000)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<NaiveDate, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        i64::deserialize(deserializer)
+            .map(|posix| NaiveDateTime::from_timestamp(posix / 1000, 0).date())
+    }
+}
+
+pub mod optional_naivedate_posix {
+    use chrono::{NaiveDate, NaiveDateTime};
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(dt: &Option<NaiveDate>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match dt {
+            Some(dt) => serializer.serialize_i64(dt.and_hms(0, 0, 0).timestamp() * 1000),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<NaiveDate>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Option::<i64>::deserialize(deserializer)
+            .map(|posix| posix.map(|p| NaiveDateTime::from_timestamp(p / 1000, 0).date()))
+    }
 }

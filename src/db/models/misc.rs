@@ -1,7 +1,7 @@
 use db::*;
 use error::*;
 use pinto::query_builder::*;
-use util::random_base64;
+use uuid::Uuid;
 
 impl GoogleDoc {
     pub fn load<C: Connection>(doc_name: &str, conn: &mut C) -> GreaseResult<GoogleDoc> {
@@ -200,7 +200,7 @@ impl Session {
     pub fn generate<C: Connection>(given_email: &str, conn: &mut C) -> GreaseResult<String> {
         let new_session = Session {
             member: given_email.to_owned(),
-            key: random_base64(32)?,
+            key: Uuid::new_v4().to_string(),
         };
 
         new_session.insert(conn).map(|_| new_session.key)
@@ -208,12 +208,13 @@ impl Session {
 }
 
 impl GigSong {
-    pub fn load_for_event<C: Connection>(
-        event_id: i32,
-        conn: &mut C,
-    ) -> GreaseResult<Vec<GigSong>> {
+    pub fn load_for_event<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<Vec<Song>> {
         conn.load(
-            &GigSong::filter(&format!("event = {}", event_id)).order_by("`order`", Order::Asc),
+            Select::new(GigSong::table_name())
+                .join(Song::table_name(), "song", "id", Join::Inner)
+                .fields(Song::field_names())
+                .filter(&format!("event = {}", event_id))
+                .order_by("`order`", Order::Asc),
         )
     }
 

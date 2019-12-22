@@ -11,10 +11,10 @@ impl Carpool {
     ) -> GreaseResult<Vec<EventCarpool>> {
         let carpool_driver_pairs = conn.load_as::<CarpoolMemberRow, (Carpool, Member)>(
             Select::new(Carpool::table_name())
-                .join(Member::table_name(), "member", "email", Join::Inner)
+                .join(Member::table_name(), "driver", "email", Join::Inner)
                 .fields(CarpoolMemberRow::field_names())
                 .filter(&format!("event = {}", given_event_id))
-                .order_by("id", Order::Asc),
+                .order_by("`id`", Order::Asc),
         )?;
 
         let passenger_pairs = conn.load_as::<RidesInMemberRow, (RidesIn, Member)>(
@@ -22,11 +22,8 @@ impl Carpool {
                 .join(Member::table_name(), "member", "email", Join::Inner)
                 .fields(RidesInMemberRow::field_names())
                 .filter(&format!(
-                    "event = ({})",
-                    Select::new(RidesIn::table_name())
-                        .fields(&["id"])
-                        .filter(&format!("event = {}", given_event_id))
-                        .build(),
+                    "carpool IN (SELECT id FROM carpool WHERE event = {})",
+                    given_event_id
                 )),
         )?;
 
@@ -41,7 +38,7 @@ impl Carpool {
         for (rides_in, passenger) in passenger_pairs {
             carpools
                 .iter_mut()
-                .find(|some_carpool| some_carpool.carpool.event == rides_in.carpool)
+                .find(|some_carpool| some_carpool.carpool.id == rides_in.carpool)
                 .map(|found_carpool| found_carpool.passengers.push(passenger));
         }
 
@@ -174,9 +171,10 @@ impl EventCarpool {
     ///
     /// ```json
     /// {
+    ///     "id": integer,
+    ///     "event": integer,
     ///     "driver": Member,
-    ///     "carpool": Carpool,
-    ///     "passengers": Member
+    ///     "passengers": [Member]
     /// }
     /// ```
     ///
@@ -186,7 +184,8 @@ impl EventCarpool {
     pub fn to_json(&self) -> Value {
         json!({
             "driver": self.driver.to_json(),
-            "carpool": self.carpool,
+            "id": self.carpool.id,
+            "event": self.carpool.event,
             "passengers": self.passengers.iter()
                 .map(|passenger| passenger.to_json())
                 .collect::<Vec<_>>()

@@ -7,7 +7,7 @@ CREATE TABLE member (
   first_name varchar(25) NOT NULL,
   preferred_name varchar(25) DEFAULT NULL,
   last_name varchar(25) NOT NULL,
-  pass_hash varchar(64) NOT NULL,
+  pass_hash varchar(255) NOT NULL,
   phone_number varchar(16) NOT NULL,
   picture varchar(255) DEFAULT NULL,
   passengers int NOT NULL DEFAULT '0',

@@ -37,7 +37,7 @@ impl Song {
                 let links = sorted_links.remove(&media_type.name).unwrap_or(Vec::new());
 
                 SongLinkSection {
-                    section_name: media_type.name,
+                    name: media_type.name,
                     links,
                 }
             })
@@ -220,7 +220,7 @@ impl SongLink {
                     })?;
                 } else {
                     return Err(GreaseError::BadRequest(format!(
-                        "Song link '{}' has no associated file. Consider deleting and recreating this link.",
+                        "Song link '{}' has no associated file. Consider deleting and recreating the link.",
                         old_link.name
                     )));
                 }
@@ -233,13 +233,14 @@ impl SongLink {
 
 #[derive(Serialize)]
 pub struct SongData {
+    #[serde(flatten)]
     pub song: Song,
     pub links: Vec<SongLinkSection>,
 }
 
 #[derive(Serialize)]
 pub struct SongLinkSection {
-    pub section_name: String,
+    pub name: String,
     pub links: Vec<SongLink>,
 }
 

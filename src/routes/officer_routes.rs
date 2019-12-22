@@ -4,7 +4,6 @@ use super::basic_success;
 use crate::check_for_permission;
 use auth::*;
 use db::*;
-use db::models::member::MemberForSemester;
 use error::*;
 use pinto::query_builder::*;
 use serde_json::{json, Value};
@@ -182,18 +181,34 @@ pub fn get_meeting_minutes(minutes_id: i32, mut user: User) -> GreaseResult<Valu
 ///
 /// ## Required Permissions:
 ///
-/// The user must be logged in. To view the officer's version of meeting
-/// minutes, the user needs to be able to "view-complete-minutes" generally.
+/// The user must be logged in.
 ///
 /// ## Return Format:
 ///
-/// Returns a list of [MeetingMinutes](crate::db::models::MeetingMinutes) objects.
+/// ```json
+/// [
+///     {
+///         "id": integer,
+///         "name": string,
+///         "date": date
+///     },
+///     ...
+/// ]
+/// ```
+///
+/// Returns a list of simplified [MeetingMinutes](crate::db::models::MeetingMinutes)
+/// ordered chronologically and then alphabetically by title.
 pub fn get_all_meeting_minutes(mut user: User) -> GreaseResult<Value> {
-    let can_view_complete_minutes = user.has_permission("view-complete-minutes", None);
     MeetingMinutes::load_all(&mut user.conn).map(|all_minutes| {
         all_minutes
             .into_iter()
-            .map(|minutes| minutes.to_json(can_view_complete_minutes))
+            .map(|minutes| {
+                json!({
+                    "id": minutes.id,
+                    "name": minutes.name,
+                    "date": minutes.date
+                })
+            })
             .collect::<Vec<_>>()
             .into()
     })
@@ -273,21 +288,38 @@ pub fn mark_todo_as_complete(todo_id: i32, mut user: User) -> GreaseResult<Value
 
 /// Send a meeting minutes as an email to the officer's list.
 ///
-/// WARNING: This endpoint is not yet implemented. Please contact one
-/// of the developers of this API if you need it done especially soon.
-///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the meeting minutes
 ///
 /// ## Required Permissions:
 ///
-/// The user must be logged in and be able to "edit-minutes" generally.
-pub fn send_minutes_as_email(_id: i32, user: User) -> GreaseResult<Value> {
-    check_for_permission!(user => "edit-minutes");
-    // TODO: implement this functionality (figure out how to compile SSL statically)
-    Err(GreaseError::BadRequest(
-        "emailing minutes not implemented yet.".to_owned(),
-    ))
+/// The user must be logged in and be able to "view-complete-minutes" generally.
+pub fn send_minutes_as_email(minutes_id: i32, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "view-complete-minutes");
+    let minutes = MeetingMinutes::load(minutes_id, &mut user.conn)?;
+    let date = minutes.date.format("%B %_d, %Y");
+    let subject = format!("Notes from the Officer Meeting on {}", date);
+    let content = format!(
+        "Notes from the meeting \"{}\" on \"{}\":\n\n{}\n",
+        minutes.name, date,
+        minutes.private.or(minutes.public).ok_or(GreaseError::BadRequest(format!(
+            "Both the private and public versions of the meeting with id {} are empty, so no email was sent.", minutes_id)))?,
+    );
+    let officer_email = Variable::load("admin_list", &mut user.conn)?
+        .ok_or(GreaseError::ServerError(
+            "The officer's email list was not set under to `admin_list` variable.".to_owned(),
+        ))?
+        .value;
+    let email = crate::util::Email {
+        from_name: "Glee Club Officers",
+        from_address: &officer_email,
+        to_name: "Glee Club Officers",
+        to_address: &officer_email,
+        subject: &subject,
+        content: &content,
+    };
+
+    email.send().map(|_| basic_success())
 }
 
 /// Delete a meeting's minutes.
@@ -411,15 +443,11 @@ pub fn get_semester(name: String, mut user: User) -> GreaseResult<Value> {
 
 /// Get the current semester.
 ///
-/// ## Required Permissions:
-///
-/// The user must be logged in.
-///
 /// ## Return Format:
 ///
 /// Returns a [Semester](crate::db::models::Semester).
-pub fn get_current_semester(mut user: User) -> GreaseResult<Value> {
-    Semester::load_current(&mut user.conn).map(|semester| json!(semester))
+pub fn get_current_semester(mut conn: DbConn) -> GreaseResult<Value> {
+    Semester::load_current(&mut conn).map(|semester| json!(semester))
 }
 
 /// Get all semesters.
@@ -487,7 +515,7 @@ pub fn set_current_semester(name: String, mut user: User) -> GreaseResult<Value>
 /// Expects a [SemesterUpdate](crate::db::models::SemesterUpdate).
 pub fn edit_semester(
     name: String,
-    (updated_semester, mut user): (SemesterUpdate, User),
+    (updated_semester, mut user): (NewSemester, User),
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-semester");
     Semester::update(&name, &updated_semester, &mut user.conn).map(|_| basic_success())
@@ -624,7 +652,7 @@ pub fn member_permissions(member: String, mut user: User) -> GreaseResult<Value>
         Ok(json!(user.permissions))
     } else {
         check_for_permission!(user => "edit-permissions");
-        let member = MemberForSemester::load_for_current_semester(&member, &mut user.conn)?;
+        let member = Member::load(&member, &mut user.conn)?;
         member
             .permissions(&mut user.conn)
             .map(|permissions| json!(permissions))

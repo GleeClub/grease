@@ -1,4 +1,6 @@
 use chrono::{Datelike, Duration, Local, NaiveDate, NaiveDateTime};
+use db::models::member::GradeChange;
+use db::models::member::MemberForSemester;
 use db::*;
 use error::*;
 use pinto::query_builder::*;
@@ -27,7 +29,7 @@ impl Event {
                 .join(Gig::table_name(), "id", "event", Join::Left)
                 .fields(EventWithGigRow::field_names())
                 .filter(&format!("semester = '{}'", &current_semester.name))
-                .order_by("call_time", Order::Desc),
+                .order_by("call_time", Order::Asc),
         )
     }
 
@@ -43,7 +45,7 @@ impl Event {
                 .fields(EventWithGigRow::field_names())
                 .filter(&format!("semester = '{}'", &current_semester.name))
                 .filter(&format!("type = '{}'", event_type))
-                .order_by("call_time", Order::Desc),
+                .order_by("call_time", Order::Asc),
         )
     }
 
@@ -107,13 +109,6 @@ impl Event {
         )
     }
 
-    pub fn minimal(&self) -> Value {
-        json!({
-            "id": self.id,
-            "name": &self.name,
-        })
-    }
-
     pub fn create(
         new_event: NewEvent,
         from_request: Option<(GigRequest, NewGig)>,
@@ -123,7 +118,7 @@ impl Event {
             && new_event.release_time.unwrap() <= new_event.call_time
         {
             return Err(GreaseError::BadRequest(
-                "release time must be after call time if it is supplied.".to_owned(),
+                "Release time must be after call time if it is supplied.".to_owned(),
             ));
         }
 
@@ -139,7 +134,7 @@ impl Event {
         let num_events = call_and_release_time_pairs.len();
         if num_events == 0 {
             return Err(GreaseError::BadRequest(
-                "the repeat setting would render no events, please check your repeat settings."
+                "The repeat setting would render no events, please check your repeat settings."
                     .to_owned(),
             ));
         }
@@ -339,18 +334,36 @@ impl Event {
         })
     }
 
-    pub fn rsvp<C: Connection>(event_id: i32, member: &str, conn: &mut C) -> GreaseResult<()> {
+    pub fn rsvp<C: Connection>(
+        event_id: i32,
+        member: &MemberForSemester,
+        attending: bool,
+        conn: &mut C,
+    ) -> GreaseResult<()> {
         let event = Event::load(event_id, conn)?;
-        let _active_semester = conn.first::<ActiveSemester>(
-            &ActiveSemester::filter(&format!("member = '{}' AND semester = '{}'", member, &event.event.semester)),
-            "Members must be active to RSVP to events.".to_owned(),
+        let attendance = Attendance::load(&member.member.email, event_id, conn)?.ok_or(
+            GreaseError::ServerError(format!(
+                "No attendance exists for member {} at event with id {}.",
+                &member.member.email, event_id,
+            )),
         )?;
+        if let Some(issue) =
+            Event::rsvp_issue(&event.event, &attendance, member.active_semester.is_some())
+        {
+            return Err(GreaseError::BadRequest(issue));
+        }
 
         conn.update(
             Update::new(Attendance::table_name())
-                .filter(&format!("event = {} AND member = '{}'", event_id, member))
-                .set("confirmed", "true"),
-            format!("No attendance exists for member {} at event with id {}.", member, event_id),
+                .filter(&format!(
+                    "event = {} AND member = '{}'",
+                    event_id, &member.member.email
+                ))
+                .set("confirmed", &to_value(attending)),
+            format!(
+                "No attendance exists for member {} at event with id {}.",
+                &member.member.email, event_id
+            ),
         )
     }
 
@@ -359,6 +372,23 @@ impl Event {
             Delete::new(Event::table_name()).filter(&format!("id = {}", event_id)),
             format!("No event with id {}.", event_id),
         )
+    }
+
+    pub fn rsvp_issue(event: &Event, attendance: &Attendance, is_active: bool) -> Option<String> {
+        if !is_active {
+            Some("Member must be active to RSVP to events.".to_owned())
+        } else if !attendance.should_attend {
+            None
+        } else if Local::now().naive_local() + Duration::days(1) > event.call_time {
+            Some("Responses are closed for this event.".to_owned())
+        } else if let Some(bad_type) = ["Tutti", "Sectional", "Rehearsal"]
+            .into_iter()
+            .find(|type_| type_ == &&event.type_)
+        {
+            Some(format!("You cannot RSVP for {} events.", bad_type))
+        } else {
+            None
+        }
     }
 }
 
@@ -412,69 +442,13 @@ impl Period {
 
 #[derive(Serialize, Deserialize)]
 pub struct EventWithGig {
+    #[serde(flatten)]
     pub event: Event,
+    #[serde(flatten)]
     pub gig: Option<Gig>,
 }
 
 impl EventWithGig {
-    /// Render this event and gig's data to JSON.
-    ///
-    /// ## JSON Format:
-    ///
-    /// ```json
-    /// {
-    ///     "id": integer,
-    ///     "name": string,
-    ///     "semester": string,
-    ///     "type": string,
-    ///     "callTime": datetime,
-    ///     "releaseTime": datetime?,
-    ///     "points": integer,
-    ///     "comments": string?,
-    ///     "location": string?,
-    ///     "gigCount": boolean,
-    ///     "defaultAttend": boolean,
-    ///     "section": string?,
-    ///     // the below fields are included if
-    ///     // the event has an associated gig
-    ///     "performanceTime": datetime,
-    ///     "contactName": string?,
-    ///     "contactEmail": string?,
-    ///     "contactPhone": string?,
-    ///     "contactPhone": string?,
-    ///     "price": integer?,
-    ///     "public": boolean,
-    ///     "summary": string?,
-    ///     "description": string?,
-    ///     "uniform": integer
-    /// }
-    /// ```
-    pub fn to_json(&self) -> Value {
-        json!({
-            "id": self.event.id,
-            "name": self.event.name,
-            "semester": self.event.semester,
-            "type": self.event.type_,
-            "callTime": self.event.call_time,
-            "releaseTime": self.event.release_time,
-            "points": self.event.points,
-            "comments": self.event.comments,
-            "location": self.event.location,
-            "gig_count": self.event.gig_count,
-            "defaultAttend": self.event.default_attend,
-            "section": self.event.section,
-            "performanceTime": self.gig.as_ref().map(|gig| gig.performance_time),
-            "uniform": self.gig.as_ref().map(|gig| gig.uniform),
-            "contactName": self.gig.as_ref().map(|gig| &gig.contact_name),
-            "contactEmail": self.gig.as_ref().map(|gig| &gig.contact_email),
-            "contactPhone": self.gig.as_ref().map(|gig| &gig.contact_phone),
-            "price": self.gig.as_ref().map(|gig| gig.price),
-            "public": self.gig.as_ref().map(|gig| gig.public),
-            "summary": self.gig.as_ref().map(|gig| &gig.summary),
-            "description": self.gig.as_ref().map(|gig| &gig.description),
-        })
-    }
-
     /// Render this event and gig's data to JSON, including some additional data.
     ///
     /// On top of what is included for [to_json](#method.to_json), two other fields are included:
@@ -484,10 +458,11 @@ impl EventWithGig {
     ///       included if they were ever active during the semester of the event. It is null otherwise.
     pub fn to_json_full<C: Connection>(
         &self,
-        member: &Member,
+        attendance: Option<&Attendance>,
+        is_active: bool,
         conn: &mut C,
     ) -> GreaseResult<Value> {
-        let mut json_val = self.to_json();
+        let mut json_val = json!(self);
 
         let uniform = if let Some(uniform) = self.gig.as_ref().map(|gig| gig.uniform) {
             Some(Uniform::load(uniform, conn)?)
@@ -495,9 +470,63 @@ impl EventWithGig {
             None
         };
         json_val["uniform"] = json!(uniform);
+        json_val["shouldAttend"] = json!(attendance.map(|attendance| attendance.should_attend));
+        json_val["didAttend"] = json!(attendance.map(|attendance| attendance.did_attend));
+        json_val["confirmed"] = json!(attendance.map(|attendance| attendance.confirmed));
+        json_val["minutesLate"] = json!(attendance.map(|attendance| attendance.minutes_late));
+        let rsvp_issue = if let Some(attendance) = attendance {
+            Event::rsvp_issue(&self.event, &attendance, is_active)
+        } else {
+            Some("Inactive members cannot RSVP for events.".to_owned())
+        };
+        json_val["rsvpIssue"] = json!(rsvp_issue);
 
-        let attendance = Attendance::load(&member.email, self.event.id, conn)?;
-        json_val["attendance"] = json!(attendance);
+        Ok(json_val)
+    }
+
+    /// Render this event and gig's data to JSON, including some additional data.
+    ///
+    /// On top of what is included for [to_json](#method.to_json), two other fields are included:
+    ///   * uniform: if the event has a gig, the gig's [Uniform](../struct.Uniform.html) is included
+    ///       in place of the uniform's id. It is null otherwise.
+    ///   * attendance: The current member's [Attendance](../struct.Attendance.html) for the gig is
+    ///       included if they were ever active during the semester of the event. It is null otherwise.
+    pub fn to_json_with_grade_change<C: Connection>(
+        &self,
+        grade_change: Option<&GradeChange>,
+        is_active: bool,
+        conn: &mut C,
+    ) -> GreaseResult<Value> {
+        let mut json_val = json!(self);
+
+        let uniform = if let Some(uniform) = self.gig.as_ref().map(|gig| gig.uniform) {
+            Some(Uniform::load(uniform, conn)?)
+        } else {
+            None
+        };
+        json_val["uniform"] = json!(uniform);
+        json_val["shouldAttend"] = json!(grade_change
+            .map(|grade_change| &grade_change.attendance)
+            .map(|attendance| attendance.should_attend));
+        json_val["didAttend"] = json!(grade_change
+            .map(|grade_change| &grade_change.attendance)
+            .map(|attendance| attendance.did_attend));
+        json_val["confirmed"] = json!(grade_change
+            .map(|grade_change| &grade_change.attendance)
+            .map(|attendance| attendance.confirmed));
+        json_val["minutesLate"] = json!(grade_change
+            .map(|grade_change| &grade_change.attendance)
+            .map(|attendance| attendance.minutes_late));
+        json_val["gradeChange"] = json!(grade_change.map(|change| change.change));
+        json_val["gradeChangeReason"] = json!(grade_change.map(|change| &change.reason));
+        json_val["partialScore"] = json!(grade_change.map(|change| &change.partial_score));
+        let rsvp_issue =
+            if let Some(attendance) = grade_change.map(|grade_change| &grade_change.attendance) {
+                Event::rsvp_issue(&self.event, &attendance, is_active)
+            } else {
+                Some("Inactive members cannot RSVP for events.".to_owned())
+            };
+        json_val["rsvpIssue"] = json!(rsvp_issue);
 
         Ok(json_val)
     }

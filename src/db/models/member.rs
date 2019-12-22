@@ -1,4 +1,5 @@
 use auth::MemberPermission;
+use bcrypt::{hash, verify};
 use chrono::Local;
 use db::*;
 use error::*;
@@ -25,10 +26,17 @@ impl Member {
         pass_hash: &str,
         conn: &mut C,
     ) -> GreaseResult<Option<Member>> {
-        conn.first_opt(&Member::filter(&format!(
-            "email = '{}' AND pass_hash = '{}'",
-            email, pass_hash
-        )))
+        if let Some(member) =
+            conn.first_opt::<Member>(&Member::filter(&format!("email = '{}'", email)))?
+        {
+            if verify(pass_hash, &member.pass_hash).unwrap_or(false) {
+                Ok(Some(member))
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Member>> {
@@ -45,14 +53,17 @@ impl Member {
     pub fn full_name(&self) -> String {
         format!(
             "{} {}",
-            self.preferred_name.as_ref().unwrap_or(&self.first_name),
+            self.preferred_name
+                .as_ref()
+                .filter(|name| name.len() > 0)
+                .unwrap_or(&self.first_name),
             self.last_name
         )
     }
 
     /// Render this member's data to JSON.
     ///
-    /// See the [JSON Format](struct.Member.html#json-format) above for what this returns.
+    /// See the [JSON Format](crate::models::Member#json-format) above for what this returns.
     pub fn to_json(&self) -> Value {
         json!({
             "email": self.email,
@@ -91,30 +102,44 @@ impl Member {
     /// ```
     ///
     /// if `active_semester` is not None, then
-    pub fn to_json_full<C: Connection>(
+    pub fn to_json_full_for_semester<C: Connection>(
         &self,
-        active_semester: Option<ActiveSemester>,
+        active_semester: ActiveSemester,
         conn: &mut C,
     ) -> GreaseResult<Value> {
         let mut json_val = self.to_json();
-        let semesters = if let Some(active_semester) = active_semester {
-            vec![active_semester]
-        } else {
-            ActiveSemester::load_all_for_member(&self.email, conn)?
-        };
-        let semesters = semesters
+        json_val["semesters"] = json!([{
+            "semester": &active_semester.semester,
+            "enrollment": &active_semester.enrollment,
+            "section": &active_semester.section,
+            "grades": self.calc_grades(&active_semester, conn)?
+        }]);
+        json_val["permissions"] = json!(self.permissions(conn)?);
+        json_val["positions"] = json!(self.positions(conn)?);
+
+        Ok(json_val)
+    }
+
+    pub fn to_json_full_for_all_semesters<C: Connection>(
+        &self,
+        conn: &mut C,
+    ) -> GreaseResult<Value> {
+        let mut json_val = self.to_json();
+        let semesters = ActiveSemester::load_all_for_member(&self.email, conn)?
             .iter()
-            .map(|found_active_semester| {
-                let grades = self.calc_grades(&found_active_semester, conn)?;
+            .map(|active_semester| {
+                let grades = self.calc_grades(&active_semester, conn)?;
                 Ok(json!({
-                    "semester": &found_active_semester.semester,
-                    "enrollment": &found_active_semester.enrollment,
-                    "section": &found_active_semester.section,
+                    "semester": &active_semester.semester,
+                    "enrollment": &active_semester.enrollment,
+                    "section": &active_semester.section,
                     "grades": grades
                 }))
             })
             .collect::<GreaseResult<Vec<Value>>>()?;
         json_val["semesters"] = json!(semesters);
+        json_val["permissions"] = json!(self.permissions(conn)?);
+        json_val["positions"] = json!(self.positions(conn)?);
 
         Ok(json_val)
     }
@@ -125,14 +150,14 @@ impl Member {
         conn: &mut C,
     ) -> GreaseResult<Value> {
         let mut json_val = self.to_json();
-        let grades = if let Some(ref active_semester) = active_semester {
-            Some(self.calc_grades(&active_semester, conn)?)
-        } else {
-            None
+
+        if let Some(ref active_semester) = active_semester {
+            json_val["grades"] = json!(self.calc_grades(&active_semester, conn)?);
         };
-        json_val["grades"] = json!(grades);
         json_val["section"] = json!(&active_semester.as_ref().map(|a_s| &a_s.section));
         json_val["enrollment"] = json!(&active_semester.as_ref().map(|a_s| &a_s.enrollment));
+        json_val["permissions"] = json!(self.permissions(conn)?);
+        json_val["positions"] = json!(self.positions(conn)?);
 
         Ok(json_val)
     }
@@ -149,7 +174,9 @@ impl Member {
             &active_semester.semester,
             conn,
         )?;
-        let semester_is_finished = Semester::load(&active_semester.semester, conn)?.end_date < now;
+        let semester = Semester::load(&active_semester.semester, conn)?;
+        let semester_is_finished = semester.end_date < now;
+        let gig_requirement = semester.gig_requirement as usize;
         let mut grade_items = Vec::new();
         let mut volunteer_gigs_attended = 0;
         let semester_absence_requests = conn.load(
@@ -162,32 +189,44 @@ impl Member {
                 )),
         )?;
 
-        for (event, attendance) in event_attendance_pairs
+        let event_attendance_checks = event_attendance_pairs
             .iter()
-            .take_while(|(event, _attendance)| event.call_time < now)
-        {
-            let went_to_sectionals = event.went_to_event_type_during_week_of(
-                &event_attendance_pairs,
-                &semester_absence_requests,
-                "sectional",
-            );
-            let went_to_rehearsal = event.went_to_event_type_during_week_of(
-                &event_attendance_pairs,
-                &semester_absence_requests,
-                "rehearsal",
-            );
+            .filter_map(|(event, _attendance)| {
+                if event.call_time < now {
+                    let went_to_sectionals = event.went_to_event_type_during_week_of(
+                        &event_attendance_pairs,
+                        &semester_absence_requests,
+                        "sectional",
+                    );
+                    let went_to_rehearsal = event.went_to_event_type_during_week_of(
+                        &event_attendance_pairs,
+                        &semester_absence_requests,
+                        "rehearsal",
+                    );
 
+                    Some((went_to_sectionals, went_to_rehearsal))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<(Option<bool>, Option<bool>)>>();
+
+        for ((event, attendance), (went_to_sectionals, went_to_rehearsal)) in event_attendance_pairs
+            .into_iter()
+            .zip(event_attendance_checks.into_iter())
+            .take_while(|((event, _attendance), _checks)| event.call_time < now)
+        {
             let (point_change, reason) = {
                 if attendance.did_attend {
-                    let bonus_event = event.type_ == "volunteer"
-                        || event.type_ == "ombuds"
-                        || (event.type_ == "other" && !attendance.should_attend)
-                        || (event.type_ == "sectional" && went_to_sectionals.unwrap_or(false));
-                    if !went_to_rehearsal.unwrap_or(event.type_ != "rehearsal")
-                        && ["volunteer", "tutti"].contains(&event.type_.as_str())
+                    let bonus_event = event.type_ == "Volunteer Gig"
+                        || event.type_ == "Ombuds"
+                        || (event.type_ == "Other" && !attendance.should_attend)
+                        || (event.type_ == "Sectional" && went_to_sectionals.unwrap_or(false));
+                    if !went_to_rehearsal.unwrap_or(event.type_ != "Rehearsal")
+                        && ["Volunteer Gig", "Tutti Gig"].contains(&event.type_.as_str())
                     {
                         // If you haven't been to rehearsal this week, you can't get points or gig credit
-                        if event.type_ == "volunteer" {
+                        if event.type_ == "Volunteer Gig" {
                             (0.0, format!("{}-point bonus denied because this week's rehearsal was missed", event.points))
                         } else {
                             (
@@ -196,7 +235,7 @@ impl Member {
                                     .to_owned(),
                             )
                         }
-                    } else if attendance.minutes_late > 0 && event.type_ != "ombuds" {
+                    } else if attendance.minutes_late > 0 && event.type_ != "Ombuds" {
                         // Lose points equal to the percentage of the event missed, if they should have attended
                         let event_duration = if let Some(release_time) = event.release_time {
                             if release_time <= event.call_time {
@@ -211,7 +250,7 @@ impl Member {
                             (attendance.minutes_late as f32 / event_duration) * event.points as f32;
 
                         if bonus_event {
-                            if event.type_ == "volunteer" && event.gig_count {
+                            if event.type_ == "Volunteer Gig" && event.gig_count {
                                 volunteer_gigs_attended += 1;
                             }
                             if grade + event.points as f32 - delta > 100.0 {
@@ -248,7 +287,7 @@ impl Member {
                             )
                         }
                     } else if bonus_event {
-                        if event.type_ == "volunteer" && event.gig_count {
+                        if event.type_ == "Volunteer Gig" && event.gig_count {
                             volunteer_gigs_attended += 1;
                         }
                         // Get back points for volunteer gigs and and extra sectionals and ombuds events
@@ -276,18 +315,18 @@ impl Member {
                     }
                 } else if attendance.should_attend {
                     // Lose the full point value if did not attend
-                    if event.type_ == "ombuds" {
+                    if event.type_ == "Ombuds" {
                         (
                             0.0,
                             "You do not lose points for missing an ombuds event".to_owned(),
                         )
-                    } else if event.type_ == "sectional" && went_to_sectionals == Some(true) {
+                    } else if event.type_ == "Sectional" && went_to_sectionals == Some(true) {
                         (
                             0.0,
                             "No deduction because you attended a different sectional this week"
                                 .to_owned(),
                         )
-                    } else if event.type_ == "sectional"
+                    } else if event.type_ == "Sectional"
                         && went_to_sectionals.is_none()
                         && event.load_sectionals_the_week_of(conn)?.len() > 1
                     {
@@ -315,10 +354,10 @@ impl Member {
             }
 
             grade_items.push(GradeChange {
-                event: event.minimal(),
-                did_attend: attendance.did_attend,
-                should_attend: attendance.should_attend,
+                event,
+                attendance,
                 change: point_change,
+                partial_score: grade,
                 reason,
             });
         }
@@ -326,6 +365,7 @@ impl Member {
         Ok(Grades {
             final_grade: grade,
             volunteer_gigs_attended,
+            gig_requirement,
             semester_is_finished,
             changes: grade_items,
         })
@@ -434,18 +474,24 @@ impl Member {
                 )));
             }
 
-            let pass_hash = if as_self && update.pass_hash.is_some() {
-                update.pass_hash.unwrap()
-            } else if !as_self && update.pass_hash.is_some() {
-                return Err(GreaseError::BadRequest(
-                    "Officers cannot change members' passwords.".to_owned(),
-                ));
+            let member = Member::load(&email, transaction)?;
+            let pass_hash = if let Some(pass_hash) = update.pass_hash {
+                if as_self {
+                    hash(&pass_hash, 10).map_err(|err| {
+                        GreaseError::BadRequest(format!("Invalid password: {}", err))
+                    })?
+                } else {
+                    return Err(GreaseError::BadRequest(
+                        "Officers cannot change members' passwords.".to_owned(),
+                    ));
+                }
             } else {
-                Member::load(&email, transaction)?.pass_hash
+                member.pass_hash
             };
             transaction.update(
                 Update::new(Member::table_name())
                     .filter(&format!("email = '{}'", email))
+                    .set("email", &to_value(&update.email))
                     .set("first_name", &to_value(&update.first_name))
                     .set("preferred_name", &to_value(&update.preferred_name))
                     .set("last_name", &to_value(&update.last_name))
@@ -471,7 +517,7 @@ impl Member {
             let current_semester = Semester::load_current(transaction)?;
             let semester_update = ActiveSemesterUpdate {
                 enrollment: update.enrollment,
-                section: Some(update.section),
+                section: update.section,
             };
             ActiveSemester::update(
                 &update.email,
@@ -482,6 +528,28 @@ impl Member {
 
             Ok(())
         })
+    }
+
+    pub fn permissions<C: Connection>(&self, conn: &mut C) -> GreaseResult<Vec<MemberPermission>> {
+        conn.load_as::<(String, Option<String>), MemberPermission>(
+            Select::new(MemberRole::table_name())
+                .join(
+                    RolePermission::table_name(),
+                    &format!("{}.role", MemberRole::table_name()),
+                    &format!("{}.role", RolePermission::table_name()),
+                    Join::Inner,
+                )
+                .fields(&["permission", "event_type"])
+                .filter(&format!("member = '{}'", self.email)),
+        )
+    }
+
+    pub fn positions<C: Connection>(&self, conn: &mut C) -> GreaseResult<Vec<String>> {
+        conn.load(
+            Select::new(MemberRole::table_name())
+                .fields(&["role"])
+                .filter(&format!("member = '{}'", self.email)),
+        )
     }
 }
 
@@ -506,7 +574,7 @@ impl MemberForSemester {
     ) -> GreaseResult<Vec<MemberForSemester>> {
         conn.load_as::<MemberForSemesterRow, MemberForSemester>(
             Select::new(Member::table_name())
-                .join(ActiveSemester::table_name(), "email", "member", Join::Inner)
+                .join(ActiveSemester::table_name(), "email", "member", Join::Left)
                 .fields(MemberForSemesterRow::field_names())
                 .filter(&format!("semester = '{}'", semester))
                 .order_by("last_name, first_name", Order::Asc),
@@ -553,45 +621,53 @@ impl MemberForSemester {
         }
     }
 
-    pub fn permissions<C: Connection>(&self, conn: &mut C) -> GreaseResult<Vec<MemberPermission>> {
-        conn.load_as::<(String, Option<String>), MemberPermission>(
-            Select::new(MemberRole::table_name())
-                .join(
-                    RolePermission::table_name(),
-                    &format!("{}.role", MemberRole::table_name()),
-                    &format!("{}.role", RolePermission::table_name()),
-                    Join::Inner,
-                )
-                .fields(&["permission", "event_type"])
-                .filter(&format!("member = '{}'", self.member.email)),
-        )
-    }
-
-    pub fn positions<C: Connection>(&self, conn: &mut C) -> GreaseResult<Vec<String>> {
-        conn.load(
-            Select::new(MemberRole::table_name())
-                .fields(&["role"])
-                .filter(&format!("member = '{}'", self.member.email)),
-        )
+    pub fn to_json(&self) -> Value {
+        json!({
+            "email": self.member.email,
+            "firstName": self.member.first_name,
+            "preferredName": self.member.preferred_name,
+            "lastName": self.member.last_name,
+            "fullName": self.member.full_name(),
+            "phoneNumber": self.member.phone_number,
+            "picture": self.member.picture,
+            "passengers": self.member.passengers,
+            "location": self.member.location,
+            "onCampus": self.member.on_campus,
+            "about": self.member.about,
+            "major": self.member.major,
+            "minor": self.member.minor,
+            "hometown": self.member.hometown,
+            "arrivedAtTech": self.member.arrived_at_tech,
+            "gatewayDrug": self.member.gateway_drug,
+            "conflicts": self.member.conflicts,
+            "dietaryRestrictions": self.member.dietary_restrictions,
+            "enrollment": self.active_semester.as_ref().map(|active_semester| &active_semester.enrollment),
+            "section": self.active_semester.as_ref().and_then(|active_semester| active_semester.section.as_ref())
+        })
     }
 }
 
-///
 #[derive(Serialize)]
 pub struct Grades {
+    #[serde(rename = "finalGrade")]
     pub final_grade: f32,
     pub changes: Vec<GradeChange>,
+    #[serde(rename = "volunteerGigsAttended")]
     pub volunteer_gigs_attended: usize,
+    #[serde(rename = "gigRequirement")]
+    pub gig_requirement: usize,
+    #[serde(rename = "semesterIsFinished")]
     pub semester_is_finished: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct GradeChange {
-    pub event: Value,
-    pub did_attend: bool,
-    pub should_attend: bool,
+    pub event: Event,
+    pub attendance: Attendance,
     pub reason: String,
     pub change: f32,
+    #[serde(rename = "partialScore")]
+    pub partial_score: f32,
 }
 
 impl ActiveSemester {
@@ -649,22 +725,32 @@ impl ActiveSemester {
         conn: &mut C,
     ) -> GreaseResult<()> {
         if ActiveSemester::load(member, semester, conn)?.is_some() {
-            conn.update_opt(
-                Update::new(ActiveSemester::table_name())
-                    .filter(&format!("member = '{}'", member))
-                    .filter(&format!("semester = '{}'", semester))
-                    .set("enrollment", &to_value(updated_semester.enrollment))
-                    .set("section", &to_value(updated_semester.section)),
-            )
-        } else {
+            if let Some(enrollment) = updated_semester.enrollment {
+                conn.update_opt(
+                    Update::new(ActiveSemester::table_name())
+                        .filter(&format!("member = '{}'", member))
+                        .filter(&format!("semester = '{}'", semester))
+                        .set("enrollment", &to_value(enrollment))
+                        .set("section", &to_value(updated_semester.section)),
+                )
+            } else {
+                conn.delete_opt(
+                    Delete::new(ActiveSemester::table_name())
+                        .filter(&format!("member = '{}'", member))
+                        .filter(&format!("semester = '{}'", semester)),
+                )
+            }
+        } else if let Some(enrollment) = updated_semester.enrollment {
             let new_active_semester = ActiveSemester {
                 member: member.to_owned(),
                 semester: semester.to_owned(),
-                enrollment: updated_semester.enrollment,
                 section: updated_semester.section,
+                enrollment,
             };
 
             new_active_semester.insert(conn)
+        } else {
+            Ok(())
         }
     }
 }
@@ -759,8 +845,10 @@ impl NewMember {
             active_semester: Some(ActiveSemester {
                 member: self.email,
                 semester: Semester::load_current(conn)?.name,
-                enrollment: self.enrollment,
-                section: Some(self.section),
+                section: self.section,
+                enrollment: self.enrollment.ok_or(GreaseError::BadRequest(
+                    "New members cannot enroll as inactive.".to_owned(),
+                ))?,
             }),
         })
     }

@@ -12,7 +12,10 @@ impl MeetingMinutes {
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<MeetingMinutes>> {
-        conn.load(&MeetingMinutes::select_all_in_order("date, name", Order::Desc))
+        conn.load(&MeetingMinutes::select_all_in_order(
+            "date, name",
+            Order::Desc,
+        ))
     }
 
     pub fn create<C: Connection>(

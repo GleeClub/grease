@@ -3,6 +3,7 @@
 use super::basic_success;
 use crate::auth::User;
 use crate::check_for_permission;
+use crate::db::member::MemberForSemester;
 use crate::db::*;
 use crate::error::*;
 use serde_json::{json, Value};
@@ -68,12 +69,12 @@ pub fn logout(mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// If `details = true`, then the format from
-/// [to_json_full](crate::db::models::Member#method.to_json_full)
+/// [to_json_full](crate::db::models::Member::to_json_full())
 /// is used to return info on all semesters the member was active. Otherwise,
 /// if `grades = true`, then the format from
-/// [to_json_with_grades](crate::db::models::Member#method.to_json_with_grades)
+/// [to_json_with_grades](crate::db::models::Member::to_json_with_grades())
 /// is used. Otherwise, the simple format from
-/// [to_json](crate::db::models::Member#method.to_json)
+/// [to_json](crate::db::models::Member::to_json())
 /// is used.
 pub fn get_member(
     email: String,
@@ -91,19 +92,34 @@ pub fn get_member(
     let current_semester = Semester::load_current(&mut user.conn)?;
     Member::load(&email, &mut user.conn).and_then(|member| {
         if details.unwrap_or(false) {
-            member.to_json_full(None, &mut user.conn)
+            member.to_json_full_for_all_semesters(&mut user.conn)
         } else if grades.unwrap_or(false) {
-            let active_semester =
-                ActiveSemester::load(&member.email, &current_semester.name, &mut user.conn)?;
-            if let Some(active_semester) = active_semester {
-                member.to_json_with_grades(Some(active_semester), &mut user.conn)
-            } else {
-                Err(GreaseError::NotActiveYet(member))
-            }
+            ActiveSemester::load(&member.email, &current_semester.name, &mut user.conn).and_then(
+                |active_semester| member.to_json_with_grades(active_semester, &mut user.conn),
+            )
         } else {
             Ok(member.to_json())
         }
     })
+}
+
+/// Get the member associated with the current user.
+///
+/// ## Return Format:
+///
+/// If the current user is logged in, then the
+/// [to_json_with_grades](crate::db::models::Member::to_json_with_grades())
+/// format of the current member is returned. Otherwise,
+/// null is returned.
+pub fn get_current_user(user: GreaseResult<User>) -> GreaseResult<Value> {
+    match user {
+        Ok(mut user) => user
+            .member
+            .member
+            .to_json_with_grades(user.member.active_semester, &mut user.conn),
+        Err(GreaseError::Unauthorized) => Ok(json!(null)),
+        Err(other) => Err(other),
+    }
 }
 
 /// Get all members.
@@ -121,9 +137,9 @@ pub fn get_member(
 /// ## Return Format:
 ///
 /// If `grades = true`, then the format from
-/// [to_json_with_grades](crate::db::models::event::EventWithGig#method.to_json_with_grades)
+/// [to_json_with_grades](crate::db::models::event::EventWithGig::to_json_with_grades())
 /// will be returned. Otherwise, the format from
-/// [to_json](crate::db::models::event::EventWithGig#method.to_json)
+/// [to_json](crate::db::models::event::EventWithGig::to_json())
 /// will be returned.
 pub fn get_members(
     grades: Option<bool>,
@@ -140,7 +156,7 @@ pub fn get_members(
         let include_inactive = included.remove("inactive");
         if included.len() > 0 {
             return Err(GreaseError::BadRequest(
-                "for include param, only 'class', 'club', and 'inactive' are allowed".to_owned(),
+                "For the include param, only 'class', 'club', and 'inactive' are allowed.".to_owned(),
             ));
         }
 
@@ -149,19 +165,11 @@ pub fn get_members(
         (true, true, false)
     };
 
-    Member::load_all(&mut user.conn).and_then(|members| {
+    MemberForSemester::load_all(&current_semester.name, &mut user.conn).and_then(|members| {
         members
             .into_iter()
             .filter_map(|member| {
-                let active_semester = match ActiveSemester::load(
-                    &member.email,
-                    &current_semester.name,
-                    &mut user.conn,
-                ) {
-                    Ok(maybe_active_semester) => maybe_active_semester,
-                    Err(error) => return Some(Err(error)),
-                };
-                if let Some(ref active_semester) = active_semester {
+                if let Some(ref active_semester) = member.active_semester {
                     if !(include_class && active_semester.enrollment == Enrollment::Class)
                         && !(include_club && active_semester.enrollment == Enrollment::Club)
                     {
@@ -172,7 +180,9 @@ pub fn get_members(
                 }
 
                 let json_val = if grades.unwrap_or(false) {
-                    member.to_json_with_grades(active_semester, &mut user.conn)
+                    member
+                        .member
+                        .to_json_with_grades(member.active_semester, &mut user.conn)
                 } else {
                     Ok(member.to_json())
                 };

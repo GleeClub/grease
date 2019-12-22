@@ -43,22 +43,10 @@ pub fn get_song(id: i32, details: Option<bool>, mut user: User) -> GreaseResult<
 ///
 /// ## Return Format:
 ///
-/// ```json
-/// {
-///     "current": [Song],
-///     "other": [Song]
-/// }
-/// ```
-///
-/// Returns an object with the current repertoire and the remainder of the repertoire
-/// in two different field, each comprising a list of [Song](crate::db::models::Song)s.
+/// Returns a list of [Song](crate::db::models::Song)s ordered alphabetically
+/// by title.
 pub fn get_songs(mut user: User) -> GreaseResult<Value> {
-    Song::load_all_separate_this_semester(&mut user.conn).map(|(current, other)| {
-        json!({
-            "current": current,
-            "other": other,
-        })
-    })
+    Song::load_all(&mut user.conn).map(|songs| json!(songs))
 }
 
 /// Create a new song.
@@ -87,7 +75,10 @@ pub fn new_song((new_song, mut user): (NewSong, User)) -> GreaseResult<Value> {
 /// ## Input Format:
 ///
 /// Expects a [SongUpdate](crate::db::models::SongUpdate).
-pub fn update_song(song_id: i32, (updated_song, mut user): (SongUpdate, User)) -> GreaseResult<Value> {
+pub fn update_song(
+    song_id: i32,
+    (updated_song, mut user): (SongUpdate, User),
+) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
     Song::update(song_id, &updated_song, &mut user.conn).map(|_| basic_success())
 }

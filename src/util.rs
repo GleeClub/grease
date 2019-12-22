@@ -1,42 +1,72 @@
 //! Extra utilties for use elsewhere in the API.
 
-use error::{GreaseError, GreaseResult};
-// use lettre::{SmtpClient, Transport};
-// use lettre_email::EmailBuilder;
 use base64::decode;
 use chrono::{Local, NaiveDateTime};
+use error::{GreaseError, GreaseResult};
 use glob::glob;
 use serde::Deserialize;
-use std::fs::File;
+use std::collections::HashMap;
 use std::fs::OpenOptions;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::str::FromStr;
 
-// pub fn send_email(
-//     from_address: &str,
-//     to_email_list: &str,
-//     subject: &str,
-//     content: &str,
-// ) -> GreaseResult<()> {
-//     let email = EmailBuilder::new()
-//         .to(to_email_list)
-//         .from(from_address)
-//         .subject(subject)
-//         .text(content)
-//         .build()
-//         .map_err(|err| GreaseError::ServerError(format!("error building the email: {:?}", err)))?;
+pub struct Email<'e> {
+    pub from_name: &'e str,
+    pub from_address: &'e str,
+    pub to_name: &'e str,
+    pub to_address: &'e str,
+    pub subject: &'e str,
+    pub content: &'e str,
+}
 
-//     let mut mailer = SmtpClient::new_unencrypted_localhost()
-//         .map_err(|err| GreaseError::ServerError(format!("couldn't build mail client: {:?}", err)))?
-//         .transport();
+impl<'e> Email<'e> {
+    pub fn send(&self) -> GreaseResult<()> {
+        let email = format!(
+            "To: {} <{}>\nFrom: {} <{}>\nSubject: {}\n{}\n.\n",
+            self.to_name,
+            self.to_address,
+            self.from_name,
+            self.from_address,
+            self.subject,
+            self.content
+        );
+        let mut sendmail = Command::new("sendmail")
+            .stdin(Stdio::piped())
+            .spawn()
+            .map_err(|err| {
+                GreaseError::ServerError(format!("Couldn't run sendmail to send an email: {}", err))
+            })?;
+        sendmail
+            .stdin
+            .as_mut()
+            .ok_or(GreaseError::ServerError(
+                "No stdin was available for sendmail.".to_owned(),
+            ))?
+            .write_all(email.as_bytes())
+            .map_err(|err| {
+                GreaseError::ServerError(format!("Couldn't send an email with sendmail: {}", err))
+            })?;
+        let output = sendmail.wait_with_output().map_err(|err| {
+            GreaseError::ServerError(format!("sendmail failed to send an email: {}", err))
+        })?;
 
-//     mailer
-//         .send(email.into())
-//         .map_err(|err| GreaseError::ServerError(format!("couldn't send email: {:?}", err)))?;
-
-//     Ok(())
-// }
+        if output.status.success() {
+            Ok(())
+        } else {
+            let error_message = std::str::from_utf8(&output.stderr).map_err(|_err| {
+                GreaseError::ServerError(
+                    "sendmail errored out with a non-utf8 error message.".to_owned(),
+                )
+            })?;
+            Err(GreaseError::ServerError(format!(
+                "sendmail failed to send an email: {}",
+                error_message
+            )))
+        }
+    }
+}
 
 #[derive(Deserialize, grease_derive::Extract)]
 pub struct FileUpload {
@@ -103,33 +133,9 @@ pub fn check_for_music_file(path: &str) -> GreaseResult<String> {
     }
 }
 
-pub fn random_base64(length: usize) -> GreaseResult<String> {
-    let mut f = File::open("/dev/urandom")
-        .map_err(|_err| GreaseError::ServerError("couldn't open /dev/urandom".to_owned()))?;
-
-    std::iter::repeat_with(|| {
-        let mut buffer: [u8; 1] = [0];
-        f.read(&mut buffer).map_err(|err| {
-            GreaseError::ServerError(format!("couldn't read /dev/urandom: {:?}", err))
-        })?;
-        Ok(buffer[0] as char)
-    })
-    .filter_map(|rand_char| match rand_char {
-        Ok(c)
-            if ('a'..='z').contains(&c) || ('A'..='Z').contains(&c) || ('0'..='9').contains(&c) =>
-        {
-            Some(Ok(c))
-        }
-        Ok(_bad_char) => None,
-        Err(e) => Some(Err(e)),
-    })
-    .take(length)
-    .collect()
-}
-
 pub fn log_panic(request: &cgi::Request, error_message: String) -> cgi::Response {
     let now = Local::now().naive_local();
-    let file_name = format!("/cgi-bin/log/log {}.txt", now.format("%c"));
+    let file_name = format!("./log/log {}.txt", now.format("%c"));
     let mut file = OpenOptions::new()
         .create_new(true)
         .write(true)
@@ -140,7 +146,11 @@ pub fn log_panic(request: &cgi::Request, error_message: String) -> cgi::Response
             .expect("couldn't write to log file");
     };
 
-    let env_vars = std::env::vars().collect::<Vec<_>>();
+    let headers = request
+        .headers()
+        .into_iter()
+        .map(|(key, value)| (key.to_string(), value.to_str().unwrap().to_string()))
+        .collect::<HashMap<String, String>>();
     write_to_file(
         &mut file,
         format!(
@@ -148,10 +158,7 @@ pub fn log_panic(request: &cgi::Request, error_message: String) -> cgi::Response
             now.format("%c")
         ),
     );
-    write_to_file(
-        &mut file,
-        format!("Enviroment variables:\n  {:?}\n", env_vars),
-    );
+    write_to_file(&mut file, format!("Headers:\n  {:?}\n", headers));
     write_to_file(&mut file, format!("Request:\n  {:?}\n", request));
     write_to_file(
         &mut file,
@@ -163,19 +170,14 @@ pub fn log_panic(request: &cgi::Request, error_message: String) -> cgi::Response
     let json_val = serde_json::json!({
         "message": "Panicked during handling of request. Please contact an administrator with the following information:",
         "time": now.format("%c").to_string(),
-        "environmentVariables": format!("{:?}", env_vars),
         "request": format!("{:?}", request),
         "error": error_message,
+        "headers": headers,
     });
     let body = json_val.to_string().into_bytes();
 
     http::response::Builder::new()
         .status(500)
-        .header(http::header::CONTENT_TYPE, "application/json")
-        .header(
-            http::header::CONTENT_LENGTH,
-            body.len().to_string().as_str(),
-        )
         .body(body)
         .unwrap()
 }
@@ -200,7 +202,7 @@ fn clean_up_old_logs() {
             .collect::<Vec<(&PathBuf, NaiveDateTime)>>();
         log_times.sort_by_key(|(_log_file, time)| time.clone());
 
-        log_times.iter().skip(49).for_each(|(log_file, _time)| {
+        log_times.iter().skip(50).for_each(|(log_file, _time)| {
             std::fs::remove_file(log_file).expect("could not delete old log file");
         });
     }

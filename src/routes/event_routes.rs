@@ -30,9 +30,14 @@ use serde_json::{json, Value};
 pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseResult<Value> {
     Event::load(event_id, &mut user.conn).and_then(|event_with_gig| {
         if full.unwrap_or(false) {
-            event_with_gig.to_json_full(&user.member.member, &mut user.conn)
+            let attendance = Attendance::load(&user.member.member.email, event_id, &mut user.conn)?;
+            event_with_gig.to_json_full(
+                attendance.as_ref(),
+                user.member.active_semester.is_some(),
+                &mut user.conn,
+            )
         } else {
-            Ok(event_with_gig.to_json())
+            Ok(json!(event_with_gig))
         }
     })
 }
@@ -81,18 +86,30 @@ pub fn get_events(
         });
     }
 
-    events_with_gigs
-        .into_iter()
-        .map(|event_with_gig| {
-            // include extra data if the `full` parameter is set to `true`
-            if full.unwrap_or(false) {
-                event_with_gig.to_json_full(&user.member.member, &mut user.conn)
-            } else {
-                Ok(event_with_gig.to_json())
-            }
-        })
-        .collect::<GreaseResult<Vec<Value>>>()
-        .map(|events_with_gigs| events_with_gigs.into())
+    if full.unwrap_or(false) {
+        let grades = if let Some(active_semester) = &user.member.active_semester {
+            user.member
+                .member
+                .calc_grades(active_semester, &mut user.conn)?
+                .changes
+        } else {
+            Vec::new()
+        };
+        events_with_gigs
+            .into_iter()
+            .zip(grades.into_iter().map(Some).chain(std::iter::repeat(None)))
+            .map(|(event_with_gig, grade_change)| {
+                event_with_gig.to_json_with_grade_change(
+                    grade_change.as_ref(),
+                    user.member.active_semester.is_some(),
+                    &mut user.conn,
+                )
+            })
+            .collect::<GreaseResult<Vec<Value>>>()
+            .map(|events_with_gigs| events_with_gigs.into())
+    } else {
+        Ok(json!(events_with_gigs))
+    }
 }
 
 /// Create a new event or events.
@@ -118,10 +135,7 @@ pub fn get_events(
 /// (the first one if multiple were created).
 pub fn new_event((new_event, mut user): (NewEvent, User)) -> GreaseResult<Value> {
     check_for_permission!(user => "create-event", &new_event.type_);
-    Event::create(new_event, None, &mut user.conn)
-        .map(|new_id| json!({
-            "id": new_id
-        }))
+    Event::create(new_event, None, &mut user.conn).map(|new_id| json!({ "id": new_id }))
 }
 
 /// Update an existing event.
@@ -157,8 +171,8 @@ pub fn update_event(
 /// ## Required Permissions:
 ///
 /// The user must be logged in and active for the semester of the event.
-pub fn rsvp_for_event(id: i32, mut user: User) -> GreaseResult<Value> {
-    Event::rsvp(id, &user.member.member.email, &mut user.conn).map(|_| basic_success())
+pub fn rsvp_for_event(id: i32, attending: bool, mut user: User) -> GreaseResult<Value> {
+    Event::rsvp(id, &user.member, attending, &mut user.conn).map(|_| basic_success())
 }
 
 /// Delete an event.
@@ -215,11 +229,16 @@ pub fn delete_event(id: i32, mut user: User) -> GreaseResult<Value> {
 /// returned.
 pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
     let event = Event::load(id, &mut user.conn)?;
-    let member_section = user.member.active_semester
+    let member_section = user
+        .member
+        .active_semester
         .as_ref()
-        .and_then(|active_semester| active_semester.section
-            .as_ref()
-            .map(|section| section.as_str()));
+        .and_then(|active_semester| {
+            active_semester
+                .section
+                .as_ref()
+                .map(|section| section.as_str())
+        });
 
     if user.has_permission("view-attendance", None) {
         let all_attendance = Attendance::load_for_event_separate_by_section(id, &mut user.conn)?;
@@ -238,7 +257,10 @@ pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
         }
         Ok(attendance_json)
     } else if member_section.is_some()
-        && user.has_permission("view-attendance-own-section", Some(event.event.type_.as_str()))
+        && user.has_permission(
+            "view-attendance-own-section",
+            Some(event.event.type_.as_str()),
+        )
     {
         let section_attendance =
             Attendance::load_for_event_for_section(id, member_section, &mut user.conn)?;
@@ -277,6 +299,48 @@ pub fn get_member_attendance(event_id: i32, member: String, mut user: User) -> G
     }
 
     Attendance::load(&member, event_id, &mut user.conn).map(|attendance| json!(attendance))
+}
+
+// TODO: fix these docs
+
+/// Get the attendance of all active members for an event.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the event
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in.
+///
+/// ## Return Format:
+///
+/// ```json
+/// [
+///     {
+///         "attendance": Attendance,
+///         "member": Member
+///     },
+///     ...
+/// ]
+/// ```
+///
+/// Returns a list of JSON objects with [Attendance](crate::db::models::Attendance)s
+/// and [MemberForSemester](crate::db::models::member::MemberForSemester)s.
+pub fn see_whos_attending(event_id: i32, mut user: User) -> GreaseResult<Value> {
+    Attendance::load_for_event(event_id, &mut user.conn).map(|attendance| {
+        attendance
+            .into_iter()
+            .map(|(attendance, member_for_semester)| {
+                let mut member = member_for_semester.to_json();
+                member["shouldAttend"] = json!(attendance.should_attend);
+                member["didAttend"] = json!(attendance.did_attend);
+                member["confirmed"] = json!(attendance.confirmed);
+                member["minutesLate"] = json!(attendance.minutes_late);
+                member
+            })
+            .collect::<Vec<Value>>()
+            .into()
+    })
 }
 
 /// Get the attendance for a member for all events of the current semester.
@@ -350,14 +414,20 @@ pub fn update_attendance(
     (mut user, attendance_form): (User, AttendanceForm),
 ) -> GreaseResult<Value> {
     let event = Event::load(event_id, &mut user.conn)?;
-    let user_section = user.member.active_semester
+    let user_section = user
+        .member
+        .active_semester
         .as_ref()
         .and_then(|active_semester| active_semester.section.clone());
     let member_section = ActiveSemester::load(&member, &event.event.semester, &mut user.conn)?
         .and_then(|active_semester| active_semester.section);
 
-    if user.has_permission("edit-attendance", Some(event.event.type_.as_str())) ||
-        (user_section == member_section && user.has_permission("edit-attendance-own-section", Some(event.event.type_.as_str())))
+    if user.has_permission("edit-attendance", Some(event.event.type_.as_str()))
+        || (user_section == member_section
+            && user.has_permission(
+                "edit-attendance-own-section",
+                Some(event.event.type_.as_str()),
+            ))
     {
         Attendance::update(event_id, &member, &attendance_form, &mut user.conn)
             .map(|_| basic_success())
@@ -438,7 +508,7 @@ pub fn update_carpools(
 ///
 /// ## Return Format:
 ///
-/// Returns a list of [GigSong](crate::db::models::GigSong)s.
+/// Returns a list of [Song](crate::db::models::Song)s.
 pub fn get_setlist(event_id: i32, mut user: User) -> GreaseResult<Value> {
     GigSong::load_for_event(event_id, &mut user.conn).map(|setlist| json!(setlist))
 }
@@ -481,7 +551,8 @@ pub fn edit_setlist(
 ///
 /// Returns an [AbsenceRequest](crate::db::models::AbsenceRequest).
 pub fn get_absence_request(event_id: i32, mut user: User) -> GreaseResult<Value> {
-    AbsenceRequest::load(&user.member.member.email, event_id, &mut user.conn).map(|request| json!(request))
+    AbsenceRequest::load(&user.member.member.email, event_id, &mut user.conn)
+        .map(|request| json!(request))
 }
 
 /// Get all absence requests for the current semester.

@@ -46,6 +46,7 @@
 //!
 //!   Method   | Route                           | Handler
 //! -----------|---------------------------------|-------------------------------------------------------------------------------------------------------
+//! **GET**    | /user                           | [get_current_user](crate::routes::member_routes::get_current_user)
 //! **GET**    | /members/{*email*}              | [get_member](crate::routes::member_routes::get_member)
 //! **GET**    | /members/{*email*}/attendance   | [get_member_attendance_for_semester](crate::routes::event_routes::get_member_attendance_for_semester)
 //! **GET**    | /members                        | [get_members](crate::routes::member_routes::get_members)
@@ -74,9 +75,10 @@
 //!   Method   | Route                                        | Handler
 //! -----------|----------------------------------------------|------------------------------------------------------------------------------------------
 //! **GET**    | /events/{*id*}/attendance                    | [get_attendance](crate::routes::event_routes::get_attendance)
+//! **GET**    | /events/{*id*}/see_whos_attending            | [see_whos_attending](crate::routes::event_routes::see_whos_attending)
 //! **GET**    | /events/{*id*}/attendance/{*member*}         | [get_member_attendance](crate::routes::event_routes::get_member_attendance)
 //! **POST**   | /events/{*id*}/attendance/{*member*}         | [update_attendance](crate::routes::event_routes::update_attendance)
-//! **POST**   | /events/{*id*}/rsvp                          | [rsvp_for_event](crate::routes::event_routes::rsvp_for_event)
+//! **POST**   | /events/{*id*}/rsvp/{*attending*}            | [rsvp_for_event](crate::routes::event_routes::rsvp_for_event)
 //! **POST**   | /events/{*id*}/attendance/excuse_unconfirmed | [excuse_unconfirmed_for_event](crate::routes::event_routes::excuse_unconfirmed_for_event)
 //! **GET**    | /events/{*id*}/carpools                      | [get_carpools](crate::routes::event_routes::get_carpools)
 //! **POST**   | /events/{*id*}/carpools                      | [update_carpools](crate::routes::event_routes::update_carpools)
@@ -228,20 +230,25 @@
 //! **GET**    | /event_types       | [get_event_types](crate::routes::event_routes::get_event_types)
 //! **GET**    | /section_types     | [get_section_types](crate::routes::event_routes::get_section_types)
 //! **GET**    | /transaction_types | [get_transaction_types](crate::routes::officer_routes::get_transaction_types)
+//! **GET**    | /static_data       | [static_data](crate::routes::misc_routes::static_data)
 
-#![feature(custom_attribute)]
 #![feature(drain_filter)]
 #![feature(box_syntax)]
 #![feature(const_fn)]
 #![recursion_limit = "128"]
 
 extern crate base64;
+extern crate bcrypt;
 extern crate cgi;
 extern crate chrono;
 extern crate dotenv;
 extern crate glob;
 extern crate grease_derive;
 extern crate http;
+// extern crate lettre;
+// extern crate lettre_email;
+#[cfg(test)]
+extern crate mocktopus;
 extern crate mysql;
 extern crate mysql_enum;
 extern crate pinto;
@@ -251,10 +258,7 @@ extern crate serde_json;
 extern crate strum;
 extern crate strum_macros;
 extern crate url;
-// extern crate lettre;
-// extern crate lettre_email;
-#[cfg(test)]
-extern crate mocktopus;
+extern crate uuid;
 
 pub mod auth;
 pub mod db;

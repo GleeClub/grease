@@ -6,7 +6,7 @@
 use db::{member::MemberForSemester, DbConn};
 use error::{GreaseError, GreaseResult};
 use extract::Extract;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// The "standard package" for API interaction.
 ///
@@ -32,7 +32,9 @@ impl User {
     /// with the given event type.
     pub fn has_permission(&self, permission_name: &str, event_type: Option<&str>) -> bool {
         self.permissions.iter().any(|permission| {
-            permission.name == permission_name && (permission.event_type.is_none() || permission.event_type.as_ref().map(|type_| type_.as_str()) == event_type)
+            permission.name == permission_name
+                && (permission.event_type.is_none()
+                    || permission.event_type.as_ref().map(|type_| type_.as_str()) == event_type)
         })
     }
 }
@@ -54,7 +56,7 @@ impl Extract for User {
                 })
             })
             .and_then(|token| MemberForSemester::load_from_token(token, &mut conn))?;
-        let permissions = member.permissions(&mut conn)?;
+        let permissions = member.member.permissions(&mut conn)?;
 
         Ok(User {
             member,
@@ -117,7 +119,9 @@ macro_rules! check_for_permission {
     };
     ($user:expr => $permission:expr, $event_type:expr) => {
         if !$user.has_permission($permission, Some($event_type)) {
-            return Err(crate::error::GreaseError::Forbidden(Some($permission.to_owned())));
+            return Err(crate::error::GreaseError::Forbidden(Some(
+                $permission.to_owned(),
+            )));
         }
     };
 }

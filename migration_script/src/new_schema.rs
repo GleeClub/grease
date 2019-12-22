@@ -5,6 +5,7 @@ use mysql::{params, Pool};
 
 macro_rules! impl_insert {
     ($table_name:expr, pub struct $type_name:ident { $(pub $field_names:ident: $field_types:ty,)* }) => {
+        #[allow(dead_code)]
         #[derive(Debug)]
         pub struct $type_name {
             $(

@@ -73,7 +73,7 @@ impl Semester {
     // TODO: add table for historical officership
     pub fn update<C: Connection>(
         name: &str,
-        updated_semester: &SemesterUpdate,
+        updated_semester: &NewSemester,
         conn: &mut C,
     ) -> GreaseResult<()> {
         if &updated_semester.start_date >= &updated_semester.end_date {
@@ -83,14 +83,15 @@ impl Semester {
         } else {
             conn.update(
                 &Update::new(Semester::table_name())
-                    .filter(&format!("name = '{}'", name))
+                    .filter(&format!("name = '{}'", &name))
+                    .set("name", &to_value(&updated_semester.name))
                     .set("start_date", &to_value(updated_semester.start_date))
                     .set("end_date", &to_value(updated_semester.end_date))
                     .set(
                         "gig_requirement",
                         &to_value(updated_semester.gig_requirement),
                     ),
-                format!("No semester named '{}'.", name),
+                format!("No semester named '{}'.", &name),
             )
         }
     }

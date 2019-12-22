@@ -4,6 +4,7 @@ use crate::old_schema::*;
 use mysql::Pool;
 use std::collections::HashMap;
 use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
+use bcrypt::hash;
 
 pub trait Load: Sized {
     fn load(old_db: &Pool) -> MigrateResult<Vec<Self>>;
@@ -45,7 +46,13 @@ impl Migrate<OldMember> for NewMember {
                     pass_hash: old_member
                         .password
                         .clone()
-                        .ok_or(MigrateError::Other("old member had no password".to_owned()))?,
+                        .ok_or(MigrateError::Other("old member had no password".to_owned()))
+                        .and_then(|pass_hash| {
+                            hash(&pass_hash, 10)
+                                .map_err(|err| MigrateError::Other(format!(
+                                    "Invalid password hash: {}", err,
+                                )))
+                        })?,
                     phone_number: old_member
                         .phone
                         .ok_or(MigrateError::Other(
@@ -142,8 +149,8 @@ impl Migrate<OldRole> for NewRole {
                             old_role.id
                         )))?
                         .clone(),
-                    rank: old_role.rank,
-                    max_quantity: old_role.quantity,
+                    rank: if old_role.rank < 0 { 100 } else { old_role.rank },
+                    max_quantity: std::cmp::max(old_role.quantity, 0),
                 })
             })
             .collect::<MigrateResult<Vec<NewRole>>>()?;
@@ -236,7 +243,7 @@ impl Migrate<OldEventType> for NewEventType {
         let new_event_types = old_event_types
             .iter()
             .map(|old_event_type| NewEventType {
-                name: old_event_type.id.clone(),
+                name: old_event_type.name.clone(),
                 weight: old_event_type.weight,
             })
             .collect::<Vec<NewEventType>>();
@@ -247,11 +254,11 @@ impl Migrate<OldEventType> for NewEventType {
 }
 
 impl Migrate<OldEvent> for NewEvent {
-    type Dependencies = Vec<OldSectionType>;
-    fn migrate(
+    type Dependencies = (Vec<OldSectionType>, Vec<OldEventType>);
+    fn migrate<'a>(
         old_db: &Pool,
         new_db: &Pool,
-        dependencies: &Self::Dependencies,
+        (old_section_types, old_event_types): &Self::Dependencies,
     ) -> MigrateResult<(Vec<OldEvent>, Vec<Self>)> {
         let old_events = OldEvent::load(old_db)?;
         let new_events = old_events
@@ -268,11 +275,19 @@ impl Migrate<OldEvent> for NewEvent {
                     location: old_event.location.clone(),
                     gig_count: old_event.gigcount.clone(),
                     default_attend: old_event.defaultAttend.clone(),
-                    type_: old_event.type_.clone(),
+                    type_: old_event_types
+                        .iter()
+                        .find(|event_type| event_type.id == old_event.type_)
+                        .ok_or(MigrateError::Other(format!(
+                            "event with id {} had an unknown event type {}",
+                            old_event.eventNo, old_event.type_,
+                        )))?
+                        .name
+                        .clone(),
                     section: if old_event.section == 0 {
                         None
                     } else {
-                        let section_type = dependencies
+                        let section_type = old_section_types
                             .iter()
                             .find(|section_type| section_type.id == old_event.section)
                             .ok_or(MigrateError::Other(format!(
@@ -885,11 +900,11 @@ impl Migrate<OldRidesIn> for NewRidesIn {
 }
 
 impl Migrate<OldRolePermission> for NewRolePermission {
-    type Dependencies = Vec<OldRole>;
+    type Dependencies = (Vec<OldRole>, Vec<OldEventType>);
     fn migrate(
         old_db: &Pool,
         new_db: &Pool,
-        dependencies: &Self::Dependencies,
+        (old_roles, old_event_types): &Self::Dependencies,
     ) -> MigrateResult<(Vec<OldRolePermission>, Vec<Self>)> {
         let old_role_permissions = OldRolePermission::load(old_db)?;
         let new_role_permissions = old_role_permissions
@@ -898,8 +913,19 @@ impl Migrate<OldRolePermission> for NewRolePermission {
                 Ok(NewRolePermission {
                     id: old_role_permission.id,
                     permission: old_role_permission.permission.clone(),
-                    event_type: old_role_permission.eventType.clone(),
-                    role: dependencies
+                    event_type: if let Some(event_type) = &old_role_permission.eventType {
+                        Some(old_event_types
+                            .iter()
+                            .find(|given_event_type| &given_event_type.id == event_type)
+                            .ok_or(MigrateError::Other(format!(
+                                "role permission had invalid event type {}", event_type,
+                            )))?
+                            .name
+                            .clone())
+                    } else {
+                        None
+                    },
+                    role: old_roles
                         .iter()
                         .find(|old_role| old_role.id == old_role_permission.role)
                         .ok_or(MigrateError::Other(format!(
