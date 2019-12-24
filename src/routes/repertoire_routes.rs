@@ -4,10 +4,12 @@ use super::basic_success;
 use crate::check_for_permission;
 use crate::util::FileUpload;
 use auth::User;
-use db::models::*;
+use db::schema::StorageType;
+use db::*;
 use error::{GreaseError, GreaseResult};
 use serde_json::{json, Value};
 use std::path::PathBuf;
+use std::collections::HashMap;
 
 /// Get a single song.
 ///
@@ -27,8 +29,8 @@ use std::path::PathBuf;
 /// [load_with_data](crate::db::models::Song#method.load_with_data)
 /// will be returned. Otherwise, a simple [Song](crate::db::models::Song)
 /// will be returned.
-pub fn get_song(id: i32, details: Option<bool>, mut user: User) -> GreaseResult<Value> {
-    if details.unwrap_or(false) {
+pub fn get_song(id: i32, params: HashMap<String, bool>, mut user: User) -> GreaseResult<Value> {
+    if params.get("full").unwrap_or(false) {
         Song::load_with_data(id, &mut user.conn).map(|song_data| json!(song_data))
     } else {
         Song::load(id, &mut user.conn).map(|song| json!(song))
@@ -58,7 +60,7 @@ pub fn get_songs(mut user: User) -> GreaseResult<Value> {
 /// ## Input Format:
 ///
 /// Expects a [NewSong](crate::db::models::NewSong).
-pub fn new_song((new_song, mut user): (NewSong, User)) -> GreaseResult<Value> {
+pub fn new_song(new_song: NewSong, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
     Song::create(&new_song, &mut user.conn).map(|new_id| json!({ "id": new_id }))
 }

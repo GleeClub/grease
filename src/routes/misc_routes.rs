@@ -3,7 +3,6 @@
 use auth::User;
 use db::*;
 use error::GreaseResult;
-use pinto::query_builder::Order;
 use serde_json::{json, Value};
 
 /// Get a variable.
@@ -45,7 +44,7 @@ pub fn get_variable(key: String, mut user: User) -> GreaseResult<Value> {
 ///
 /// Returns an object with the old value if the variable was already set,
 /// or null if it wasn't.
-pub fn set_variable(key: String, (new_value, mut user): (NewValue, User)) -> GreaseResult<Value> {
+pub fn set_variable(key: String, new_value: NewValue, mut user: User) -> GreaseResult<Value> {
     Variable::set(key, new_value.value, &mut user.conn)
         .map(|old_val| json!({ "oldValue": old_val }))
 }
@@ -96,7 +95,9 @@ pub fn unset_variable(key: String, mut user: User) -> GreaseResult<Value> {
 /// [Role](crate::db::models::Role), and
 /// [Uniform](crate::db::models::Uniform)
 /// for the formats of each field.
-pub fn static_data(mut conn: DbConn) -> GreaseResult<Value> {
+pub fn static_data() -> GreaseResult<Value> {
+    let mut conn = connect_to_db()?;
+
     Ok(json!({
         "mediaTypes": MediaType::load_all(&mut conn)?,
         "uniforms": Uniform::load_all(&mut conn)?,

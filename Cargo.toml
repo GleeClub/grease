@@ -7,27 +7,17 @@ authors = ["Sam Mohr <sammohr97@gmail.com>"]
 base64 = "0.10"
 bcrypt = "0.4"
 cgi = "0.2"
-chrono = { version =  "0.4", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde"] }
 dotenv = "0.14.1"
 glob = "0.3"
-grease_derive = { path = "grease_derive" }
-http = "0.1.17"
-mysql = "14.2.0"
-mysql_enum = "0.1.3"
-pinto = "0.6"
 regex = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
-strum = "0.14"
-strum_macros = "0.14"
 url = "1.7.2"
 uuid = { version = "0.7", features = ["v4"] }
+warp = "0.1.20"
+diesel = { version = "1.4.3", features = [ "mysql", "chrono", "serde_json" ] }
+diesel-derive-enum = "0.4.4"
 
 [profile.release]
 panic = "unwind"
-
-[dev-dependencies]
-mysql_common = "0.12"
-smallvec = "0.6.10"
-mocktopus = "0.7.2"
-lazy_static = "1.3"

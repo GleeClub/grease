@@ -1,103 +1,114 @@
 use db::models::member::MemberForSemester;
-use db::*;
+use db::{Fee, NewTransaction, Semester, Transaction};
+use diesel::Connection;
 use error::*;
-use pinto::query_builder::*;
 
 impl Transaction {
     pub fn load_all_for_member<C: Connection>(
-        member: &str,
+        given_member: &str,
         conn: &mut C,
     ) -> GreaseResult<Vec<Transaction>> {
-        conn.load(
-            Transaction::filter(&format!("member = '{}'", member)).order_by("time", Order::Asc),
-        )
+        use db::schema::transaction::dsl::*;
+
+        transaction
+            .filter(member.eq(given_member))
+            .order_by(time.asc())
+            .load(conn)
+            .map_err(GreaseError::DbError)
     }
 
     pub fn load_all_of_type_for_semester<C: Connection>(
-        type_: &str,
-        semester: &str,
+        given_type: &str,
+        given_semester: &str,
         conn: &mut C,
     ) -> GreaseResult<Vec<Transaction>> {
-        conn.load(
-            Transaction::filter(&format!(
-                "semester = '{}' AND `type` = '{}'",
-                semester, type_
-            ))
-            .order_by("time", Order::Asc),
-        )
+        use db::schema::transaction::dsl::*;
+
+        transaction
+            .filter(semester.eq(given_semester).and(type_.eq(given_type)))
+            .order_by(time.asc())
+            .load(conn)
+            .map_err(GreaseError::DbError)
     }
 }
 
 impl Fee {
-    pub fn load<C: Connection>(name: &str, conn: &mut C) -> GreaseResult<Fee> {
-        conn.first(
-            &Fee::filter(&format!("name = '{}'", name)),
-            format!("No fee with name {}.", name),
-        )
+    pub fn load<C: Connection>(given_name: &str, conn: &mut C) -> GreaseResult<Fee> {
+        use db::schema::fee::dsl::*;
+
+        fee.filter(name.eq(given_name))
+            .first(conn)
+            .map_err(GreaseError::DbError)
+        // format!("No fee with name {}.", name),
     }
 
-    pub fn charge_for_the_semester(&self, conn: &mut DbConn) -> GreaseResult<()> {
-        conn.transaction(|db_transaction| {
-            let current_semester = Semester::load_current(db_transaction)?;
-            let transaction_type = match self.name.as_str() {
+    pub fn charge_for_the_semester<C: Connection>(&self, conn: &mut C) -> GreaseResult<()> {
+        use db::schema::transaction_type::dsl::*;
+
+        conn.transaction(|| {
+            let current_semester = Semester::load_current(conn)?;
+            let trans_type = match self.name.as_str() {
                 "dues" | "latedues" => "Dues".to_owned(),
-                other => db_transaction
-                    .first_opt::<TransactionType>(&TransactionType::filter(&format!(
-                        "name = '{}'",
-                        other
-                    )))?
+                other => transaction_type
+                    .filter(name.eq(other))
+                    .first(conn)
+                    .optional()
+                    .map_err(GreaseError::DbError)?
                     .map(|type_| type_.name)
                     .unwrap_or("Other".to_owned()),
             };
 
             if Transaction::load_all_of_type_for_semester(
-                &transaction_type,
+                &trans_type,
                 &current_semester.name,
-                db_transaction,
+                conn,
             )?
             .len()
-                == 0
+                > 0
             {
-                let new_transactions =
-                    MemberForSemester::load_all(&current_semester.name, db_transaction)?
-                        .into_iter()
-                        .map(|member_for_semester| NewTransaction {
-                            member: member_for_semester.member.email,
-                            amount: self.amount,
-                            description: self.description.clone(),
-                            semester: Some(current_semester.name.clone()),
-                            type_: transaction_type.clone(),
-                            resolved: true,
-                        })
-                        .collect::<Vec<_>>();
-                for new_transaction in new_transactions {
-                    new_transaction.insert(db_transaction)?;
-                }
-
-                Ok(())
-            } else {
                 Err(GreaseError::BadRequest(format!(
                     "Fee of type {} has already been charged for the current semester",
                     &self.name
                 )))
+            } else {
+                let new_transactions = MemberForSemester::load_all(&current_semester.name, conn)?
+                    .into_iter()
+                    .map(|member_for_semester| NewTransaction {
+                        member: member_for_semester.member.email,
+                        amount: self.amount,
+                        description: self.description.clone(),
+                        semester: Some(current_semester.name.clone()),
+                        type_: transaction_type.clone(),
+                        resolved: true,
+                    })
+                    .collect::<Vec<_>>();
+                diesel::insert_into(crate::db::schema::transaction::table)
+                    .values(new_transactions)
+                    .execute(conn)
+                    .map_err(GreaseResult::DbError)
             }
         })
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Fee>> {
-        conn.load(&Fee::select_all_in_order("name", Order::Asc))
+        use db::schema::fee::dsl::*;
+
+        fee.order_by(name.asc())
+            .load(conn)
+            .map_err(GreaseError::DbError)
     }
 
     pub fn update_amount<C: Connection>(
-        name: &str,
+        given_name: &str,
         new_amount: i32,
         conn: &mut C,
     ) -> GreaseResult<()> {
-        conn.update(
-            Update::new(Fee::table_name())
-                .filter(&format!("name = '{}'", name))
-                .set("amount", &new_amount.to_string()),
-            format!("No fee with name {}.", name),
-        )
+        use db::schema::fee::dsl::*;
+
+        diesel::update(fee.filter(name.eq(given_name)))
+            .set(amount.eq(new_amount))
+            .execute(conn)
+            .map_err(GreaseError::DbError)
+        // format!("No fee with name {}.", name),
     }
 }

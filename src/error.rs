@@ -5,7 +5,7 @@
 //! into a `BadRequest` or a generic `ServerError`. Make sure when doing
 //! so to add adequate documentation.
 
-use db::models::Member;
+use db::Member;
 use serde_json::{json, Value};
 
 /// The error enum for all error handling across the API.
@@ -97,17 +97,17 @@ pub enum GreaseError {
     ///     "error": <error message>
     /// }
     /// ```
-    DbError(mysql::error::Error),
-    /// \[500\] An error occurred while deserializing a MySQL row.
+    DbError(diesel::result::Error),
+    /// \[500\] An error occurred while connecting to the database.
     ///
     /// ```json
     /// {
-    ///     "message": "database error (error deserializing from returned row)",
+    ///     "message": "error connecting to database",
     ///     "statusCode": 500,
     ///     "error": <error message>
     /// }
     /// ```
-    FromRowError(mysql::FromRowError),
+    ConnectionError(diesel::ConnectionError),
 }
 
 /// The return type for all endpoints.
@@ -188,10 +188,10 @@ impl GreaseError {
                     "error": format!("{:?}", error)
                 }),
             ),
-            GreaseError::FromRowError(error) => (
+            GreaseError::ConnectionError(error) => (
                 500,
                 json!({
-                    "message": "database error (error deserializing from returned row)",
+                    "message": "error connecting to database",
                     "statusCode": 500,
                     "error": format!("{:?}", error)
                 }),

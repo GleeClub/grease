@@ -3,7 +3,7 @@
 use super::basic_success;
 use crate::auth::User;
 use crate::check_for_permission;
-use crate::db::member::MemberForSemester;
+use crate::db::models::member::MemberForSemester;
 use crate::db::*;
 use crate::error::*;
 use serde_json::{json, Value};
@@ -26,7 +26,8 @@ use std::collections::HashSet;
 /// Returns an object with an API token unique to the member. Logging in
 /// multiple times will return the existing token instead of generating
 /// another one.
-pub fn login((form, mut conn): (LoginInfo, DbConn)) -> GreaseResult<Value> {
+pub fn login(form: LoginInfo) -> GreaseResult<Value> {
+    let mut conn = connect_to_db()?;
     if let Some(_member) = Member::check_login(&form.email, &form.pass_hash, &mut conn)? {
         if let Some(existing_session) = Session::load(&form.email, &mut conn)? {
             Err(GreaseError::AlreadyLoggedIn(existing_session.key))
@@ -156,7 +157,8 @@ pub fn get_members(
         let include_inactive = included.remove("inactive");
         if included.len() > 0 {
             return Err(GreaseError::BadRequest(
-                "For the include param, only 'class', 'club', and 'inactive' are allowed.".to_owned(),
+                "For the include param, only 'class', 'club', and 'inactive' are allowed."
+                    .to_owned(),
             ));
         }
 

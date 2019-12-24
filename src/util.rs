@@ -68,7 +68,7 @@ impl<'e> Email<'e> {
     }
 }
 
-#[derive(Deserialize, grease_derive::Extract)]
+#[derive(Deserialize)]
 pub struct FileUpload {
     pub path: String,
     pub content: String,
@@ -176,7 +176,7 @@ pub fn log_panic(request: &cgi::Request, error_message: String) -> cgi::Response
     });
     let body = json_val.to_string().into_bytes();
 
-    http::response::Builder::new()
+    cgi::http::response::Builder::new()
         .status(500)
         .body(body)
         .unwrap()

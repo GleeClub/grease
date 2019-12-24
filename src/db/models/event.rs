@@ -1,52 +1,53 @@
 use chrono::{Datelike, Duration, Local, NaiveDate, NaiveDateTime};
 use db::models::member::GradeChange;
 use db::models::member::MemberForSemester;
-use db::*;
+use db::{Event, EventType, Gig, Semester, EventUpdate};
+use diesel::{Connection, MysqlConnection};
 use error::*;
-use pinto::query_builder::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 impl Event {
     pub fn load<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<EventWithGig> {
-        conn.first(
-            Select::new(Event::table_name())
-                .join(Gig::table_name(), "id", "event", Join::Left)
-                .fields(EventWithGigRow::field_names())
-                .filter(&format!("id = {}", event_id)),
-            format!("No event with id {}.", event_id),
-        )
-        .map(|row: EventWithGigRow| row.into())
+        use db::schema::event::dsl::*;
+        use db::schema::gig;
+
+        event.inner_join(gig::table)
+            .filter(id.eq(event_id))
+            .first(conn)
+            .optional()?
+            .ok_or(format!("No event with id {}.", event_id))
     }
 
     pub fn load_all_for_current_semester<C: Connection>(
         conn: &mut C,
     ) -> GreaseResult<Vec<EventWithGig>> {
+        use db::schema::event::dsl::*;
+        use db::schema::gig;
+
         let current_semester = Semester::load_current(conn)?;
 
-        conn.load_as::<EventWithGigRow, EventWithGig>(
-            Select::new(Event::table_name())
-                .join(Gig::table_name(), "id", "event", Join::Left)
-                .fields(EventWithGigRow::field_names())
-                .filter(&format!("semester = '{}'", &current_semester.name))
-                .order_by("call_time", Order::Asc),
-        )
+        event.inner_join(gig::table)
+            .filter(semester.eq(current_semester.name))
+            .order_by(call_time.asc())
+            .load(conn)
+            .map_err(GreaseError::DbError)
     }
 
     pub fn load_all_of_type_for_current_semester<C: Connection>(
         event_type: &str,
         conn: &mut C,
     ) -> GreaseResult<Vec<EventWithGig>> {
+        use db::schema::event::dsl::*;
+        use db::schema::gig;
+
         let current_semester = Semester::load_current(conn)?;
 
-        conn.load_as::<EventWithGigRow, EventWithGig>(
-            Select::new(Event::table_name())
-                .join(Gig::table_name(), "id", "event", Join::Left)
-                .fields(EventWithGigRow::field_names())
-                .filter(&format!("semester = '{}'", &current_semester.name))
-                .filter(&format!("type = '{}'", event_type))
-                .order_by("call_time", Order::Asc),
-        )
+        event.inner_join(gig::table)
+            .filter(semester.eq(current_semester.name).and(type_.eq(event_type)))
+            .order_by(call_time.asc())
+            .load(conn)
+            .map_err(GreaseError::DbError)
     }
 
     pub fn went_to_event_type_during_week_of(
@@ -591,72 +592,72 @@ impl GigRequest {
     }
 }
 
-#[derive(grease_derive::FromRow, grease_derive::FieldNames)]
-struct EventWithGigRow {
-    // event fields
-    pub id: i32,
-    pub name: String,
-    pub semester: String,
-    #[rename = "type"]
-    pub type_: String,
-    pub call_time: NaiveDateTime,
-    pub release_time: Option<NaiveDateTime>,
-    pub points: i32,
-    pub comments: Option<String>,
-    pub location: Option<String>,
-    pub gig_count: bool,
-    pub default_attend: bool,
-    pub section: Option<String>,
-    // gig fields
-    pub event: Option<i32>,
-    pub performance_time: Option<NaiveDateTime>,
-    pub uniform: Option<i32>,
-    pub contact_name: Option<String>,
-    pub contact_email: Option<String>,
-    pub contact_phone: Option<String>,
-    pub price: Option<i32>,
-    pub public: Option<bool>,
-    pub summary: Option<String>,
-    pub description: Option<String>,
-}
+// #[derive(grease_derive::FromRow, grease_derive::FieldNames)]
+// struct EventWithGigRow {
+//     // event fields
+//     pub id: i32,
+//     pub name: String,
+//     pub semester: String,
+//     #[rename = "type"]
+//     pub type_: String,
+//     pub call_time: NaiveDateTime,
+//     pub release_time: Option<NaiveDateTime>,
+//     pub points: i32,
+//     pub comments: Option<String>,
+//     pub location: Option<String>,
+//     pub gig_count: bool,
+//     pub default_attend: bool,
+//     pub section: Option<String>,
+//     // gig fields
+//     pub event: Option<i32>,
+//     pub performance_time: Option<NaiveDateTime>,
+//     pub uniform: Option<i32>,
+//     pub contact_name: Option<String>,
+//     pub contact_email: Option<String>,
+//     pub contact_phone: Option<String>,
+//     pub price: Option<i32>,
+//     pub public: Option<bool>,
+//     pub summary: Option<String>,
+//     pub description: Option<String>,
+// }
 
-impl Into<EventWithGig> for EventWithGigRow {
-    fn into(self) -> EventWithGig {
-        EventWithGig {
-            event: Event {
-                id: self.id,
-                name: self.name,
-                semester: self.semester,
-                type_: self.type_,
-                call_time: self.call_time,
-                release_time: self.release_time,
-                points: self.points,
-                comments: self.comments,
-                location: self.location,
-                gig_count: self.gig_count,
-                default_attend: self.default_attend,
-                section: self.section,
-            },
-            gig: if self.event.is_some()
-                && self.performance_time.is_some()
-                && self.uniform.is_some()
-                && self.public.is_some()
-            {
-                Some(Gig {
-                    event: self.event.unwrap(),
-                    performance_time: self.performance_time.unwrap(),
-                    uniform: self.uniform.unwrap(),
-                    contact_name: self.contact_name,
-                    contact_email: self.contact_email,
-                    contact_phone: self.contact_phone,
-                    price: self.price,
-                    public: self.public.unwrap(),
-                    summary: self.summary,
-                    description: self.description,
-                })
-            } else {
-                None
-            },
-        }
-    }
-}
+// impl Into<EventWithGig> for EventWithGigRow {
+//     fn into(self) -> EventWithGig {
+//         EventWithGig {
+//             event: Event {
+//                 id: self.id,
+//                 name: self.name,
+//                 semester: self.semester,
+//                 type_: self.type_,
+//                 call_time: self.call_time,
+//                 release_time: self.release_time,
+//                 points: self.points,
+//                 comments: self.comments,
+//                 location: self.location,
+//                 gig_count: self.gig_count,
+//                 default_attend: self.default_attend,
+//                 section: self.section,
+//             },
+//             gig: if self.event.is_some()
+//                 && self.performance_time.is_some()
+//                 && self.uniform.is_some()
+//                 && self.public.is_some()
+//             {
+//                 Some(Gig {
+//                     event: self.event.unwrap(),
+//                     performance_time: self.performance_time.unwrap(),
+//                     uniform: self.uniform.unwrap(),
+//                     contact_name: self.contact_name,
+//                     contact_email: self.contact_email,
+//                     contact_phone: self.contact_phone,
+//                     price: self.price,
+//                     public: self.public.unwrap(),
+//                     summary: self.summary,
+//                     description: self.description,
+//                 })
+//             } else {
+//                 None
+//             },
+//         }
+//     }
+// }

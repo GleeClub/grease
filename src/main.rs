@@ -232,9 +232,6 @@
 //! **GET**    | /transaction_types | [get_transaction_types](crate::routes::officer_routes::get_transaction_types)
 //! **GET**    | /static_data       | [static_data](crate::routes::misc_routes::static_data)
 
-#![feature(drain_filter)]
-#![feature(box_syntax)]
-#![feature(const_fn)]
 #![recursion_limit = "128"]
 
 extern crate base64;
@@ -243,33 +240,25 @@ extern crate cgi;
 extern crate chrono;
 extern crate dotenv;
 extern crate glob;
-extern crate grease_derive;
-extern crate http;
+extern crate regex;
+#[macro_use]
+extern crate diesel;
+extern crate diesel_derive_enum;
 // extern crate lettre;
 // extern crate lettre_email;
-#[cfg(test)]
-extern crate mocktopus;
-extern crate mysql;
-extern crate mysql_enum;
-extern crate pinto;
-extern crate regex;
 extern crate serde;
 extern crate serde_json;
-extern crate strum;
-extern crate strum_macros;
 extern crate url;
 extern crate uuid;
+extern crate warp;
 
 pub mod auth;
 pub mod db;
 pub mod error;
-pub mod extract;
 pub mod routes;
 pub mod util;
 
-use routes::handle_request;
-
 fn main() {
     dotenv::dotenv().ok();
-    cgi::handle(handle_request);
+    cgi::handle(routes::handle_request);
 }

@@ -1,28 +1,38 @@
-use db::*;
+use db::schema::minutes::dsl::*;
+use db::{MeetingMinutes, NewMeetingMinutes, UpdatedMeetingMinutes};
+use diesel::Connection;
 use error::*;
-use pinto::query_builder::*;
 use serde_json::{json, Value};
 
 impl MeetingMinutes {
     pub fn load<C: Connection>(meeting_id: i32, conn: &mut C) -> GreaseResult<MeetingMinutes> {
-        conn.first(
-            &MeetingMinutes::filter(&format!("id = {}", meeting_id)),
-            format!("No meeting minutes with id {}.", meeting_id),
-        )
+        minutes
+            .filter(id.eq(meeting_id))
+            .first(conn)
+            .optional()
+            .map_err(GreaseError::DbError)
+        // format!("No meeting minutes with id {}.", meeting_id),
     }
 
     pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<MeetingMinutes>> {
-        conn.load(&MeetingMinutes::select_all_in_order(
-            "date, name",
-            Order::Desc,
-        ))
+        minutes
+            .order_by((date.desc(), name.desc()))
+            .load(conn)
+            .map_err(GreaseError::DbError)
     }
 
     pub fn create<C: Connection>(
         new_meeting: &NewMeetingMinutes,
         conn: &mut C,
     ) -> GreaseResult<i32> {
-        new_meeting.insert_returning_id(conn)
+        conn.transaction(|| {
+            diesel::insert_into(minutes)
+                .values(new_meeting)
+                .execute(conn)?;
+
+            minutes.order_by(id.desc()).first(conn)
+        })
+        .map_err(GreaseError::DbError)
     }
 
     pub fn update<C: Connection>(
@@ -30,34 +40,27 @@ impl MeetingMinutes {
         updated_meeting: &UpdatedMeetingMinutes,
         conn: &mut C,
     ) -> GreaseResult<()> {
-        conn.update(
-            &Update::new(MeetingMinutes::table_name())
-                .filter(&format!("id = {}", meeting_id))
-                .set("name", &to_value(&updated_meeting.name))
-                .set("public", &to_value(&updated_meeting.public))
-                .set("private", &to_value(&updated_meeting.private)),
-            format!("No meeting minutes with id {}.", meeting_id),
-        )
+        diesel::update(minutes.filter(id.eq(meeting_id)))
+            .set(updated_meeting)
+            .execute(conn)
+            .map_err(GreaseError::DbError)
+        // format!("No meeting minutes with id {}.", meeting_id),
     }
 
     pub fn delete<C: Connection>(meeting_id: i32, conn: &mut C) -> GreaseResult<()> {
-        conn.delete(
-            &Delete::new(MeetingMinutes::table_name()).filter(&format!("id = {}", meeting_id)),
-            format!("No meeting minutes with id {}.", meeting_id),
-        )
+        diesel::delete(minutes.filter(id.eq(meeting_id)))
+            .execute(conn)
+            .map_err(GreaseError::DbError)
+        // format!("No meeting minutes with id {}.", meeting_id),
     }
 
     pub fn to_json(&self, can_view_private: bool) -> Value {
-        let mut meeting = json!({
+        json!({
             "id": &self.id,
             "name": &self.name,
             "date": &self.date,
             "public": &self.public,
-        });
-        if can_view_private {
-            meeting["private"] = json!(self.private);
-        }
-
-        meeting
+            "private": &self.private.filter(|_| can_view_private)
+        })
     }
 }

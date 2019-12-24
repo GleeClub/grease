@@ -3,9 +3,9 @@ use bcrypt::{hash, verify};
 use chrono::Local;
 use db::*;
 use error::*;
-use pinto::query_builder::*;
 use serde::Serialize;
 use serde_json::{json, Value};
+use diesel::Connection;
 
 #[derive(Debug, PartialEq)]
 pub struct MemberForSemester {
@@ -755,65 +755,6 @@ impl ActiveSemester {
     }
 }
 
-#[derive(grease_derive::FromRow, grease_derive::FieldNames)]
-pub struct MemberForSemesterRow {
-    pub email: String,
-    pub first_name: String,
-    pub preferred_name: Option<String>,
-    pub last_name: String,
-    pub pass_hash: String,
-    pub phone_number: String,
-    pub picture: Option<String>,
-    pub passengers: i32,
-    pub location: String,
-    pub on_campus: Option<bool>,
-    pub about: Option<String>,
-    pub major: Option<String>,
-    pub minor: Option<String>,
-    pub hometown: Option<String>,
-    pub arrived_at_tech: Option<i32>,
-    pub gateway_drug: Option<String>,
-    pub conflicts: Option<String>,
-    pub dietary_restrictions: Option<String>,
-    pub member: String,
-    pub semester: String,
-    pub enrollment: Enrollment,
-    pub section: Option<String>,
-}
-
-impl Into<MemberForSemester> for MemberForSemesterRow {
-    fn into(self) -> MemberForSemester {
-        MemberForSemester {
-            member: Member {
-                email: self.email,
-                first_name: self.first_name,
-                preferred_name: self.preferred_name,
-                last_name: self.last_name,
-                pass_hash: self.pass_hash,
-                phone_number: self.phone_number,
-                picture: self.picture,
-                passengers: self.passengers,
-                location: self.location,
-                on_campus: self.on_campus,
-                about: self.about,
-                major: self.major,
-                minor: self.minor,
-                hometown: self.hometown,
-                arrived_at_tech: self.arrived_at_tech,
-                gateway_drug: self.gateway_drug,
-                conflicts: self.conflicts,
-                dietary_restrictions: self.dietary_restrictions,
-            },
-            active_semester: Some(ActiveSemester {
-                member: self.member,
-                semester: self.semester,
-                enrollment: self.enrollment,
-                section: self.section,
-            }),
-        }
-    }
-}
-
 impl NewMember {
     pub fn for_current_semester<C: Connection>(
         self,
@@ -826,7 +767,7 @@ impl NewMember {
                 preferred_name: self.preferred_name,
                 last_name: self.last_name,
                 pass_hash: self.pass_hash.ok_or(GreaseError::BadRequest(
-                    "The `pass_hash` field is required for new member registration.".to_owned(),
+                    "The `passHash` field is required for new member registration.".to_owned(),
                 ))?,
                 phone_number: self.phone_number,
                 picture: self.picture,

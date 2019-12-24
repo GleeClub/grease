@@ -5,7 +5,6 @@ use crate::check_for_permission;
 use auth::User;
 use db::*;
 use error::*;
-use pinto::query_builder::Order;
 use serde_json::{json, Value};
 
 /// Get a single event.

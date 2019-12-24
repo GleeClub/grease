@@ -5,7 +5,6 @@ use crate::check_for_permission;
 use auth::*;
 use db::*;
 use error::*;
-use pinto::query_builder::*;
 use serde_json::{json, Value};
 
 /// Get a single announcement.
@@ -446,7 +445,8 @@ pub fn get_semester(name: String, mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// Returns a [Semester](crate::db::models::Semester).
-pub fn get_current_semester(mut conn: DbConn) -> GreaseResult<Value> {
+pub fn get_current_semester() -> GreaseResult<Value> {
+    let mut conn = connect_to_db()?;
     Semester::load_current(&mut conn).map(|semester| json!(semester))
 }
 

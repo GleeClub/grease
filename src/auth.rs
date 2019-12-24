@@ -3,9 +3,9 @@
 //! The [User](crate::auth::User) struct, in use as an [extract](crate::extract::Extract)able
 //! parameter for endpoints, is the primary method for handling authorization
 //! for the API.
-use db::{member::MemberForSemester, DbConn};
-use error::{GreaseError, GreaseResult};
-use extract::Extract;
+use db::models::member::MemberForSemester;
+use diesel::MysqlConnection;
+use error::GreaseError;
 use serde::{Deserialize, Serialize};
 
 /// The "standard package" for API interaction.
@@ -21,7 +21,7 @@ pub struct User {
     /// The member's current permissions
     pub permissions: Vec<MemberPermission>,
     /// A connection to the database
-    pub conn: DbConn,
+    pub conn: MysqlConnection,
 }
 
 impl User {
@@ -37,31 +37,23 @@ impl User {
                     || permission.event_type.as_ref().map(|type_| type_.as_str()) == event_type)
         })
     }
-}
 
-impl Extract for User {
     /// Extract a member from a request.
     ///
     /// Checks for a header named "token" containing the API token
     /// to authenticate a request as from the current user.
-    fn extract(request: &cgi::Request) -> GreaseResult<Self> {
-        let mut conn = DbConn::extract(request)?;
-        let member = request
-            .headers()
-            .get("token")
-            .ok_or(GreaseError::Unauthorized)
-            .and_then(|token_header| {
-                token_header.to_str().map_err(|err| {
-                    GreaseError::BadRequest(format!("invalid token header: {:?}", err))
-                })
-            })
-            .and_then(|token| MemberForSemester::load_from_token(token, &mut conn))?;
-        let permissions = member.member.permissions(&mut conn)?;
+    fn filter() -> impl warp::Filter<Extract = (User,), Error = GreaseError> {
+        warp::header::optional::<String>("token").and_then(|token| {
+            let token = token.ok_or(GreaseError::Unauthorized)?;
+            let mut conn = crate::db::connect_to_db()?;
+            let member = MemberForSemester::load_from_token(token, &mut conn)?;
+            let permissions = member.member.permissions(&mut conn)?;
 
-        Ok(User {
-            member,
-            permissions,
-            conn,
+            Ok(User {
+                member,
+                permissions,
+                conn,
+            })
         })
     }
 }
@@ -74,7 +66,7 @@ impl Extract for User {
 /// |-----------|--------|:---------:|----------|
 /// | name      | string |     ✓     |          |
 /// | eventType | string |           |          |
-#[derive(PartialEq, Debug, Serialize, Deserialize, grease_derive::Extract)]
+#[derive(PartialEq, Serialize, Deserialize)]
 pub struct MemberPermission {
     pub name: String,
     #[serde(rename = "eventType")]
