@@ -9,7 +9,6 @@ use db::*;
 use error::{GreaseError, GreaseResult};
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use std::collections::HashMap;
 
 /// Get a single song.
 ///
@@ -25,12 +24,12 @@ use std::collections::HashMap;
 ///
 /// ## Return Format:
 ///
-/// If `full = true`, then the format from
+/// If `details = true`, then the format from
 /// [load_with_data](crate::db::models::Song#method.load_with_data)
 /// will be returned. Otherwise, a simple [Song](crate::db::models::Song)
 /// will be returned.
-pub fn get_song(id: i32, params: HashMap<String, bool>, mut user: User) -> GreaseResult<Value> {
-    if params.get("full").unwrap_or(false) {
+pub fn get_song(id: i32, details: Option<bool>, mut user: User) -> GreaseResult<Value> {
+    if details.unwrap_or(false) {
         Song::load_with_data(id, &mut user.conn).map(|song_data| json!(song_data))
     } else {
         Song::load(id, &mut user.conn).map(|song| json!(song))
@@ -77,10 +76,7 @@ pub fn new_song(new_song: NewSong, mut user: User) -> GreaseResult<Value> {
 /// ## Input Format:
 ///
 /// Expects a [SongUpdate](crate::db::models::SongUpdate).
-pub fn update_song(
-    song_id: i32,
-    (updated_song, mut user): (SongUpdate, User),
-) -> GreaseResult<Value> {
+pub fn update_song(song_id: i32, updated_song: SongUpdate, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
     Song::update(song_id, &updated_song, &mut user.conn).map(|_| basic_success())
 }
@@ -167,7 +163,8 @@ pub fn get_song_link(link_id: i32, mut user: User) -> GreaseResult<Value> {
 /// Expects a [SongLinkUpdate](crate::db::models::SongLinkUpdate).
 pub fn update_song_link(
     link_id: i32,
-    (updated_link, mut user): (SongLinkUpdate, User),
+    updated_link: SongLinkUpdate,
+    mut user: User,
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
     SongLink::update(link_id, updated_link, &mut user.conn).map(|_| basic_success())
@@ -182,7 +179,7 @@ pub fn update_song_link(
 /// ## Input Format:
 ///
 /// Expects a [FileUpload](crate::util::FileUpload).
-pub fn upload_file((file, user): (FileUpload, User)) -> GreaseResult<Value> {
+pub fn upload_file(file: FileUpload, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
     file.upload().map(|_| basic_success())
 }
@@ -199,10 +196,7 @@ pub fn upload_file((file, user): (FileUpload, User)) -> GreaseResult<Value> {
 /// ## Input Format:
 ///
 /// Expects a [NewSongLink](crate::db::models::NewSongLink).
-pub fn new_song_link(
-    song_id: i32,
-    (new_link, mut user): (NewSongLink, User),
-) -> GreaseResult<Value> {
+pub fn new_song_link(song_id: i32, new_link: NewSongLink, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
     SongLink::create(song_id, new_link, &mut user.conn).map(|new_id| json!({ "id": new_id }))
 }

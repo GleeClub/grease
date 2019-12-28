@@ -1,7 +1,7 @@
 use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, PartialEq, Serialize, Clone, DbEnum, Debug)]
+#[derive(Clone, Deserialize, PartialEq, Serialize, DbEnum, Debug)]
 pub enum AbsenceRequestState {
     Approved,
     Denied,
@@ -21,7 +21,7 @@ table! {
     }
 }
 
-#[derive(Deserialize, PartialEq, Serialize, DbEnum, Debug)]
+#[derive(Deserialize, Serialize, DbEnum, Debug, PartialEq)]
 pub enum Enrollment {
     Class,
     Club,
@@ -117,11 +117,11 @@ table! {
     }
 }
 
-#[derive(Deserialize, Serialize, DbEnum, Debug)]
+#[derive(Deserialize, Serialize, DbEnum, Debug, PartialEq)]
 pub enum GigRequestStatus {
+    Pending,
     Accepted,
     Dismissed,
-    Denied,
 }
 
 table! {
@@ -159,7 +159,7 @@ table! {
     }
 }
 
-#[derive(Deserialize, Serialize, DbEnum, Debug)]
+#[derive(Deserialize, Serialize, DbEnum, Debug, PartialEq)]
 pub enum StorageType {
     Local,
     Remote,

@@ -3,7 +3,9 @@
 use super::basic_success;
 use crate::check_for_permission;
 use auth::*;
+use db::schema::*;
 use db::*;
+use diesel::prelude::*;
 use error::*;
 use serde_json::{json, Value};
 
@@ -19,8 +21,8 @@ use serde_json::{json, Value};
 /// ## Return Format:
 ///
 /// Returns an [Announcement](crate::db::models::Announcement).
-pub fn get_announcement(id: i32, mut user: User) -> GreaseResult<Value> {
-    Announcement::load(id, &mut user.conn).map(|announcement| json!(announcement))
+pub fn get_announcement(id: i32, user: User) -> GreaseResult<Value> {
+    Announcement::load(id, &user.conn).map(|announcement| json!(announcement))
 }
 
 /// Get all announcements that aren't archived for the current semester.
@@ -35,12 +37,12 @@ pub fn get_announcement(id: i32, mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// Returns a list of [Announcement](crate::db::models::Announcement)s.
-pub fn get_announcements(all: Option<bool>, mut user: User) -> GreaseResult<Value> {
+pub fn get_announcements(all: Option<bool>, user: User) -> GreaseResult<Value> {
     if all.unwrap_or(false) {
-        Announcement::load_all(&mut user.conn).map(|announcements| json!(announcements))
+        Announcement::load_all(&user.conn).map(|announcements| json!(announcements))
     } else {
-        let current_semester = Semester::load_current(&mut user.conn)?;
-        Announcement::load_all_for_semester(&current_semester.name, &mut user.conn)
+        let current_semester = Semester::load_current(&user.conn)?;
+        Announcement::load_all_for_semester(&current_semester.name, &user.conn)
             .map(|announcements| json!(announcements))
     }
 }
@@ -54,16 +56,14 @@ pub fn get_announcements(all: Option<bool>, mut user: User) -> GreaseResult<Valu
 /// ## Input Format:
 ///
 /// Expects a [NewAnnouncement](crate::db::models::NewAnnouncement).
-pub fn make_new_announcement(
-    (mut user, new_announcement): (User, NewAnnouncement),
-) -> GreaseResult<Value> {
+pub fn make_new_announcement(new_announcement: NewAnnouncement, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-announcements");
-    let current_semester = Semester::load_current(&mut user.conn)?;
+    let current_semester = Semester::load_current(&user.conn)?;
     Announcement::insert(
         &new_announcement.content,
         &user.member.member.email,
         &current_semester.name,
-        &mut user.conn,
+        &user.conn,
     )
     .map(|new_id| json!({ "id": new_id }))
 }
@@ -76,9 +76,9 @@ pub fn make_new_announcement(
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the announcement
-pub fn archive_announcement(announcement_id: i32, mut user: User) -> GreaseResult<Value> {
+pub fn archive_announcement(announcement_id: i32, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-announcements");
-    Announcement::archive(announcement_id, &mut user.conn).map(|_| basic_success())
+    Announcement::archive(announcement_id, &user.conn).map(|_| basic_success())
 }
 
 /// Get a single Google Doc.
@@ -93,8 +93,8 @@ pub fn archive_announcement(announcement_id: i32, mut user: User) -> GreaseResul
 /// ## Return Format:
 ///
 /// Returns an [GoogleDoc](crate::db::models::GoogleDoc).
-pub fn get_google_doc(name: String, mut user: User) -> GreaseResult<Value> {
-    GoogleDoc::load(&name, &mut user.conn).map(|doc| json!(doc))
+pub fn get_google_doc(name: String, user: User) -> GreaseResult<Value> {
+    GoogleDoc::load(&name, &user.conn).map(|doc| json!(doc))
 }
 
 /// Get all of the Google Docs.
@@ -106,8 +106,8 @@ pub fn get_google_doc(name: String, mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// Returns a list of [GoogleDoc](crate::db::models::GoogleDoc)s.
-pub fn get_google_docs(mut user: User) -> GreaseResult<Value> {
-    GoogleDoc::load_all(&mut user.conn).map(|docs| json!(docs))
+pub fn get_google_docs(user: User) -> GreaseResult<Value> {
+    GoogleDoc::load_all(&user.conn).map(|docs| json!(docs))
 }
 
 /// Create a new Google Doc.
@@ -119,9 +119,9 @@ pub fn get_google_docs(mut user: User) -> GreaseResult<Value> {
 /// ## Input Format:
 ///
 /// Expects a [GoogleDoc](crate::db::models::GoogleDoc).
-pub fn new_google_doc((mut user, new_doc): (User, GoogleDoc)) -> GreaseResult<Value> {
+pub fn new_google_doc(new_doc: GoogleDoc, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-links");
-    GoogleDoc::insert(&new_doc, &mut user.conn).map(|id| json!({ "id": id }))
+    GoogleDoc::insert(&new_doc, &user.conn).map(|id| json!({ "id": id }))
 }
 
 /// Update an existing Google Doc.
@@ -136,12 +136,9 @@ pub fn new_google_doc((mut user, new_doc): (User, GoogleDoc)) -> GreaseResult<Va
 /// ## Input Format:
 ///
 /// Expects a [GoogleDoc](crate::db::models::GoogleDoc).
-pub fn modify_google_doc(
-    name: String,
-    (mut user, changed_doc): (User, GoogleDoc),
-) -> GreaseResult<Value> {
+pub fn modify_google_doc(name: String, changed_doc: GoogleDoc, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-links");
-    GoogleDoc::update(&name, &changed_doc, &mut user.conn).map(|_| basic_success())
+    GoogleDoc::update(&name, &changed_doc, &user.conn).map(|_| basic_success())
 }
 
 /// Delete a Google Doc.
@@ -152,9 +149,9 @@ pub fn modify_google_doc(
 ///
 /// ## Path Parameters:
 ///   * name: string (*required*) - The name of the Google Doc
-pub fn delete_google_doc(name: String, mut user: User) -> GreaseResult<Value> {
+pub fn delete_google_doc(name: String, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-links");
-    GoogleDoc::delete(&name, &mut user.conn).map(|_| basic_success())
+    GoogleDoc::delete(&name, &user.conn).map(|_| basic_success())
 }
 
 /// Get a single meeting's minutes.
@@ -170,9 +167,9 @@ pub fn delete_google_doc(name: String, mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// Returns a [MeetingMinutes](crate::db::models::MeetingMinutes).
-pub fn get_meeting_minutes(minutes_id: i32, mut user: User) -> GreaseResult<Value> {
+pub fn get_meeting_minutes(minutes_id: i32, user: User) -> GreaseResult<Value> {
     let can_view_complete_minutes = user.has_permission("view-complete-minutes", None);
-    MeetingMinutes::load(minutes_id, &mut user.conn)
+    MeetingMinutes::load(minutes_id, &user.conn)
         .map(|minutes| minutes.to_json(can_view_complete_minutes))
 }
 
@@ -197,8 +194,8 @@ pub fn get_meeting_minutes(minutes_id: i32, mut user: User) -> GreaseResult<Valu
 ///
 /// Returns a list of simplified [MeetingMinutes](crate::db::models::MeetingMinutes)
 /// ordered chronologically and then alphabetically by title.
-pub fn get_all_meeting_minutes(mut user: User) -> GreaseResult<Value> {
-    MeetingMinutes::load_all(&mut user.conn).map(|all_minutes| {
+pub fn get_all_meeting_minutes(user: User) -> GreaseResult<Value> {
+    MeetingMinutes::load_all(&user.conn).map(|all_minutes| {
         all_minutes
             .into_iter()
             .map(|minutes| {
@@ -227,10 +224,11 @@ pub fn get_all_meeting_minutes(mut user: User) -> GreaseResult<Value> {
 /// Expects an [UpdatedMeetingMinutes](crate::db::models::UpdatedMeetingMinutes).
 pub fn modify_meeting_minutes(
     minutes_id: i32,
-    (mut user, changed_minutes): (User, UpdatedMeetingMinutes),
+    changed_minutes: UpdatedMeetingMinutes,
+    user: User,
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-minutes");
-    MeetingMinutes::update(minutes_id, &changed_minutes, &mut user.conn).map(|_| basic_success())
+    MeetingMinutes::update(minutes_id, &changed_minutes, &user.conn).map(|_| basic_success())
 }
 
 /// Create a new meeting minutes.
@@ -242,11 +240,9 @@ pub fn modify_meeting_minutes(
 /// ## Input Format:
 ///
 /// Expects a [NewMeetingMinutes](crate::db::models::NewMeetingMinutes).
-pub fn new_meeting_minutes(
-    (mut user, new_minutes): (User, NewMeetingMinutes),
-) -> GreaseResult<Value> {
+pub fn new_meeting_minutes(new_minutes: NewMeetingMinutes, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-minutes");
-    MeetingMinutes::create(&new_minutes, &mut user.conn).map(|id| json!({ "id": id }))
+    MeetingMinutes::create(&new_minutes, &user.conn).map(|id| json!({ "id": id }))
 }
 
 /// Get all of a members todo actions.
@@ -254,8 +250,8 @@ pub fn new_meeting_minutes(
 /// ## Return Format:
 ///
 /// Returns a list of [Todo](crate::db::models::Todo)s.
-pub fn get_todos(mut user: User) -> GreaseResult<Value> {
-    Todo::load_all_for_member(&user.member.member.email, &mut user.conn).map(|todos| json!(todos))
+pub fn get_todos(user: User) -> GreaseResult<Value> {
+    Todo::load_all_for_member(&user.member.member.email, &user.conn).map(|todos| json!(todos))
 }
 
 /// Add a todo action for multiple members to have to complete.
@@ -267,21 +263,21 @@ pub fn get_todos(mut user: User) -> GreaseResult<Value> {
 /// ## Input Format:
 ///
 /// Expects a [NewTodo](crate::db::models::NewTodo).
-pub fn add_todo_for_members((new_todo, mut user): (NewTodo, User)) -> GreaseResult<Value> {
+pub fn add_todo_for_members(new_todo: NewTodo, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "add-multi-todo");
-    Todo::create(new_todo, &mut user.conn).map(|_| basic_success())
+    Todo::create(new_todo, &user.conn).map(|_| basic_success())
 }
 
 /// Lets a member mark a todo they were assigned as completed.
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the todo item
-pub fn mark_todo_as_complete(todo_id: i32, mut user: User) -> GreaseResult<Value> {
-    let todo = Todo::load(todo_id, &mut user.conn)?;
+pub fn mark_todo_as_complete(todo_id: i32, user: User) -> GreaseResult<Value> {
+    let todo = Todo::load(todo_id, &user.conn)?;
     if todo.member != user.member.member.email {
         Err(GreaseError::Forbidden(None))
     } else {
-        Todo::mark_complete(todo_id, &mut user.conn).map(|_| basic_success())
+        Todo::mark_complete(todo_id, &user.conn).map(|_| basic_success())
     }
 }
 
@@ -293,9 +289,9 @@ pub fn mark_todo_as_complete(todo_id: i32, mut user: User) -> GreaseResult<Value
 /// ## Required Permissions:
 ///
 /// The user must be logged in and be able to "view-complete-minutes" generally.
-pub fn send_minutes_as_email(minutes_id: i32, mut user: User) -> GreaseResult<Value> {
+pub fn send_minutes_as_email(minutes_id: i32, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "view-complete-minutes");
-    let minutes = MeetingMinutes::load(minutes_id, &mut user.conn)?;
+    let minutes = MeetingMinutes::load(minutes_id, &user.conn)?;
     let date = minutes.date.format("%B %_d, %Y");
     let subject = format!("Notes from the Officer Meeting on {}", date);
     let content = format!(
@@ -304,7 +300,7 @@ pub fn send_minutes_as_email(minutes_id: i32, mut user: User) -> GreaseResult<Va
         minutes.private.or(minutes.public).ok_or(GreaseError::BadRequest(format!(
             "Both the private and public versions of the meeting with id {} are empty, so no email was sent.", minutes_id)))?,
     );
-    let officer_email = Variable::load("admin_list", &mut user.conn)?
+    let officer_email = Variable::load("admin_list", &user.conn)?
         .ok_or(GreaseError::ServerError(
             "The officer's email list was not set under to `admin_list` variable.".to_owned(),
         ))?
@@ -329,9 +325,9 @@ pub fn send_minutes_as_email(minutes_id: i32, mut user: User) -> GreaseResult<Va
 /// ## Required Permissions:
 ///
 /// The user must be logged in and be able to "edit-minutes" generally.
-pub fn delete_meeting_minutes(id: i32, mut user: User) -> GreaseResult<Value> {
+pub fn delete_meeting_minutes(id: i32, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-minutes");
-    MeetingMinutes::delete(id, &mut user.conn).map(|_| basic_success())
+    MeetingMinutes::delete(id, &user.conn).map(|_| basic_success())
 }
 
 /// Get a single uniform.
@@ -346,8 +342,8 @@ pub fn delete_meeting_minutes(id: i32, mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// Returns a [Uniform](crate::db::models::Uniform).
-pub fn get_uniform(id: i32, mut user: User) -> GreaseResult<Value> {
-    Uniform::load(id, &mut user.conn).map(|uniform| json!(uniform))
+pub fn get_uniform(id: i32, user: User) -> GreaseResult<Value> {
+    Uniform::load(id, &user.conn).map(|uniform| json!(uniform))
 }
 
 /// Get all of the club's uniforms.
@@ -359,8 +355,8 @@ pub fn get_uniform(id: i32, mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// Returns a [Uniform](crate::db::models::Uniform) ordered by name.
-pub fn get_uniforms(mut user: User) -> GreaseResult<Value> {
-    Uniform::load_all(&mut user.conn).map(|uniforms| json!(uniforms))
+pub fn get_uniforms(user: User) -> GreaseResult<Value> {
+    Uniform::load_all(&user.conn).map(|uniforms| json!(uniforms))
 }
 
 /// Create a new uniform.
@@ -382,12 +378,23 @@ pub fn get_uniforms(mut user: User) -> GreaseResult<Value> {
 /// ```
 ///
 /// Returns an object containing the id of the newly created uniform.
-pub fn new_uniform((mut user, new_uniform): (User, NewUniform)) -> GreaseResult<Value> {
+pub fn new_uniform(new_uniform: NewUniform, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-uniforms");
     Uniform::validate_color(&new_uniform.color)?;
-    new_uniform
-        .insert_returning_id(&mut user.conn)
-        .map(|new_id| json!({ "id": new_id }))
+
+    user.conn
+        .transaction(|| {
+            diesel::insert_into(uniform::table)
+                .values(&new_uniform)
+                .execute(&user.conn)?;
+
+            uniform::table
+                .select(uniform::id)
+                .order_by(uniform::id.desc())
+                .first(&user.conn)
+                .map(|id: i32| json!({ "id": id }))
+        })
+        .map_err(GreaseError::DbError)
 }
 
 /// Updated an existing uniform.
@@ -402,13 +409,10 @@ pub fn new_uniform((mut user, new_uniform): (User, NewUniform)) -> GreaseResult<
 /// ## Input Format:
 ///
 /// Expects a [NewUniform](crate::db::models::NewUniform).
-pub fn modify_uniform(
-    id: i32,
-    (mut user, changed_uniform): (User, NewUniform),
-) -> GreaseResult<Value> {
+pub fn modify_uniform(id: i32, changed_uniform: NewUniform, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-uniforms");
     Uniform::validate_color(&changed_uniform.color)?;
-    Uniform::update(id, &changed_uniform, &mut user.conn).map(|_| basic_success())
+    Uniform::update(id, &changed_uniform, &user.conn).map(|_| basic_success())
 }
 
 /// Delete a uniform.
@@ -419,9 +423,9 @@ pub fn modify_uniform(
 /// ## Required Permissions:
 ///
 /// The user must be logged in and be able to "edit-uniforms" generally.
-pub fn delete_uniform(id: i32, mut user: User) -> GreaseResult<Value> {
+pub fn delete_uniform(id: i32, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-uniforms");
-    Uniform::delete(id, &mut user.conn).map(|_| basic_success())
+    Uniform::delete(id, &user.conn).map(|_| basic_success())
 }
 
 /// Get a single semester.
@@ -436,8 +440,8 @@ pub fn delete_uniform(id: i32, mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// Returns a [Semester](crate::db::models::Semester).
-pub fn get_semester(name: String, mut user: User) -> GreaseResult<Value> {
-    Semester::load(&name, &mut user.conn).map(|semester| json!(semester))
+pub fn get_semester(name: String, user: User) -> GreaseResult<Value> {
+    Semester::load(&name, &user.conn).map(|semester| json!(semester))
 }
 
 /// Get the current semester.
@@ -460,8 +464,8 @@ pub fn get_current_semester() -> GreaseResult<Value> {
 ///
 /// Returns a list of [Semester](crate::db::models::Semester)s
 /// ordered by [startDate](crate::db::models::Semester#structfield.start_date).
-pub fn get_semesters(mut user: User) -> GreaseResult<Value> {
-    Semester::load_all(&mut user.conn).map(|semesters| json!(semesters))
+pub fn get_semesters(user: User) -> GreaseResult<Value> {
+    Semester::load_all(&user.conn).map(|semesters| json!(semesters))
 }
 
 /// Create a new semester.
@@ -483,9 +487,9 @@ pub fn get_semesters(mut user: User) -> GreaseResult<Value> {
 /// ```
 ///
 /// Returns an object containing the name of the new semester.
-pub fn new_semester((new_semester, mut user): (NewSemester, User)) -> GreaseResult<Value> {
+pub fn new_semester(new_semester: NewSemester, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-semester");
-    Semester::create(new_semester, &mut user.conn).map(|name| json!({ "name": name }))
+    Semester::create(new_semester, &user.conn).map(|name| json!({ "name": name }))
 }
 
 /// Set which semester is the current one.
@@ -496,9 +500,9 @@ pub fn new_semester((new_semester, mut user): (NewSemester, User)) -> GreaseResu
 /// ## Required Permissions:
 ///
 /// The user must be logged in and be able to "edit-semester" generally.
-pub fn set_current_semester(name: String, mut user: User) -> GreaseResult<Value> {
+pub fn set_current_semester(name: String, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-semester");
-    Semester::set_current(&name, &mut user.conn).map(|_| basic_success())
+    Semester::set_current(&name, &user.conn).map(|_| basic_success())
 }
 
 /// Edit an existing semester.
@@ -515,10 +519,11 @@ pub fn set_current_semester(name: String, mut user: User) -> GreaseResult<Value>
 /// Expects a [SemesterUpdate](crate::db::models::SemesterUpdate).
 pub fn edit_semester(
     name: String,
-    (updated_semester, mut user): (NewSemester, User),
+    updated_semester: NewSemester,
+    user: User,
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-semester");
-    Semester::update(&name, &updated_semester, &mut user.conn).map(|_| basic_success())
+    Semester::update(&name, &updated_semester, &user.conn).map(|_| basic_success())
 }
 
 /// Delete a semester from the site permanently.
@@ -546,14 +551,14 @@ pub fn edit_semester(
 /// ```
 ///
 /// Returns an object containing the name of the new current semester.
-pub fn delete_semester(name: String, confirm: Option<bool>, mut user: User) -> GreaseResult<Value> {
+pub fn delete_semester(name: String, confirm: Option<bool>, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-semester");
     if confirm.unwrap_or(false) {
         Err(GreaseError::BadRequest(
             "make sure to pass `confirm=true` to actually delete the semester".to_owned(),
         ))
     } else {
-        Semester::delete(&name, &mut user.conn).map(|current| json!({ "current": current }))
+        Semester::delete(&name, &user.conn).map(|current| json!({ "current": current }))
     }
 }
 
@@ -566,10 +571,12 @@ pub fn delete_semester(name: String, confirm: Option<bool>, mut user: User) -> G
 /// ## Return Format:
 ///
 /// Returns a list of [Permission](crate::db::models::Permission)s.
-pub fn get_permissions(mut user: User) -> GreaseResult<Value> {
-    user.conn
-        .load::<Permission>(&Permission::select_all_in_order("name", Order::Asc))
+pub fn get_permissions(user: User) -> GreaseResult<Value> {
+    permission::table
+        .order_by(permission::name.asc())
+        .load::<Permission>(&user.conn)
         .map(|permissions| json!(permissions))
+        .map_err(GreaseError::DbError)
 }
 
 /// Get all roles on the site.
@@ -581,10 +588,12 @@ pub fn get_permissions(mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// Returns a list of [Role](crate::db::models::Role)s.
-pub fn get_roles(mut user: User) -> GreaseResult<Value> {
-    user.conn
-        .load::<Role>(&Role::select_all_in_order("rank", Order::Asc))
+pub fn get_roles(user: User) -> GreaseResult<Value> {
+    role::table
+        .order_by(role::rank.asc())
+        .load::<Role>(&user.conn)
         .map(|roles| json!(roles))
+        .map_err(GreaseError::DbError)
 }
 
 /// Get the current officers of the club.
@@ -608,13 +617,13 @@ pub fn get_roles(mut user: User) -> GreaseResult<Value> {
 /// Returns a list of objects showing which member holds which role.
 /// See [Role](crate::db::models::Role) and
 /// [Member](crate::db::models::Member) for their JSON formats.
-pub fn get_current_officers(mut user: User) -> GreaseResult<Value> {
-    MemberRole::load_all(&mut user.conn).map(|member_role_pairs| {
+pub fn get_current_officers(user: User) -> GreaseResult<Value> {
+    MemberRole::load_all(&user.conn).map(|member_role_pairs| {
         member_role_pairs
             .into_iter()
             .map(|(member, role)| {
                 json!({
-                    "member": member.to_json(),
+                    "member": member,
                     "role": role
                 })
             })
@@ -647,14 +656,14 @@ pub fn get_current_officers(mut user: User) -> GreaseResult<Value> {
 ///
 /// Returns a list of objects with all permissions the member has
 /// and whether those permissions are for a specific event type.
-pub fn member_permissions(member: String, mut user: User) -> GreaseResult<Value> {
+pub fn member_permissions(member: String, user: User) -> GreaseResult<Value> {
     if &member == &user.member.member.email {
         Ok(json!(user.permissions))
     } else {
         check_for_permission!(user => "edit-permissions");
-        let member = Member::load(&member, &mut user.conn)?;
+        let member = Member::load(&member, &user.conn)?;
         member
-            .permissions(&mut user.conn)
+            .permissions(&user.conn)
             .map(|permissions| json!(permissions))
     }
 }
@@ -668,11 +677,13 @@ pub fn member_permissions(member: String, mut user: User) -> GreaseResult<Value>
 /// ## Return Format:
 ///
 /// Returns a list of [RolePermission](crate::db::models::RolePermission)s.
-pub fn get_current_role_permissions(mut user: User) -> GreaseResult<Value> {
+pub fn get_current_role_permissions(user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-permissions");
-    user.conn
-        .load::<RolePermission>(&RolePermission::select_all())
+
+    role_permission::table
+        .load::<RolePermission>(&user.conn)
         .map(|role_permissions| json!(role_permissions))
+        .map_err(GreaseError::DbError)
 }
 
 /// Award a permission (possibly for an event type) to a role.
@@ -689,14 +700,15 @@ pub fn get_current_role_permissions(mut user: User) -> GreaseResult<Value> {
 /// Expects a [MemberPermission](crate::auth::MemberPermission).
 pub fn add_permission_for_role(
     position: String,
-    (new_permission, mut user): (MemberPermission, User),
+    new_permission: MemberPermission,
+    user: User,
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-permissions");
     RolePermission::enable(
         &position,
         &new_permission.name,
         &new_permission.event_type,
-        &mut user.conn,
+        &user.conn,
     )
     .map(|_| basic_success())
 }
@@ -715,14 +727,15 @@ pub fn add_permission_for_role(
 /// Expects a [MemberPermission](crate::auth::MemberPermission).
 pub fn remove_permission_for_role(
     position: String,
-    (permission, mut user): (MemberPermission, User),
+    permission: MemberPermission,
+    user: User,
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-permissions");
     RolePermission::disable(
         &position,
         &permission.name,
         &permission.event_type,
-        &mut user.conn,
+        &user.conn,
     )
     .map(|_| basic_success())
 }
@@ -736,20 +749,24 @@ pub fn remove_permission_for_role(
 /// ## Input Format:
 ///
 /// Expects a [MemberRole](crate::db::models::MemberRole).
-pub fn add_officership((member_role, mut user): (MemberRole, User)) -> GreaseResult<Value> {
+pub fn add_officership(new_member_role: MemberRole, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-officers");
-    let given_role = user.conn.first::<Role>(
-        &Role::filter(&format!("name = '{}'", &member_role.role)),
-        format!("No role with name {}.", &member_role.role),
-    )?;
-    let member_role_pairs = MemberRole::load_all(&mut user.conn)?;
-    if member_role_pairs
-        .iter()
-        .any(|(member, role)| role.name == member_role.role && member.email == member_role.member)
-    {
+
+    let given_role = role::table
+        .filter(role::name.eq(&new_member_role.role))
+        .first::<Role>(&user.conn)
+        .optional()?
+        .ok_or(GreaseError::BadRequest(format!(
+            "No role with name {}.",
+            &new_member_role.role
+        )))?;
+    let member_role_pairs = MemberRole::load_all(&user.conn)?;
+    if member_role_pairs.iter().any(|(member, role)| {
+        role.name == new_member_role.role && member.email == new_member_role.member
+    }) {
         Err(GreaseError::BadRequest(format!(
             "member {} already has that position",
-            &member_role.member
+            &new_member_role.member
         )))
     } else if given_role.max_quantity > 0
         && member_role_pairs
@@ -763,7 +780,9 @@ pub fn add_officership((member_role, mut user): (MemberRole, User)) -> GreaseRes
             given_role.name, given_role.max_quantity
         )))
     } else {
-        member_role.insert(&mut user.conn)?;
+        diesel::insert_into(member_role::table)
+            .values(&new_member_role)
+            .execute(&user.conn)?;
 
         Ok(basic_success())
     }
@@ -778,18 +797,22 @@ pub fn add_officership((member_role, mut user): (MemberRole, User)) -> GreaseRes
 /// ## Input Format:
 ///
 /// Expects a [MemberRole](crate::db::models::MemberRole).
-pub fn remove_officership((member_role, mut user): (MemberRole, User)) -> GreaseResult<Value> {
+pub fn remove_officership(old_member_role: MemberRole, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-officers");
-    user.conn.delete(
-        Delete::new(MemberRole::table_name()).filter(&format!(
-            "member = '{}' AND role = '{}'",
-            member_role.member, member_role.role
-        )),
-        format!(
-            "Member {} does not hold the {} position.",
-            member_role.member, member_role.role
+
+    diesel::delete(
+        member_role::table.filter(
+            member_role::member
+                .eq(old_member_role.member)
+                .and(member_role::role.eq(old_member_role.role)),
         ),
-    )?;
+    )
+    .execute(&user.conn)?;
+
+    // format!(
+    //     "Member {} does not hold the {} position.",
+    //     member_role.member, member_role.role
+    // ),
 
     Ok(basic_success())
 }
@@ -808,11 +831,11 @@ pub fn remove_officership((member_role, mut user): (MemberRole, User)) -> Grease
 ///
 /// Returns a list of [Transaction](crate::db::models::Transaction)s in
 /// chronological order.
-pub fn get_member_transactions(email: String, mut user: User) -> GreaseResult<Value> {
+pub fn get_member_transactions(email: String, user: User) -> GreaseResult<Value> {
     if email != user.member.member.email {
         check_for_permission!(user => "view-transactions");
     }
-    Transaction::load_all_for_member(&email, &mut user.conn).map(|transactions| json!(transactions))
+    Transaction::load_all_for_member(&email, &user.conn).map(|transactions| json!(transactions))
 }
 
 /// Add multiple transactions.
@@ -824,18 +847,14 @@ pub fn get_member_transactions(email: String, mut user: User) -> GreaseResult<Va
 /// ## Input Format:
 ///
 /// Expects a list of [Transaction](crate::db::models::Transaction)s.
-pub fn add_transactions(
-    (new_transactions, mut user): (Vec<NewTransaction>, User),
-) -> GreaseResult<Value> {
+pub fn add_transactions(new_transactions: Vec<NewTransaction>, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-transaction");
 
-    user.conn.transaction(|transaction| {
-        for new_transaction in new_transactions {
-            new_transaction.insert(transaction)?;
-        }
+    diesel::insert_into(transaction::table)
+        .values(&new_transactions)
+        .execute(&user.conn)?;
 
-        Ok(basic_success())
-    })
+    Ok(basic_success())
 }
 
 /// Get all transaction types.
@@ -848,10 +867,12 @@ pub fn add_transactions(
 ///
 /// Returns a list of [TransactionType](crate::db::models::TransactionType)s
 /// ordered by name.
-pub fn get_transaction_types(mut user: User) -> GreaseResult<Value> {
-    user.conn
-        .load::<TransactionType>(&TransactionType::select_all_in_order("name", Order::Asc))
+pub fn get_transaction_types(user: User) -> GreaseResult<Value> {
+    transaction_type::table
+        .order_by(transaction_type::name.asc())
+        .load::<TransactionType>(&user.conn)
         .map(|types| json!(types))
+        .map_err(GreaseError::DbError)
 }
 
 /// Get all the types of fees in the club.
@@ -863,8 +884,8 @@ pub fn get_transaction_types(mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// Returns a list of [Fee](crate::db::models::Fee)s.
-pub fn get_fees(mut user: User) -> GreaseResult<Value> {
-    Fee::load_all(&mut user.conn).map(|fees| json!(fees))
+pub fn get_fees(user: User) -> GreaseResult<Value> {
+    Fee::load_all(&user.conn).map(|fees| json!(fees))
 }
 
 /// Apply a fee to all currently active semesters.
@@ -877,10 +898,10 @@ pub fn get_fees(mut user: User) -> GreaseResult<Value> {
 /// ## Required Permissions:
 ///
 /// The user must be logged in and be able to "edit-transaction" generally.
-pub fn apply_fee_for_all_active_members(name: String, mut user: User) -> GreaseResult<Value> {
+pub fn apply_fee_for_all_active_members(name: String, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-transaction");
-    let fee = Fee::load(&name, &mut user.conn)?;
-    fee.charge_for_the_semester(&mut user.conn)?;
+    let fee = Fee::load(&name, &user.conn)?;
+    fee.charge_for_the_semester(&user.conn)?;
 
     Ok(basic_success())
 }
@@ -894,7 +915,7 @@ pub fn apply_fee_for_all_active_members(name: String, mut user: User) -> GreaseR
 /// ## Required Permissions:
 ///
 /// The user must be logged in and be able to "edit-transaction" generally.
-pub fn update_fee_amount(name: String, new_amount: i32, mut user: User) -> GreaseResult<Value> {
+pub fn update_fee_amount(name: String, new_amount: i32, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-transaction");
-    Fee::update_amount(&name, new_amount, &mut user.conn).map(|_| basic_success())
+    Fee::update_amount(&name, new_amount, &user.conn).map(|_| basic_success())
 }

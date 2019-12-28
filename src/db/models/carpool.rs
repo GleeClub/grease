@@ -1,13 +1,13 @@
 use db::schema::{carpool, member, rides_in};
 use db::{Carpool, Member, NewCarpool, RidesIn, UpdatedCarpool};
-use diesel::{Connection, MysqlConnection};
+use diesel::prelude::*;
 use error::*;
 use serde_json::{json, Value};
 
 impl Carpool {
-    pub fn load_for_event<C: Connection>(
+    pub fn load_for_event(
         given_event_id: i32,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Vec<EventCarpool>> {
         use db::schema::carpool::dsl::{event, id};
 
@@ -24,7 +24,7 @@ impl Carpool {
                 rides_in::dsl::carpool
                     .eq_any(carpool::table.select(id).filter(event.eq(given_event_id))),
             )
-            .load(conn)
+            .load::<(RidesIn, Member)>(conn)
             .map_err(GreaseError::DbError)?;
 
         let mut carpools = carpool_driver_pairs
@@ -35,10 +35,10 @@ impl Carpool {
                 passengers: Vec::new(),
             })
             .collect::<Vec<EventCarpool>>();
-        for (rides_in, passenger) in passenger_pairs {
+        for (passenger_rides_in, passenger) in passenger_pairs {
             carpools
                 .iter_mut()
-                .find(|some_carpool| some_carpool.carpool.id == rides_in.carpool)
+                .find(|some_carpool| some_carpool.carpool.id == passenger_rides_in.carpool)
                 .map(|found_carpool| found_carpool.passengers.push(passenger));
         }
 
@@ -48,7 +48,7 @@ impl Carpool {
     pub fn update_for_event(
         given_event_id: i32,
         new_carpools: Vec<UpdatedCarpool>,
-        conn: &mut MysqlConnection,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
         use db::schema::carpool::dsl::{carpool, event, id};
 
@@ -57,15 +57,15 @@ impl Carpool {
                 .execute(conn)
                 .map_err(GreaseError::DbError)?;
 
-            diesel::insert_into(carpool::table)
+            diesel::insert_into(carpool)
                 .values(
                     &new_carpools
                         .iter()
                         .map(|c| NewCarpool {
                             event: given_event_id,
-                            driver: c.driver,
+                            driver: c.driver.clone(),
                         })
-                        .collect(),
+                        .collect::<Vec<NewCarpool>>(),
                 )
                 .execute(conn)
                 .map_err(GreaseError::DbError)?;
@@ -73,7 +73,7 @@ impl Carpool {
             let new_carpool_ids: Vec<i32> = carpool
                 .select(id)
                 .order_by(id.desc())
-                .limit(new_carpools.len())
+                .limit(new_carpools.len() as i64)
                 .load(conn)
                 .map_err(GreaseError::DbError)?;
 
@@ -81,17 +81,22 @@ impl Carpool {
                 .into_iter()
                 .zip(new_carpools.into_iter())
                 .flat_map(|(new_id, new_carpool)| {
-                    new_carpool.passengers.into_iter().map(|passenger| RidesIn {
-                        carpool: new_id,
-                        member: passenger,
-                    })
+                    new_carpool
+                        .passengers
+                        .into_iter()
+                        .map(move |passenger| RidesIn {
+                            carpool: new_id,
+                            member: passenger,
+                        })
                 })
                 .collect::<Vec<RidesIn>>();
 
             diesel::insert_into(rides_in::table)
                 .values(&rides_ins)
                 .execute(conn)
-                .map_err(GreaseError::DbError)
+                .map_err(GreaseError::DbError)?;
+
+            Ok(())
         })
     }
 }

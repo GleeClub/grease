@@ -1,12 +1,12 @@
 use db::models::member::MemberForSemester;
-use db::{Fee, NewTransaction, Semester, Transaction};
-use diesel::Connection;
+use db::{Fee, NewTransaction, Semester, Transaction, TransactionType};
+use diesel::prelude::*;
 use error::*;
 
 impl Transaction {
-    pub fn load_all_for_member<C: Connection>(
+    pub fn load_all_for_member(
         given_member: &str,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Vec<Transaction>> {
         use db::schema::transaction::dsl::*;
 
@@ -17,10 +17,10 @@ impl Transaction {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn load_all_of_type_for_semester<C: Connection>(
+    pub fn load_all_of_type_for_semester(
         given_type: &str,
         given_semester: &str,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Vec<Transaction>> {
         use db::schema::transaction::dsl::*;
 
@@ -33,7 +33,7 @@ impl Transaction {
 }
 
 impl Fee {
-    pub fn load<C: Connection>(given_name: &str, conn: &mut C) -> GreaseResult<Fee> {
+    pub fn load(given_name: &str, conn: &MysqlConnection) -> GreaseResult<Fee> {
         use db::schema::fee::dsl::*;
 
         fee.filter(name.eq(given_name))
@@ -42,55 +42,54 @@ impl Fee {
         // format!("No fee with name {}.", name),
     }
 
-    pub fn charge_for_the_semester<C: Connection>(&self, conn: &mut C) -> GreaseResult<()> {
+    pub fn charge_for_the_semester(&self, conn: &MysqlConnection) -> GreaseResult<()> {
         use db::schema::transaction_type::dsl::*;
 
-        conn.transaction(|| {
+        conn.transaction(move || {
             let current_semester = Semester::load_current(conn)?;
             let trans_type = match self.name.as_str() {
                 "dues" | "latedues" => "Dues".to_owned(),
                 other => transaction_type
                     .filter(name.eq(other))
-                    .first(conn)
+                    .first::<TransactionType>(conn)
                     .optional()
                     .map_err(GreaseError::DbError)?
                     .map(|type_| type_.name)
                     .unwrap_or("Other".to_owned()),
             };
 
-            if Transaction::load_all_of_type_for_semester(
+            let transactions_for_semester = Transaction::load_all_of_type_for_semester(
                 &trans_type,
                 &current_semester.name,
                 conn,
-            )?
-            .len()
-                > 0
-            {
-                Err(GreaseError::BadRequest(format!(
+            )?;
+            if transactions_for_semester.len() > 0 {
+                return Err(GreaseError::BadRequest(format!(
                     "Fee of type {} has already been charged for the current semester",
                     &self.name
-                )))
-            } else {
-                let new_transactions = MemberForSemester::load_all(&current_semester.name, conn)?
-                    .into_iter()
-                    .map(|member_for_semester| NewTransaction {
-                        member: member_for_semester.member.email,
-                        amount: self.amount,
-                        description: self.description.clone(),
-                        semester: Some(current_semester.name.clone()),
-                        type_: transaction_type.clone(),
-                        resolved: true,
-                    })
-                    .collect::<Vec<_>>();
-                diesel::insert_into(crate::db::schema::transaction::table)
-                    .values(new_transactions)
-                    .execute(conn)
-                    .map_err(GreaseResult::DbError)
+                )));
             }
+
+            let new_transactions = MemberForSemester::load_all(&current_semester.name, conn)?
+                .into_iter()
+                .map(|member_for_semester| NewTransaction {
+                    member: member_for_semester.member.email,
+                    amount: self.amount,
+                    description: self.description.clone(),
+                    semester: Some(current_semester.name.clone()),
+                    type_: trans_type.clone(),
+                    resolved: true,
+                })
+                .collect::<Vec<_>>();
+            diesel::insert_into(crate::db::schema::transaction::table)
+                .values(new_transactions)
+                .execute(conn)
+                .map_err(GreaseError::DbError)?;
+
+            Ok(())
         })
     }
-
-    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Fee>> {
+    pub fn load_all(conn: &MysqlConnection) -> GreaseResult<Vec<Fee>> {
         use db::schema::fee::dsl::*;
 
         fee.order_by(name.asc())
@@ -98,17 +97,19 @@ impl Fee {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn update_amount<C: Connection>(
+    pub fn update_amount(
         given_name: &str,
         new_amount: i32,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
         use db::schema::fee::dsl::*;
 
         diesel::update(fee.filter(name.eq(given_name)))
             .set(amount.eq(new_amount))
             .execute(conn)
-            .map_err(GreaseError::DbError)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(())
         // format!("No fee with name {}.", name),
     }
 }

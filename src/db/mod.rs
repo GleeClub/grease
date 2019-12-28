@@ -3,6 +3,8 @@
 pub mod models;
 pub mod schema;
 
+pub use self::schema::*;
+
 use self::schema::{
     absence_request, active_semester, announcement, attendance, carpool, event, event_type, fee,
     gig, gig_request, gig_song, google_docs, media_type, member, member_role, minutes, permission,
@@ -12,7 +14,6 @@ use self::schema::{
 };
 use chrono::{NaiveDate, NaiveDateTime};
 use diesel::{Connection, MysqlConnection};
-use diesel::{associations::Identifiable, AsChangeset, Insertable, Queryable};
 use error::{GreaseError, GreaseResult};
 use serde::{de::Error as _, de::Unexpected, Deserialize, Deserializer, Serialize};
 
@@ -74,7 +75,7 @@ pub fn connect_to_db() -> GreaseResult<MysqlConnection> {
 ///     "dietaryRestrictions": string?
 /// }
 /// ```
-#[derive(Identifiable, Queryable, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Identifiable, Insertable, Queryable, Serialize, Deserialize, PartialEq, Clone, Debug)]
 #[table_name = "member"]
 #[primary_key(email)]
 pub struct Member {
@@ -283,7 +284,7 @@ pub struct RegisterForSemesterForm {
 ///     "current": boolean
 /// }
 /// ```
-#[derive(Identifiable, Queryable, Serialize, Deserialize)]
+#[derive(Identifiable, Insertable, Queryable, Serialize, Deserialize)]
 #[table_name = "semester"]
 #[primary_key(name)]
 pub struct Semester {
@@ -312,7 +313,7 @@ pub struct Semester {
 /// | startDate      | datetime |     ✓     |                           |
 /// | endDate        | datetime |     ✓     | must be after `startDate` |
 /// | gigRequirement | integer  |     ✓     |                           |
-#[derive(Deserialize, Insertable)]
+#[derive(Deserialize, AsChangeset, Insertable)]
 #[table_name = "semester"]
 pub struct NewSemester {
     pub name: String,
@@ -382,7 +383,7 @@ pub struct Role {
 ///     "role": string
 /// }
 /// ```
-#[derive(Serialize, Deserialize, Insertable)]
+#[derive(Serialize, Queryable, Deserialize, Insertable)]
 #[table_name = "member_role"]
 pub struct MemberRole {
     /// The email of the member holding the role
@@ -433,7 +434,9 @@ pub struct SectionType {
 ///     "weight": integer
 /// }
 /// ```
-#[derive(Queryable, Serialize, Deserialize, PartialEq)]
+#[derive(Identifiable, Queryable, Serialize, Deserialize, PartialEq)]
+#[table_name = "event_type"]
+#[primary_key(name)]
 pub struct EventType {
     /// The name of the type of event
     pub name: String,
@@ -527,6 +530,18 @@ pub struct Event {
 /// | repeatUntil   | datetime |           | needed if `repeat` isn't "no" |
 #[derive(Deserialize)]
 pub struct NewEvent {
+    #[serde(flatten)]
+    pub fields: NewEventFields,
+    #[serde(flatten)]
+    pub gig: Option<NewGig>,
+    pub repeat: String,
+    #[serde(rename = "repeatUntil", with = "optional_naivedate_posix")]
+    pub repeat_until: Option<NaiveDate>,
+}
+
+#[derive(Insertable, AsChangeset, Deserialize, Clone, Debug)]
+#[table_name = "event"]
+pub struct NewEventFields {
     pub name: String,
     pub semester: String,
     #[serde(rename = "type")]
@@ -544,9 +559,6 @@ pub struct NewEvent {
     pub gig_count: Option<bool>,
     #[serde(rename = "defaultAttend")]
     pub default_attend: bool,
-    pub repeat: String,
-    #[serde(rename = "repeatUntil", with = "optional_naivedate_posix")]
-    pub repeat_until: Option<NaiveDate>,
 }
 
 /// The required format for updating events.
@@ -578,41 +590,11 @@ pub struct NewEvent {
 #[derive(Deserialize, Debug)]
 pub struct EventUpdate {
     // event fields
-    pub name: String,
-    pub semester: String,
-    #[serde(rename = "type")]
-    pub type_: String,
-    #[serde(rename = "callTime", with = "naivedatetime_posix")]
-    pub call_time: NaiveDateTime,
-    #[serde(rename = "releaseTime", with = "optional_naivedatetime_posix")]
-    pub release_time: Option<NaiveDateTime>,
-    pub points: i32,
-    #[serde(deserialize_with = "deser_opt_string")]
-    pub comments: Option<String>,
-    #[serde(deserialize_with = "deser_opt_string")]
-    pub location: Option<String>,
-    #[serde(rename = "gigCount")]
-    pub gig_count: bool,
-    #[serde(rename = "defaultAttend")]
-    pub default_attend: bool,
-    #[serde(deserialize_with = "deser_opt_string")]
-    pub section: Option<String>,
+    #[serde(flatten)]
+    pub fields: NewEventFields,
     // gig fields
-    #[serde(rename = "performanceTime", with = "optional_naivedatetime_posix")]
-    pub performance_time: Option<NaiveDateTime>,
-    pub uniform: Option<i32>,
-    #[serde(rename = "contactName", deserialize_with = "deser_opt_string")]
-    pub contact_name: Option<String>,
-    #[serde(rename = "contactEmail", deserialize_with = "deser_opt_string")]
-    pub contact_email: Option<String>,
-    #[serde(rename = "contactPhone", deserialize_with = "deser_opt_string")]
-    pub contact_phone: Option<String>,
-    pub price: Option<i32>,
-    pub public: Option<bool>,
-    #[serde(deserialize_with = "deser_opt_string")]
-    pub summary: Option<String>,
-    #[serde(deserialize_with = "deser_opt_string")]
-    pub description: Option<String>,
+    #[serde(flatten)]
+    pub gig: Option<NewGig>,
 }
 
 /// The model for member's requests for absence from events.
@@ -644,7 +626,9 @@ pub struct EventUpdate {
 ///     "state": string
 /// }
 /// ```
-#[derive(Serialize, Clone)]
+#[derive(Identifiable, Queryable, Serialize, Clone)]
+#[table_name = "absence_request"]
+#[primary_key(member, event)]
 pub struct AbsenceRequest {
     /// The email of the member that requested an absence
     pub member: String,
@@ -851,7 +835,8 @@ pub struct Attendance {
 /// | didAttend    | boolean |     ✓     |          |
 /// | minutesLate  | integer |     ✓     |          |
 /// | confirmed    | boolean |     ✓     |          |
-#[derive(Deserialize)]
+#[derive(Deserialize, AsChangeset)]
+#[table_name = "attendance"]
 pub struct AttendanceForm {
     #[serde(rename = "shouldAttend")]
     pub should_attend: bool,
@@ -994,7 +979,7 @@ pub struct Fee {
 /// |-------|--------|:---------:|----------|
 /// | name  | string |     ✓     |          |
 /// | url   | string |     ✓     |          |
-#[derive(Identifiable, Insertable, Serialize, Deserialize)]
+#[derive(Identifiable, Queryable, AsChangeset, Insertable, Serialize, Deserialize)]
 #[table_name = "google_docs"]
 #[primary_key(name)]
 pub struct GoogleDoc {
@@ -1027,7 +1012,7 @@ pub struct GoogleDoc {
 ///     "description": string?
 /// }
 /// ```
-#[derive(Identifiable, Serialize)]
+#[derive(Identifiable, Queryable, Serialize)]
 #[table_name = "uniform"]
 pub struct Uniform {
     /// The ID of the uniform
@@ -1051,7 +1036,7 @@ pub struct Uniform {
 /// | name        | string |     ✓     |                                               |
 /// | color       | string |           | must be formatted "#XXX", X being a hex digit |
 /// | description | string |           |                                               |
-#[derive(Insertable, Deserialize)]
+#[derive(Insertable, AsChangeset, Deserialize)]
 #[table_name = "uniform"]
 pub struct NewUniform {
     pub name: String,
@@ -1087,7 +1072,7 @@ pub struct NewUniform {
 ///
 /// `Gig`s are not directly serialized, see [to_json](event/struct.EventWithGig.html#method.to_json)
 /// for how `Gig`s get serialized with `Event`s.
-#[derive(Identifiable, Queryable, Serialize)]
+#[derive(Identifiable, Insertable, Queryable, Serialize)]
 #[table_name = "gig"]
 #[primary_key(event)]
 pub struct Gig {
@@ -1134,7 +1119,7 @@ pub struct Gig {
 /// | public          | boolean  |     ✓     |          |
 /// | summary         | string   |           |          |
 /// | description     | string   |           |          |
-#[derive(Insertable, Deserialize)]
+#[derive(Insertable, AsChangeset, Deserialize, Debug, Clone)]
 #[table_name = "gig"]
 pub struct NewGig {
     #[serde(rename = "performanceTime", with = "naivedatetime_posix")]
@@ -1289,13 +1274,6 @@ pub struct NewGigRequest {
 /// | public          | boolean  |     ✓     |                               |
 /// | summary         | string   |           |                               |
 /// | description     | string   |           |                               |
-#[derive(Deserialize)]
-pub struct GigRequestForm {
-    #[serde(flatten)]
-    pub event: NewEvent,
-    #[serde(flatten)]
-    pub gig: NewGig,
-}
 
 /// The model for songs from our repertoire.
 ///
@@ -1414,7 +1392,7 @@ pub struct SongUpdate {
 ///     "order": integer
 /// }
 /// ```
-#[derive(Serialize, Identifiable, Queryable)]
+#[derive(Serialize, Insertable, Identifiable, Queryable)]
 #[table_name = "gig_song"]
 #[primary_key(event, song)]
 pub struct GigSong {
@@ -1604,7 +1582,7 @@ pub struct Permission {
 ///     "carpool": integer
 /// }
 /// ```
-#[derive(Serialize, Identifiable, Queryable)]
+#[derive(Insertable, Serialize, Identifiable, Queryable)]
 #[table_name = "rides_in"]
 #[primary_key(member, carpool)]
 pub struct RidesIn {
@@ -1879,7 +1857,7 @@ pub struct Transaction {
 /// | semester    | string  |           |          |
 /// | type        | string  |     ✓     |          |
 /// | resolved    | boolean |     ✓     |          |
-#[derive(Serialize, Insertable, Queryable)]
+#[derive(Deserialize, Serialize, Insertable, Queryable)]
 #[table_name = "transaction"]
 pub struct NewTransaction {
     pub member: String,

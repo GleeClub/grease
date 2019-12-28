@@ -1,91 +1,73 @@
 use auth::MemberPermission;
 use bcrypt::{hash, verify};
 use chrono::Local;
-use db::*;
+use db::schema::member::dsl::*;
+use db::{
+    AbsenceRequest, ActiveSemester, ActiveSemesterUpdate, Attendance, Event, Member, NewMember,
+    RegisterForSemesterForm, Semester, Session,
+};
+use diesel::prelude::*;
 use error::*;
 use serde::Serialize;
 use serde_json::{json, Value};
-use diesel::Connection;
 
-#[derive(Debug, PartialEq)]
+#[derive(Queryable, Debug, PartialEq)]
 pub struct MemberForSemester {
     pub member: Member,
     pub active_semester: Option<ActiveSemester>,
 }
 
 impl Member {
-    pub fn load<C: Connection>(email: &str, conn: &mut C) -> GreaseResult<Member> {
-        conn.first(
-            &Member::filter(&format!("email = '{}'", email)),
-            format!("No member with the email {}.", email),
-        )
+    pub fn load(given_email: &str, conn: &MysqlConnection) -> GreaseResult<Member> {
+        member
+            .filter(email.eq(given_email))
+            .first(conn)
+            .optional()
+            .map_err(GreaseError::DbError)?
+            .ok_or(GreaseError::BadRequest(format!(
+                "No member with the email {}.",
+                given_email
+            )))
     }
 
-    pub fn check_login<C: Connection>(
-        email: &str,
-        pass_hash: &str,
-        conn: &mut C,
+    pub fn check_login(
+        given_email: &str,
+        given_pass_hash: &str,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Option<Member>> {
-        if let Some(member) =
-            conn.first_opt::<Member>(&Member::filter(&format!("email = '{}'", email)))?
-        {
-            if verify(pass_hash, &member.pass_hash).unwrap_or(false) {
-                Ok(Some(member))
-            } else {
-                Ok(None)
-            }
-        } else {
-            Ok(None)
-        }
+        member
+            .filter(email.eq(given_email))
+            .first::<Member>(conn)
+            .optional()
+            .map_err(GreaseError::DbError)
+            .map(|maybe_member| {
+                maybe_member.filter(|given_member| {
+                    verify(given_pass_hash, &given_member.pass_hash).unwrap_or(false)
+                })
+            })
     }
 
-    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Member>> {
-        conn.load(&Member::select_all_in_order(
-            "last_name, first_name",
-            Order::Asc,
-        ))
+    pub fn load_all(conn: &MysqlConnection) -> GreaseResult<Vec<Member>> {
+        member
+            .order_by((last_name.asc(), first_name.asc()))
+            .load(conn)
+            .map_err(GreaseError::DbError)
     }
 
     /// Formats the member's full name.
     ///
     /// If the member's `preferred_name` is not `None`, then their full name is
     /// `<preferred_name> <last_name>`. Otherwise, it defaults to `<first_name> <last_name>`.
-    pub fn full_name(&self) -> String {
-        format!(
-            "{} {}",
-            self.preferred_name
-                .as_ref()
-                .filter(|name| name.len() > 0)
-                .unwrap_or(&self.first_name),
-            self.last_name
-        )
-    }
-
-    /// Render this member's data to JSON.
-    ///
-    /// See the [JSON Format](crate::models::Member#json-format) above for what this returns.
-    pub fn to_json(&self) -> Value {
-        json!({
-            "email": self.email,
-            "firstName": self.first_name,
-            "preferredName": self.preferred_name,
-            "lastName": self.last_name,
-            "fullName": self.full_name(),
-            "phoneNumber": self.phone_number,
-            "picture": self.picture,
-            "passengers": self.passengers,
-            "location": self.location,
-            "onCampus": self.on_campus,
-            "about": self.about,
-            "major": self.major,
-            "minor": self.minor,
-            "hometown": self.hometown,
-            "arrivedAtTech": self.arrived_at_tech,
-            "gatewayDrug": self.gateway_drug,
-            "conflicts": self.conflicts,
-            "dietaryRestrictions": self.dietary_restrictions
-        })
-    }
+    // pub fn full_name(&self) -> String {
+    //     format!(
+    //         "{} {}",
+    //         self.preferred_name
+    //             .as_ref()
+    //             .filter(|name| name.len() > 0)
+    //             .unwrap_or(&self.first_name),
+    //         self.last_name
+    //     )
+    // }
 
     /// Render this member's data to JSON, with some extra details.
     ///
@@ -102,12 +84,12 @@ impl Member {
     /// ```
     ///
     /// if `active_semester` is not None, then
-    pub fn to_json_full_for_semester<C: Connection>(
+    pub fn to_json_full_for_semester(
         &self,
         active_semester: ActiveSemester,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Value> {
-        let mut json_val = self.to_json();
+        let mut json_val = json!(self);
         json_val["semesters"] = json!([{
             "semester": &active_semester.semester,
             "enrollment": &active_semester.enrollment,
@@ -120,11 +102,8 @@ impl Member {
         Ok(json_val)
     }
 
-    pub fn to_json_full_for_all_semesters<C: Connection>(
-        &self,
-        conn: &mut C,
-    ) -> GreaseResult<Value> {
-        let mut json_val = self.to_json();
+    pub fn to_json_full_for_all_semesters(&self, conn: &MysqlConnection) -> GreaseResult<Value> {
+        let mut json_val = json!(self);
         let semesters = ActiveSemester::load_all_for_member(&self.email, conn)?
             .iter()
             .map(|active_semester| {
@@ -144,12 +123,12 @@ impl Member {
         Ok(json_val)
     }
 
-    pub fn to_json_with_grades<C: Connection>(
+    pub fn to_json_with_grades(
         &self,
         active_semester: Option<ActiveSemester>,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Value> {
-        let mut json_val = self.to_json();
+        let mut json_val = json!(self);
 
         if let Some(ref active_semester) = active_semester {
             json_val["grades"] = json!(self.calc_grades(&active_semester, conn)?);
@@ -162,32 +141,35 @@ impl Member {
         Ok(json_val)
     }
 
-    pub fn calc_grades<C: Connection>(
+    pub fn calc_grades(
         &self,
-        active_semester: &ActiveSemester,
-        conn: &mut C,
+        given_active_semester: &ActiveSemester,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Grades> {
+        use db::schema::{absence_request, event};
+
         let now = Local::now().naive_local();
         let mut grade: f32 = 100.0;
         let event_attendance_pairs = Attendance::load_for_member_at_all_events(
             &self.email,
-            &active_semester.semester,
+            &given_active_semester.semester,
             conn,
         )?;
-        let semester = Semester::load(&active_semester.semester, conn)?;
-        let semester_is_finished = semester.end_date < now;
-        let gig_requirement = semester.gig_requirement as usize;
+        let given_semester = Semester::load(&given_active_semester.semester, conn)?;
+        let semester_is_finished = given_semester.end_date < now;
+        let gig_requirement = given_semester.gig_requirement as usize;
         let mut grade_items = Vec::new();
         let mut volunteer_gigs_attended = 0;
-        let semester_absence_requests = conn.load(
-            Select::new(Event::table_name())
-                .join(AbsenceRequest::table_name(), "id", "event", Join::Inner)
-                .fields(AbsenceRequest::field_names())
-                .filter(&format!(
-                    "member = '{}' AND semester = '{}'",
-                    self.email, active_semester.semester
-                )),
-        )?;
+        let semester_absence_requests = event::table
+            .inner_join(absence_request::table)
+            .filter(
+                absence_request::dsl::member
+                    .eq(&self.email)
+                    .and(event::dsl::semester.eq(&given_active_semester.semester)),
+            )
+            .load::<(Event, AbsenceRequest)>(conn)
+            .map(|rows| rows.into_iter().map(|(_e, a)| a).collect())
+            .map_err(GreaseError::DbError)?;
 
         let event_attendance_checks = event_attendance_pairs
             .iter()
@@ -371,249 +353,274 @@ impl Member {
         })
     }
 
-    pub fn create(new_member: NewMember, conn: &mut DbConn) -> GreaseResult<()> {
-        if conn
-            .first_opt::<Member>(&Member::filter(&format!("email = '{}'", &new_member.email)))?
-            .is_some()
-        {
-            Err(GreaseError::BadRequest(format!(
+    pub fn create(new_member: NewMember, conn: &MysqlConnection) -> GreaseResult<()> {
+        use db::schema::active_semester;
+
+        let existing_member = member
+            .filter(email.eq(&new_member.email))
+            .first::<Member>(conn)
+            .optional()?;
+
+        if existing_member.is_some() {
+            return Err(GreaseError::BadRequest(format!(
                 "A member already exists with the email {}.",
                 &new_member.email
-            )))
-        } else {
-            conn.transaction(|transaction| {
-                let MemberForSemester {
-                    member,
-                    active_semester,
-                } = new_member.for_current_semester(transaction)?;
-                member.insert(transaction)?;
-
-                if let Some(active_semester) = active_semester {
-                    active_semester.insert(transaction)?;
-                    Attendance::create_for_new_member(&member.email, transaction)?;
-                }
-
-                Ok(())
-            })
-        }
-    }
-
-    pub fn register_for_semester(
-        email: String,
-        form: RegisterForSemesterForm,
-        conn: &mut DbConn,
-    ) -> GreaseResult<()> {
-        let current_semester = Semester::load_current(conn)?;
-        if MemberForSemester::load(&email, &current_semester.name, conn)?
-            .active_semester
-            .is_some()
-        {
-            return Err(GreaseError::BadRequest(format!(
-                "Member with email {} is already active for the current semester.",
-                &email,
             )));
         }
+        conn.transaction(|| {
+            let member_for_semester = new_member.for_current_semester(conn)?;
+            diesel::insert_into(member)
+                .values(&member_for_semester.member)
+                .execute(conn)
+                .map_err(GreaseError::DbError)?;
 
-        conn.transaction(|transaction| {
-            transaction.update(
-                Update::new(Member::table_name())
-                    .filter(&format!("email = '{}'", &email))
-                    .set("location", &to_value(form.location))
-                    .set("conflicts", &to_value(form.conflicts))
-                    .set("dietary_restrictions", &to_value(form.dietary_restrictions)),
-                format!("No member with email {}.", &email),
-            )?;
-            let new_active_semester = ActiveSemester {
-                member: email.clone(),
-                semester: current_semester.name,
-                enrollment: form.enrollment,
-                section: Some(form.section),
-            };
-            new_active_semester.insert(transaction)?;
-            Attendance::create_for_new_member(&email, transaction)?;
+            if let Some(new_active_semester) = member_for_semester.active_semester {
+                diesel::insert_into(active_semester::table)
+                    .values(&new_active_semester)
+                    .execute(conn)
+                    .map_err(GreaseError::DbError)?;
+                Attendance::create_for_new_member(&member_for_semester.member.email, conn)?;
+            }
 
             Ok(())
         })
     }
 
-    pub fn mark_inactive_for_semester<C: Connection>(
-        email: &str,
-        semester: &str,
-        conn: &mut C,
+    pub fn register_for_semester(
+        given_email: String,
+        form: RegisterForSemesterForm,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
-        conn.delete(
-            Delete::new(Member::table_name())
-                .filter(&format!("member = '{}'", email))
-                .filter(&format!("semester = '{}'", semester)),
-            format!("Member {} is not active for semester {}.", email, semester),
-        )
+        use db::schema::active_semester;
+
+        let current_semester = Semester::load_current(conn)?;
+        if MemberForSemester::load(&given_email, &current_semester.name, conn)?
+            .active_semester
+            .is_some()
+        {
+            return Err(GreaseError::BadRequest(format!(
+                "Member with email {} is already active for the current semester.",
+                &given_email,
+            )));
+        }
+
+        conn.transaction(|| {
+            diesel::update(member.filter(email.eq(&given_email)))
+                .set((
+                    location.eq(&form.location),
+                    conflicts.eq(&form.conflicts),
+                    dietary_restrictions.eq(&form.dietary_restrictions),
+                ))
+                .execute(conn)
+                .map_err(GreaseError::DbError)?;
+            // format!("No member with email {}.", &email),
+
+            let new_active_semester = ActiveSemester {
+                member: given_email.clone(),
+                semester: current_semester.name,
+                enrollment: form.enrollment,
+                section: Some(form.section),
+            };
+            diesel::insert_into(active_semester::table)
+                .values(&new_active_semester)
+                .execute(conn)
+                .map_err(GreaseError::DbError)?;
+            Attendance::create_for_new_member(&given_email, conn)?;
+
+            Ok(())
+        })
     }
 
-    pub fn delete<C: Connection>(email: &str, conn: &mut C) -> GreaseResult<()> {
-        conn.delete(
-            Delete::new(Member::table_name()).filter(&format!("email = '{}'", email)),
-            format!("No member exists with email {}.", email),
+    pub fn mark_inactive_for_semester(
+        given_email: &str,
+        given_semester: &str,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<()> {
+        use db::schema::active_semester::dsl::{active_semester, member, semester};
+
+        diesel::delete(
+            active_semester.filter(member.eq(given_email).and(semester.eq(given_semester))),
         )
+        .execute(conn)
+        .map_err(GreaseError::DbError)?;
+
+        Ok(())
+        // format!("Member {} is not active for semester {}.", email, semester),
+    }
+
+    pub fn delete(given_email: &str, conn: &MysqlConnection) -> GreaseResult<()> {
+        diesel::delete(member.filter(email.eq(given_email)))
+            .execute(conn)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(())
+        // format!("No member exists with email {}.", email),
     }
 
     pub fn update(
-        email: &str,
+        given_email: &str,
         as_self: bool,
         update: NewMember,
-        conn: &mut DbConn,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
-        conn.transaction(|transaction| {
-            if email != &update.email
-                && transaction
-                    .first_opt::<Member>(&Member::filter(&format!("email = '{}'", &update.email)))?
-                    .is_some()
-            {
+        conn.transaction(|| {
+            let member_with_same_email = member
+                .filter(email.eq(given_email))
+                .first::<Member>(conn)
+                .optional()?;
+            if given_email != &update.email && member_with_same_email.is_some() {
                 return Err(GreaseError::BadRequest(format!(
                     "Cannot change email to {}, as another user has that email.",
                     &update.email
                 )));
             }
 
-            let member = Member::load(&email, transaction)?;
-            let pass_hash = if let Some(pass_hash) = update.pass_hash {
+            let given_member = Member::load(&given_email, conn)?;
+            let member_pass_hash = if let Some(member_pass_hash) = update.pass_hash {
                 if as_self {
-                    hash(&pass_hash, 10).map_err(|err| {
-                        GreaseError::BadRequest(format!("Invalid password: {}", err))
+                    hash(&member_pass_hash, 10).map_err(|err| {
+                        GreaseError::BadRequest(format!(
+                            "Unable to generate a hash from the given password: {}",
+                            err
+                        ))
                     })?
                 } else {
                     return Err(GreaseError::BadRequest(
-                        "Officers cannot change members' passwords.".to_owned(),
+                        "Only members themselves can change their own passwords.".to_owned(),
                     ));
                 }
             } else {
-                member.pass_hash
+                given_member.pass_hash
             };
-            transaction.update(
-                Update::new(Member::table_name())
-                    .filter(&format!("email = '{}'", email))
-                    .set("email", &to_value(&update.email))
-                    .set("first_name", &to_value(&update.first_name))
-                    .set("preferred_name", &to_value(&update.preferred_name))
-                    .set("last_name", &to_value(&update.last_name))
-                    .set("phone_number", &to_value(&update.phone_number))
-                    .set("picture", &to_value(&update.picture))
-                    .set("passengers", &to_value(&update.passengers))
-                    .set("location", &to_value(&update.location))
-                    .set("about", &to_value(&update.about))
-                    .set("major", &to_value(&update.major))
-                    .set("minor", &to_value(&update.minor))
-                    .set("hometown", &to_value(&update.hometown))
-                    .set("arrived_at_tech", &to_value(&update.arrived_at_tech))
-                    .set("gateway_drug", &to_value(&update.gateway_drug))
-                    .set("conflicts", &to_value(&update.conflicts))
-                    .set(
-                        "dietary_restrictions",
-                        &to_value(&update.dietary_restrictions),
-                    )
-                    .set("pass_hash", &to_value(pass_hash)),
-                format!("No member with the email {} exists.", email),
-            )?;
 
-            let current_semester = Semester::load_current(transaction)?;
+            diesel::update(member.filter(email.eq(given_email)))
+                .set((
+                    email.eq(&update.email),
+                    first_name.eq(&update.first_name),
+                    preferred_name.eq(&update.preferred_name),
+                    last_name.eq(&update.last_name),
+                    phone_number.eq(&update.phone_number),
+                    picture.eq(&update.picture),
+                    passengers.eq(&update.passengers),
+                    location.eq(&update.location),
+                    about.eq(&update.about),
+                    major.eq(&update.major),
+                    minor.eq(&update.minor),
+                    hometown.eq(&update.hometown),
+                    arrived_at_tech.eq(&update.arrived_at_tech),
+                    gateway_drug.eq(&update.gateway_drug),
+                    conflicts.eq(&update.conflicts),
+                    dietary_restrictions.eq(&update.dietary_restrictions),
+                    pass_hash.eq(member_pass_hash),
+                ))
+                .execute(conn)
+                .map_err(GreaseError::DbError)?;
+            // format!("No member with the email {} exists.", given_email),
+
+            let current_semester = Semester::load_current(conn)?;
             let semester_update = ActiveSemesterUpdate {
                 enrollment: update.enrollment,
                 section: update.section,
             };
-            ActiveSemester::update(
-                &update.email,
-                &current_semester.name,
-                semester_update,
-                transaction,
-            )?;
+            ActiveSemester::update(&update.email, &current_semester.name, semester_update, conn)?;
 
             Ok(())
         })
     }
 
-    pub fn permissions<C: Connection>(&self, conn: &mut C) -> GreaseResult<Vec<MemberPermission>> {
-        conn.load_as::<(String, Option<String>), MemberPermission>(
-            Select::new(MemberRole::table_name())
-                .join(
-                    RolePermission::table_name(),
-                    &format!("{}.role", MemberRole::table_name()),
-                    &format!("{}.role", RolePermission::table_name()),
-                    Join::Inner,
-                )
-                .fields(&["permission", "event_type"])
-                .filter(&format!("member = '{}'", self.email)),
-        )
+    pub fn permissions(&self, conn: &MysqlConnection) -> GreaseResult<Vec<MemberPermission>> {
+        use db::schema::{member_role, role_permission};
+
+        member_role::table
+            .inner_join(role_permission::table.on(member_role::role.eq(role_permission::role)))
+            .select((role_permission::role, role_permission::event_type))
+            .filter(member_role::dsl::member.eq(&self.email))
+            .load(conn)
+            .map_err(GreaseError::DbError)
     }
 
-    pub fn positions<C: Connection>(&self, conn: &mut C) -> GreaseResult<Vec<String>> {
-        conn.load(
-            Select::new(MemberRole::table_name())
-                .fields(&["role"])
-                .filter(&format!("member = '{}'", self.email)),
-        )
+    pub fn positions(&self, conn: &MysqlConnection) -> GreaseResult<Vec<String>> {
+        use db::schema::member_role;
+
+        member_role::table
+            .select(member_role::dsl::role)
+            .filter(member_role::dsl::member.eq(&self.email))
+            .load(conn)
+            .map_err(GreaseError::DbError)
     }
 }
 
 impl MemberForSemester {
-    pub fn load<C: Connection>(
-        email: &str,
-        semester: &str,
-        conn: &mut C,
+    pub fn load(
+        given_email: &str,
+        given_semester: &str,
+        conn: &MysqlConnection,
     ) -> GreaseResult<MemberForSemester> {
-        let member = Member::load(email, conn)?;
-        let active_semester = ActiveSemester::load(email, semester, conn)?;
-
         Ok(MemberForSemester {
-            member,
-            active_semester,
+            member: Member::load(given_email, conn)?,
+            active_semester: ActiveSemester::load(given_email, given_semester, conn)?,
         })
     }
 
-    pub fn load_all<C: Connection>(
-        semester: &str,
-        conn: &mut C,
+    pub fn load_all(
+        given_semester: &str,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Vec<MemberForSemester>> {
-        conn.load_as::<MemberForSemesterRow, MemberForSemester>(
-            Select::new(Member::table_name())
-                .join(ActiveSemester::table_name(), "email", "member", Join::Left)
-                .fields(MemberForSemesterRow::field_names())
-                .filter(&format!("semester = '{}'", semester))
-                .order_by("last_name, first_name", Order::Asc),
-        )
+        use db::schema::active_semester;
+
+        member
+            .left_join(active_semester::table)
+            .filter(active_semester::dsl::semester.eq(given_semester))
+            .order_by((last_name.asc(), first_name.asc()))
+            .load(conn)
+            .map_err(GreaseError::DbError)
     }
 
-    pub fn load_for_current_semester<C: Connection>(
+    pub fn load_for_current_semester(
         given_email: &str,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<MemberForSemester> {
         let current_semester = Semester::load_current(conn)?;
         MemberForSemester::load(given_email, &current_semester.name, conn)
     }
 
-    pub fn load_from_token<C: Connection>(
-        token: &str,
-        conn: &mut C,
-    ) -> GreaseResult<MemberForSemester> {
-        if let Some(member_session) =
-            conn.first_opt::<Session>(&Session::filter(&format!("`key` = '{}'", token)))?
-        {
+    pub fn load_from_token(token: &str, conn: &MysqlConnection) -> GreaseResult<MemberForSemester> {
+        use db::schema::session::dsl::{key, session};
+
+        let member_session = session
+            .filter(key.eq(token))
+            .first::<Session>(conn)
+            .optional()
+            .map_err(GreaseError::DbError)?;
+
+        if let Some(member_session) = member_session {
             MemberForSemester::load_for_current_semester(&member_session.member, conn)
         } else {
             Err(GreaseError::Unauthorized)
         }
     }
 
-    pub fn create(new_member: MemberForSemester, conn: &mut DbConn) -> GreaseResult<String> {
+    pub fn create(new_member: MemberForSemester, conn: &MysqlConnection) -> GreaseResult<String> {
+        use db::schema::active_semester;
+
         if let Ok(existing_member) = Member::load(&new_member.member.email, conn) {
             Err(GreaseError::BadRequest(format!(
                 "A member with the email {} already exists.",
                 existing_member.email
             )))
         } else {
-            conn.transaction(move |transaction| {
-                new_member.member.insert(transaction)?;
+            conn.transaction(move || {
+                diesel::insert_into(member)
+                    .values(&new_member.member)
+                    .execute(conn)
+                    .map_err(GreaseError::DbError)?;
+
                 if let Some(active_semester) = new_member.active_semester {
-                    active_semester.insert(transaction)?;
-                    Attendance::create_for_new_member(&new_member.member.email, transaction)?;
+                    diesel::insert_into(active_semester::table)
+                        .values(&active_semester)
+                        .execute(conn)
+                        .map_err(GreaseError::DbError)?;
+                    Attendance::create_for_new_member(&new_member.member.email, conn)?;
                 }
 
                 Ok(new_member.member.email)
@@ -622,28 +629,17 @@ impl MemberForSemester {
     }
 
     pub fn to_json(&self) -> Value {
-        json!({
-            "email": self.member.email,
-            "firstName": self.member.first_name,
-            "preferredName": self.member.preferred_name,
-            "lastName": self.member.last_name,
-            "fullName": self.member.full_name(),
-            "phoneNumber": self.member.phone_number,
-            "picture": self.member.picture,
-            "passengers": self.member.passengers,
-            "location": self.member.location,
-            "onCampus": self.member.on_campus,
-            "about": self.member.about,
-            "major": self.member.major,
-            "minor": self.member.minor,
-            "hometown": self.member.hometown,
-            "arrivedAtTech": self.member.arrived_at_tech,
-            "gatewayDrug": self.member.gateway_drug,
-            "conflicts": self.member.conflicts,
-            "dietaryRestrictions": self.member.dietary_restrictions,
-            "enrollment": self.active_semester.as_ref().map(|active_semester| &active_semester.enrollment),
-            "section": self.active_semester.as_ref().and_then(|active_semester| active_semester.section.as_ref())
-        })
+        let mut json = json!(self.member);
+        json["enrollment"] = json!(self
+            .active_semester
+            .as_ref()
+            .map(|active_semester| &active_semester.enrollment));
+        json["section"] = json!(self
+            .active_semester
+            .as_ref()
+            .and_then(|active_semester| active_semester.section.as_ref()));
+
+        json
     }
 }
 
@@ -671,95 +667,115 @@ pub struct GradeChange {
 }
 
 impl ActiveSemester {
-    pub fn load<C: Connection>(
-        email: &str,
-        semester: &str,
-        conn: &mut C,
-    ) -> GreaseResult<Option<ActiveSemester>> {
-        conn.first_opt(&ActiveSemester::filter(&format!(
-            "member = '{}' AND semester = '{}'",
-            email, semester
-        )))
-    }
-
-    pub fn load_all_for_member<C: Connection>(
+    pub fn load(
         given_email: &str,
-        conn: &mut C,
-    ) -> GreaseResult<Vec<ActiveSemester>> {
-        conn.load(
-            Select::new(ActiveSemester::table_name())
-                .join(
-                    Semester::table_name(),
-                    &format!("{}.semester", ActiveSemester::table_name()),
-                    &format!("{}.name", Semester::table_name()),
-                    Join::Inner,
-                )
-                .fields(ActiveSemester::field_names())
-                .filter(&format!("member = '{}'", given_email))
-                .order_by("start_date", Order::Desc),
-        )
+        given_semester: &str,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Option<ActiveSemester>> {
+        use db::schema::active_semester::dsl::{
+            active_semester, member as member_field, semester as semester_field,
+        };
+
+        active_semester
+            .filter(
+                member_field
+                    .eq(given_email)
+                    .and(semester_field.eq(given_semester)),
+            )
+            .first(conn)
+            .optional()
+            .map_err(GreaseError::DbError)
     }
 
-    pub fn create<C: Connection>(
+    pub fn load_all_for_member(
+        given_email: &str,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Vec<ActiveSemester>> {
+        use db::schema::active_semester::dsl::{active_semester, member as member_field};
+        use db::schema::semester::dsl::{semester, start_date};
+
+        active_semester
+            .inner_join(semester)
+            .filter(member_field.eq(given_email))
+            .order_by(start_date.desc())
+            .load::<(ActiveSemester, Semester)>(conn)
+            .map(|rows| rows.into_iter().map(|(a, _)| a).collect())
+            .map_err(GreaseError::DbError)
+    }
+
+    pub fn create(
         new_active_semester: &ActiveSemester,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
-        if let Some(_existing) = ActiveSemester::load(
+        use db::schema::active_semester;
+
+        let existing_active_semester = ActiveSemester::load(
             &new_active_semester.member,
             &new_active_semester.semester,
             conn,
-        )? {
+        )?;
+
+        if existing_active_semester.is_some() {
             Err(GreaseError::BadRequest(format!(
                 "The member with email {} already is active in semester {}.",
                 new_active_semester.member, new_active_semester.semester
             )))
         } else {
-            new_active_semester.insert(conn)
+            diesel::insert_into(active_semester::table)
+                .values(new_active_semester)
+                .execute(conn)
+                .map_err(GreaseError::DbError)?;
+
+            Ok(())
         }
     }
 
-    pub fn update<C: Connection>(
-        member: &str,
-        semester: &str,
+    pub fn update(
+        given_member: &str,
+        given_semester: &str,
         updated_semester: ActiveSemesterUpdate,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
-        if ActiveSemester::load(member, semester, conn)?.is_some() {
-            if let Some(enrollment) = updated_semester.enrollment {
-                conn.update_opt(
-                    Update::new(ActiveSemester::table_name())
-                        .filter(&format!("member = '{}'", member))
-                        .filter(&format!("semester = '{}'", semester))
-                        .set("enrollment", &to_value(enrollment))
-                        .set("section", &to_value(updated_semester.section)),
-                )
+        use db::schema::active_semester::dsl::{
+            active_semester, member as member_field, semester as semester_field,
+        };
+
+        let active_semester_filter = active_semester.filter(
+            member_field
+                .eq(given_member)
+                .and(semester_field.eq(given_semester)),
+        );
+
+        if ActiveSemester::load(given_member, given_semester, conn)?.is_some() {
+            if updated_semester.enrollment.is_some() {
+                diesel::update(active_semester_filter)
+                    .set(&updated_semester)
+                    .execute(conn)
+                    .map_err(GreaseError::DbError)?;
             } else {
-                conn.delete_opt(
-                    Delete::new(ActiveSemester::table_name())
-                        .filter(&format!("member = '{}'", member))
-                        .filter(&format!("semester = '{}'", semester)),
-                )
+                diesel::delete(active_semester_filter)
+                    .execute(conn)
+                    .map_err(GreaseError::DbError)?;
             }
         } else if let Some(enrollment) = updated_semester.enrollment {
             let new_active_semester = ActiveSemester {
-                member: member.to_owned(),
-                semester: semester.to_owned(),
+                member: given_member.to_owned(),
+                semester: given_semester.to_owned(),
                 section: updated_semester.section,
                 enrollment,
             };
-
-            new_active_semester.insert(conn)
-        } else {
-            Ok(())
+            diesel::insert_into(active_semester)
+                .values(&new_active_semester)
+                .execute(conn)
+                .map_err(GreaseError::DbError)?;
         }
+
+        Ok(())
     }
 }
 
 impl NewMember {
-    pub fn for_current_semester<C: Connection>(
-        self,
-        conn: &mut C,
-    ) -> GreaseResult<MemberForSemester> {
+    pub fn for_current_semester(self, conn: &MysqlConnection) -> GreaseResult<MemberForSemester> {
         Ok(MemberForSemester {
             member: Member {
                 email: self.email.clone(),

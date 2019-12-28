@@ -232,7 +232,7 @@
 //! **GET**    | /transaction_types | [get_transaction_types](crate::routes::officer_routes::get_transaction_types)
 //! **GET**    | /static_data       | [static_data](crate::routes::misc_routes::static_data)
 
-#![recursion_limit = "128"]
+#![recursion_limit = "256"]
 
 extern crate base64;
 extern crate bcrypt;
@@ -250,7 +250,6 @@ extern crate serde;
 extern crate serde_json;
 extern crate url;
 extern crate uuid;
-extern crate warp;
 
 pub mod auth;
 pub mod db;

@@ -6,6 +6,7 @@ use crate::check_for_permission;
 use crate::db::models::member::MemberForSemester;
 use crate::db::*;
 use crate::error::*;
+use db::schema::Enrollment;
 use serde_json::{json, Value};
 use std::collections::HashSet;
 
@@ -99,7 +100,7 @@ pub fn get_member(
                 |active_semester| member.to_json_with_grades(active_semester, &mut user.conn),
             )
         } else {
-            Ok(member.to_json())
+            Ok(json!(member))
         }
     })
 }
@@ -172,8 +173,8 @@ pub fn get_members(
             .into_iter()
             .filter_map(|member| {
                 if let Some(ref active_semester) = member.active_semester {
-                    if !(include_class && active_semester.enrollment == Enrollment::Class)
-                        && !(include_club && active_semester.enrollment == Enrollment::Club)
+                    if !(include_class && &active_semester.enrollment == &Enrollment::Class)
+                        && !(include_club && &active_semester.enrollment == &Enrollment::Club)
                     {
                         return None;
                     }
@@ -200,7 +201,9 @@ pub fn get_members(
 /// ## Input Format:
 ///
 /// Expects a [NewMember](crate::db::models::NewMember).
-pub fn new_member((new_member, mut conn): (NewMember, DbConn)) -> GreaseResult<Value> {
+pub fn new_member(new_member: NewMember) -> GreaseResult<Value> {
+    let mut conn = connect_to_db()?;
+
     Member::create(new_member, &mut conn).map(|_| basic_success())
 }
 
@@ -213,9 +216,7 @@ pub fn new_member((new_member, mut conn): (NewMember, DbConn)) -> GreaseResult<V
 /// ## Input Format:
 ///
 /// Expects a [RegisterForSemesterForm](crate::db::models::RegisterForSemesterForm).
-pub fn confirm_for_semester(
-    (form, mut user): (RegisterForSemesterForm, User),
-) -> GreaseResult<Value> {
+pub fn confirm_for_semester(form: RegisterForSemesterForm, mut user: User) -> GreaseResult<Value> {
     Member::register_for_semester(user.member.member.email, form, &mut user.conn)
         .map(|_| basic_success())
 }
@@ -254,7 +255,8 @@ pub fn mark_member_inactive_for_semester(
 pub fn update_member_semester(
     member: String,
     semester: String,
-    (update, mut user): (ActiveSemesterUpdate, User),
+    update: ActiveSemesterUpdate,
+    mut user: User,
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-user");
     ActiveSemester::update(&member, &semester, update, &mut user.conn).map(|_| basic_success())
@@ -269,7 +271,7 @@ pub fn update_member_semester(
 /// ## Input Format:
 ///
 /// Expects a [NewMember](crate::db::models::NewMember).
-pub fn update_member_profile((update, mut user): (NewMember, User)) -> GreaseResult<Value> {
+pub fn update_member_profile(update: NewMember, mut user: User) -> GreaseResult<Value> {
     Member::update(&user.member.member.email, true, update, &mut user.conn).map(|_| basic_success())
 }
 
@@ -287,7 +289,8 @@ pub fn update_member_profile((update, mut user): (NewMember, User)) -> GreaseRes
 /// Expects a [NewMember](crate::db::models::NewMember).
 pub fn update_member_as_officer(
     member: String,
-    (update, mut user): (NewMember, User),
+    update: NewMember,
+    mut user: User,
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-user");
     Member::update(&member, false, update, &mut user.conn).map(|_| basic_success())

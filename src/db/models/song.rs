@@ -1,5 +1,8 @@
 use crate::error::*;
-use db::{Song, SongLink, NewSong, SongUpdate, SongLinkUpdate, NewSongLink, MediaType, schema::StorageType};
+use db::{
+    schema::StorageType, MediaType, NewSong, NewSongLink, Song, SongLink, SongLinkUpdate,
+    SongUpdate,
+};
 use diesel::prelude::*;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -8,28 +11,30 @@ use std::str::FromStr;
 use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
 use util::check_for_music_file;
 
-
 impl Song {
-    pub fn load<C: Connection>(song_id: i32, conn: &mut C) -> GreaseResult<Song> {
+    pub fn load(song_id: i32, conn: &MysqlConnection) -> GreaseResult<Song> {
         use db::schema::song::dsl::*;
 
         song.filter(id.eq(song_id))
-        .first(conn)
-        .optional()
-        .map_err(GreaseError::DbError)?
-        .ok_or(format!("No song with id {}.", song_id))
+            .first(conn)
+            .optional()
+            .map_err(GreaseError::DbError)?
+            .ok_or(GreaseError::BadRequest(format!(
+                "No song with id {}.",
+                song_id
+            )))
     }
 
-    pub fn load_with_data<C: Connection>(song_id: i32, conn: &mut C) -> GreaseResult<SongData> {
-        use db::schema::song::dsl::*;
-        use db::schema::song_link::{dsl as link_dsl};
-        use db::schema::media_type::{dsl as media_type_dsl};
+    pub fn load_with_data(song_id: i32, conn: &MysqlConnection) -> GreaseResult<SongData> {
+        use db::schema::media_type::dsl as media_type_dsl;
+        use db::schema::song_link::dsl as link_dsl;
 
-        let song = Song::load(song_id, conn)?;
+        let given_song = Song::load(song_id, conn)?;
 
-        let song_links = link_dsl::song_link.filter(link_dsl::song.eq(song_id))
+        let song_links = link_dsl::song_link
+            .filter(link_dsl::song.eq(song_id))
             .order_by(link_dsl::name.asc())
-            .load(conn)
+            .load::<SongLink>(conn)
             .map_err(GreaseError::DbError)?;
         let mut sorted_links = song_links
             .into_iter()
@@ -39,8 +44,9 @@ impl Song {
                 map
             });
 
-        let media_types = media_type_dsl::media_type.order_by(media_type_dsl::order.asc())
-            .load(conn)
+        let media_types = media_type_dsl::media_type
+            .order_by(media_type_dsl::order.asc())
+            .load::<MediaType>(conn)
             .map_err(GreaseError::DbError)?;
         let links = media_types
             .into_iter()
@@ -60,11 +66,14 @@ impl Song {
                 sorted_links.keys()
             )))
         } else {
-            Ok(SongData { song, links })
+            Ok(SongData {
+                song: given_song,
+                links,
+            })
         }
     }
 
-    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Song>> {
+    pub fn load_all(conn: &MysqlConnection) -> GreaseResult<Vec<Song>> {
         use db::schema::song::dsl::*;
 
         song.order_by(title.asc())
@@ -72,76 +81,88 @@ impl Song {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn create<C: Connection>(new_song: &NewSong, conn: &mut C) -> GreaseResult<i32> {
+    pub fn create(new_song: &NewSong, conn: &MysqlConnection) -> GreaseResult<i32> {
         use db::schema::song::dsl::*;
 
-        diesel::insert_into(song)
-            .values(new_song)
-            .execute(conn)
-            .map_err(GreaseError::DbError)
+        conn.transaction(|| {
+            diesel::insert_into(song).values(new_song).execute(conn)?;
+
+            song.select(id).order_by(id.desc()).first(conn)
+        })
+        .map_err(GreaseError::DbError)
     }
 
-    pub fn update<C: Connection>(
+    pub fn update(
         song_id: i32,
         updated_song: &SongUpdate,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
         use db::schema::song::dsl::*;
 
         diesel::update(song.filter(id.eq(song_id)))
             .set(updated_song)
             .execute(conn)
-            .map_err(GreaseError::DbError)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(())
     }
 
-    pub fn set_current_status<C: Connection>(
+    pub fn set_current_status(
         song_id: i32,
         is_current: bool,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
         use db::schema::song::dsl::*;
 
         diesel::update(song.filter(id.eq(song_id)))
             .set(current.eq(is_current))
             .execute(conn)
-            .map_err(GreaseError::DbError)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(())
     }
 
-    pub fn delete<C: Connection>(song_id: i32, conn: &mut C) -> GreaseResult<()> {
+    pub fn delete(song_id: i32, conn: &MysqlConnection) -> GreaseResult<()> {
         use db::schema::song::dsl::*;
 
         diesel::delete(song.filter(id.eq(song_id)))
             .execute(conn)
-            .map_err(GreaseError::DbError)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(())
     }
 }
 
 impl SongLink {
-    pub fn load<C: Connection>(link_id: i32, conn: &mut C) -> GreaseResult<SongLink> {
+    pub fn load(link_id: i32, conn: &MysqlConnection) -> GreaseResult<SongLink> {
         use db::schema::song_link::dsl::*;
 
-        song_link.filter(id.eq(link_id))
-        .first(conn)
-        .map_err(GreaseError::DbError)?
-        .ok_or(format!("no song link with id {}", link_id))
+        song_link
+            .filter(id.eq(link_id))
+            .first(conn)
+            .optional()
+            .map_err(GreaseError::DbError)?
+            .ok_or(GreaseError::BadRequest(format!(
+                "no song link with id {}.",
+                link_id
+            )))
     }
 
-    pub fn load_all_with_types<C: Connection>(
-        conn: &mut C,
-    ) -> GreaseResult<Vec<(SongLink, MediaType)>> {
-        use db::schema::song_link::dsl::*;
+    pub fn load_all_with_types(conn: &MysqlConnection) -> GreaseResult<Vec<(SongLink, MediaType)>> {
         use db::schema::media_type;
+        use db::schema::song_link::dsl::*;
 
-        song_link.inner_join(media_type::table)
+        song_link
+            .inner_join(media_type::table)
             .order_by((name.asc(), media_type::dsl::order.asc()))
             .load(conn)
             .map_err(GreaseError::DbError)
     }
 
-    pub fn create<C: Connection>(
+    pub fn create(
         song_id: i32,
         new_link: NewSongLink,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<i32> {
         use db::schema::song_link::dsl::*;
 
@@ -151,7 +172,7 @@ impl SongLink {
                 &utf8_percent_encode(&new_link.target, DEFAULT_ENCODE_SET).to_string(),
             )?
         } else {
-            new_link.target
+            new_link.target.clone()
         };
 
         conn.transaction(|| {
@@ -165,10 +186,11 @@ impl SongLink {
                 .execute(conn)?;
 
             song_link.select(id).order_by(id.desc()).first(conn)
-        }).map_err(GreaseError::DbError)
+        })
+        .map_err(GreaseError::DbError)
     }
 
-    pub fn delete<C: Connection>(link_id: i32, conn: &mut C) -> GreaseResult<()> {
+    pub fn delete(link_id: i32, conn: &MysqlConnection) -> GreaseResult<()> {
         use db::schema::song_link::dsl::*;
 
         let link = SongLink::load(link_id, conn)?;
@@ -179,8 +201,8 @@ impl SongLink {
             .map_err(GreaseError::DbError)?;
 
         if media_type.storage == StorageType::Local {
-            let file_name =
-                PathBuf::from_str(&format!("../httpsdocs/music/{}", &link.target)).map_err(|_err| {
+            let file_name = PathBuf::from_str(&format!("../httpsdocs/music/{}", &link.target))
+                .map_err(|_err| {
                     GreaseError::ServerError(format!(
                         "invalid file name for link with id {}: {}",
                         link_id, &link.target
@@ -202,7 +224,7 @@ impl SongLink {
     pub fn update(
         link_id: i32,
         updated_link: SongLinkUpdate,
-        conn: &mut MysqlConnection,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
         use db::schema::song_link::dsl::*;
 

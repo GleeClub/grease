@@ -4,8 +4,8 @@
 //! parameter for endpoints, is the primary method for handling authorization
 //! for the API.
 use db::models::member::MemberForSemester;
-use diesel::MysqlConnection;
-use error::GreaseError;
+use diesel::{MysqlConnection, Queryable};
+use error::{GreaseError, GreaseResult};
 use serde::{Deserialize, Serialize};
 
 /// The "standard package" for API interaction.
@@ -42,18 +42,20 @@ impl User {
     ///
     /// Checks for a header named "token" containing the API token
     /// to authenticate a request as from the current user.
-    fn filter() -> impl warp::Filter<Extract = (User,), Error = GreaseError> {
-        warp::header::optional::<String>("token").and_then(|token| {
-            let token = token.ok_or(GreaseError::Unauthorized)?;
-            let mut conn = crate::db::connect_to_db()?;
-            let member = MemberForSemester::load_from_token(token, &mut conn)?;
-            let permissions = member.member.permissions(&mut conn)?;
+    pub fn from_request(request: &cgi::Request) -> GreaseResult<User> {
+        let token = request
+            .headers()
+            .get("token")
+            .and_then(|t| t.to_str().ok())
+            .ok_or(GreaseError::Unauthorized)?;
+        let mut conn = crate::db::connect_to_db()?;
+        let member = MemberForSemester::load_from_token(&token, &mut conn)?;
+        let permissions = member.member.permissions(&mut conn)?;
 
-            Ok(User {
-                member,
-                permissions,
-                conn,
-            })
+        Ok(User {
+            member,
+            permissions,
+            conn,
         })
     }
 }
@@ -66,20 +68,11 @@ impl User {
 /// |-----------|--------|:---------:|----------|
 /// | name      | string |     ✓     |          |
 /// | eventType | string |           |          |
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(Queryable, PartialEq, Serialize, Deserialize)]
 pub struct MemberPermission {
     pub name: String,
     #[serde(rename = "eventType")]
     pub event_type: Option<String>,
-}
-
-impl Into<MemberPermission> for (String, Option<String>) {
-    fn into(self) -> MemberPermission {
-        MemberPermission {
-            name: self.0,
-            event_type: self.1,
-        }
-    }
 }
 
 /// A "one-liner" guard pattern to ensure the user has a given permission.

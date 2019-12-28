@@ -1,75 +1,75 @@
-use chrono::{Local, NaiveDateTime};
+use chrono::Local;
 use db::models::member::MemberForSemester;
-use db::{ActiveSemester, Event, Attendance, NewAttendance};
+use db::schema::attendance::dsl::*;
+use db::schema::{active_semester, event, member as member_dsl};
+use db::{ActiveSemester, Attendance, AttendanceForm, Event, Member, NewAttendance};
 use diesel::prelude::*;
 use error::*;
 use std::collections::HashMap;
-use db::schema::attendance::dsl::*;
-use db::schema::{member as member_dsl, active_semester};
 
 impl Attendance {
     pub fn load(
         given_member: &str,
         event_id: i32,
-        conn: &mut MysqlConnection,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Option<Attendance>> {
-        attendance.filter(member.eq(given_member).and(event.eq(event_id)))
+        attendance
+            .filter(member.eq(given_member).and(event.eq(event_id)))
             .first(conn)
             .optional()
             .map_err(GreaseError::DbError)
     }
 
+    fn ensure_exists_for_member_at_event(
+        given_member: &str,
+        given_event: i32,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<()> {
+        if Self::load(given_member, given_event, conn)?.is_some() {
+            Ok(())
+        } else {
+            Err(GreaseError::BadRequest(format!(
+                "No attendance exists for member {} at event {}. (Are they inactive?)",
+                given_member, given_event
+            )))
+        }
+    }
+
     pub fn load_for_event(
         event_id: i32,
-        conn: &mut MysqlConnection,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Vec<(Attendance, MemberForSemester)>> {
         use db::schema::member::dsl::{first_name, last_name};
 
-        Event::load(event_id, conn)?
-            .ok_or(GreaseError::BadRequest(format!("No event exists with id {}.", event_id)))?;
+        Event::load(event_id, conn)?;
 
-        attendance.inner_join(member_dsl::table.inner_join(active_semester::table))
+        attendance
+            .inner_join(member_dsl::table.inner_join(active_semester::table))
             .filter(event.eq(event_id))
             .order_by((last_name, first_name))
-            .load::<(Attendance, MemberForSemester)>(conn)
+            .load::<(Attendance, (Member, ActiveSemester))>(conn)
             .map(|mut rows| {
-                rows.dedup_by_key(|(attends, _member)| (attends.event, attends.member.clone()));
-                rows
+                rows.dedup_by_key(|(attends, (_member, _semester))| {
+                    (attends.event, attends.member.clone())
+                });
+                rows.into_iter()
+                    .map(|(attends, (given_member, given_active_semester))| {
+                        (
+                            attends,
+                            MemberForSemester {
+                                member: given_member,
+                                active_semester: Some(given_active_semester),
+                            },
+                        )
+                    })
+                    .collect::<Vec<_>>()
             })
             .map_err(GreaseError::DbError)
     }
 
-    pub fn load_for_event_for_section(
-        event_id: i32,
-        section: Option<&str>,
-        conn: &mut MysqlConnection,
-    ) -> GreaseResult<Vec<(Attendance, MemberForSemester)>> {
-        let _found_event = Event::load(event_id, conn)?;
-
-        conn.load_as::<AttendanceMemberRow, (Attendance, MemberForSemester)>(
-            Select::new(Attendance::table_name())
-                .join(
-                    Member::table_name(),
-                    &format!("{}.member", Attendance::table_name()),
-                    "email",
-                    Join::Inner,
-                )
-                .join(
-                    ActiveSemester::table_name(),
-                    &format!("{}.member", Attendance::table_name()),
-                    &format!("{}.member", ActiveSemester::table_name()),
-                    Join::Inner,
-                )
-                .fields(AttendanceMemberRow::field_names())
-                .filter(&format!("event = {}", event_id))
-                .filter(&format!("section = {}", to_value(section)))
-                .order_by("last_name, first_name", Order::Asc),
-        )
-    }
-
     pub fn load_for_event_separate_by_section(
         given_event_id: i32,
-        conn: &mut MysqlConnection,
+        conn: &MysqlConnection,
     ) -> GreaseResult<HashMap<String, Vec<(Attendance, MemberForSemester)>>> {
         let attendance_pairs = Attendance::load_for_event(given_event_id, conn)?;
         let mut section_attendance: HashMap<String, Vec<(_, _)>> = HashMap::new();
@@ -90,89 +90,89 @@ impl Attendance {
     }
 
     pub fn load_for_member_at_all_events(
-        member: &str,
-        semester: &str,
-        conn: &mut MysqlConnection,
+        given_member: &str,
+        given_semester: &str,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Vec<(Event, Attendance)>> {
-        conn.load_as::<EventAttendanceRow, (Event, Attendance)>(
-            Select::new(Event::table_name())
-                .join(Attendance::table_name(), "id", "event", Join::Inner)
-                .fields(EventAttendanceRow::field_names())
-                .filter(&format!("member = '{}'", member))
-                .filter(&format!("semester = '{}'", semester))
-                .order_by("call_time", Order::Asc),
-        )
+        event::table
+            .inner_join(attendance)
+            .filter(
+                member
+                    .eq(given_member)
+                    .and(event::semester.eq(given_semester)),
+            )
+            .order_by(event::call_time.asc())
+            .load(conn)
+            .map_err(GreaseError::DbError)
     }
 
-    pub fn create_for_new_member(member: &str, conn: &mut DbTransaction) -> GreaseResult<()> {
+    pub fn create_for_new_member(
+        given_member: &str,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<()> {
         let now = Local::now().naive_local();
-        for event_with_gig in Event::load_all_for_current_semester(conn)? {
-            let new_attendance = NewAttendance {
+        let all_events_for_semester = Event::load_all_for_current_semester(conn)?;
+        let new_attendances = all_events_for_semester
+            .into_iter()
+            .map(|event_with_gig| NewAttendance {
                 event: event_with_gig.event.id,
                 should_attend: if now > event_with_gig.event.call_time {
                     false
                 } else {
                     event_with_gig.event.default_attend
                 },
-                member: member.to_owned(),
-            };
+                member: given_member.to_owned(),
+            })
+            .collect::<Vec<NewAttendance>>();
 
-            if conn
-                .first_opt::<Attendance>(&Attendance::filter(&format!(
-                    "member = '{}' AND event = {}",
-                    member, new_attendance.event
-                )))?
-                .is_none()
-            {
-                new_attendance.insert(conn)?;
-            }
-        }
+        diesel::insert_or_ignore_into(attendance)
+            .values(&new_attendances)
+            .execute(conn)?;
 
         Ok(())
     }
 
-    pub fn create_for_new_event(event_id: i32, conn: &mut MysqlConnection) -> GreaseResult<()> {
-        let event = Event::load(event_id, conn)?.event;
-        let semester_members = MemberForSemester::load_all(&event.semester, conn)?;
+    pub fn create_for_new_event(event_id: i32, conn: &MysqlConnection) -> GreaseResult<()> {
+        let parent_event = Event::load(event_id, conn)?.event;
+        let semester_members = MemberForSemester::load_all(&parent_event.semester, conn)?;
 
-        semester_members
-            .into_iter()
-            .map(|member_for_semester| NewAttendance {
-                event: event_id,
-                member: member_for_semester.member.email,
-                should_attend: event.default_attend,
-            })
-            .map(|new_attendance| new_attendance.insert(conn))
-            .collect::<GreaseResult<()>>()
+        diesel::insert_into(attendance)
+            .values(
+                &semester_members
+                    .into_iter()
+                    .map(|member_for_semester| NewAttendance {
+                        event: event_id,
+                        member: member_for_semester.member.email,
+                        should_attend: parent_event.default_attend,
+                    })
+                    .collect::<Vec<NewAttendance>>(),
+            )
+            .execute(conn)?;
+
+        Ok(())
     }
 
-    pub fn excuse_unconfirmed(event_id: i32, conn: &mut MysqlConnection) -> GreaseResult<()> {
-        conn.update_opt(
-            Update::new(Attendance::table_name())
-                .filter(&format!("event = {} AND confirmed = false", event_id))
-                .set("should_attend", "false"),
-        )
+    pub fn excuse_unconfirmed(event_id: i32, conn: &MysqlConnection) -> GreaseResult<()> {
+        diesel::update(attendance.filter(event.eq(event_id).and(confirmed.eq(false))))
+            .set(should_attend.eq(false))
+            .execute(conn)?;
+
+        Ok(())
     }
 
     // TODO: don't allow updates for inactive members (NO RSVP'ing)
     pub fn update(
         event_id: i32,
-        member: &str,
+        given_member: &str,
         attendance_form: &AttendanceForm,
-        conn: &mut MysqlConnection,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
-        conn.update(
-            Update::new(Attendance::table_name())
-                .filter(&format!("member = '{}'", member))
-                .filter(&format!("event = {}", event_id))
-                .set("should_attend", &to_value(&attendance_form.should_attend))
-                .set("did_attend", &to_value(&attendance_form.did_attend))
-                .set("minutes_late", &to_value(&attendance_form.minutes_late))
-                .set("confirmed", &to_value(&attendance_form.confirmed)),
-            format!(
-                "No attendance exists for member {} at event {}. (Are they inactive?)",
-                member, event_id
-            ),
-        )
+        Self::ensure_exists_for_member_at_event(given_member, event_id, conn)?;
+
+        diesel::update(attendance.filter(member.eq(given_member).and(event.eq(event_id))))
+            .set(attendance_form)
+            .execute(conn)?;
+
+        Ok(())
     }
 }

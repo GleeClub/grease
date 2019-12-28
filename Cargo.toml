@@ -15,9 +15,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 url = "1.7.2"
 uuid = { version = "0.7", features = ["v4"] }
-warp = "0.1.20"
 diesel = { version = "1.4.3", features = [ "mysql", "chrono", "serde_json" ] }
-diesel-derive-enum = "0.4.4"
+diesel-derive-enum = { version = "0.4.4", features = [ "mysql" ] }
 
 [profile.release]
 panic = "unwind"

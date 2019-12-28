@@ -2,21 +2,25 @@ use db::{
     Announcement, GigSong, GoogleDoc, MediaType, Member, MemberRole, NewGigSong, NewTodo,
     NewUniform, Role, RolePermission, Session, Song, Todo, Uniform, Variable,
 };
-use diesel::{Connection, MysqlConnection};
+use diesel::prelude::*;
 use error::*;
 use uuid::Uuid;
 
 impl GoogleDoc {
-    pub fn load<C: Connection>(doc_name: &str, conn: &mut C) -> GreaseResult<GoogleDoc> {
+    pub fn load(doc_name: &str, conn: &MysqlConnection) -> GreaseResult<GoogleDoc> {
         use db::schema::google_docs::dsl::*;
 
         google_docs
             .filter(name.eq(doc_name))
-            .load(conn)
-            .map_err(GreaseError::DbError)
+            .first(conn)
+            .optional()?
+            .ok_or(GreaseError::BadRequest(format!(
+                "No google docs found with the name {}.",
+                doc_name
+            )))
     }
 
-    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<GoogleDoc>> {
+    pub fn load_all(conn: &MysqlConnection) -> GreaseResult<Vec<GoogleDoc>> {
         use db::schema::google_docs::dsl::*;
 
         google_docs
@@ -25,39 +29,45 @@ impl GoogleDoc {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn insert<C: Connection>(new_doc: &GoogleDoc, conn: &mut C) -> GreaseResult<()> {
+    pub fn insert(new_doc: &GoogleDoc, conn: &MysqlConnection) -> GreaseResult<()> {
         use db::schema::google_docs::dsl::*;
 
         diesel::insert_into(google_docs)
             .values(new_doc)
             .execute(conn)
-            .map_err(GreaseError::DbError)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(())
     }
 
-    pub fn update<C: Connection>(
+    pub fn update(
         old_name: &str,
         changed_doc: &GoogleDoc,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
         use db::schema::google_docs::dsl::*;
 
         diesel::update(google_docs.filter(name.eq(old_name)))
             .set(changed_doc)
             .execute(conn)
-            .map_err(GreaseError::DbError)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(())
     }
 
-    pub fn delete<C: Connection>(given_name: &str, conn: &mut C) -> GreaseResult<()> {
+    pub fn delete(given_name: &str, conn: &MysqlConnection) -> GreaseResult<()> {
         use db::schema::google_docs::dsl::*;
 
         diesel::delete(google_docs.filter(name.eq(given_name)))
             .execute(conn)
-            .map_err(GreaseError::DbError)
+            .map_err(GreaseError::DbError)?;
+
+        Ok(())
     }
 }
 
 impl Announcement {
-    pub fn load<C: Connection>(announcement_id: i32, conn: &mut C) -> GreaseResult<Announcement> {
+    pub fn load(announcement_id: i32, conn: &MysqlConnection) -> GreaseResult<Announcement> {
         use db::schema::announcement::dsl::*;
 
         announcement
@@ -66,11 +76,11 @@ impl Announcement {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn insert<C: Connection>(
+    pub fn insert(
         new_content: &str,
         given_member: &str,
         given_semester: &str,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<i32> {
         use db::schema::announcement::dsl::*;
 
@@ -88,7 +98,7 @@ impl Announcement {
         .map_err(GreaseError::DbError)
     }
 
-    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Announcement>> {
+    pub fn load_all(conn: &MysqlConnection) -> GreaseResult<Vec<Announcement>> {
         use db::schema::announcement::dsl::*;
 
         announcement
@@ -97,9 +107,9 @@ impl Announcement {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn load_all_for_semester<C: Connection>(
+    pub fn load_all_for_semester(
         given_semester: &str,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Vec<Announcement>> {
         use db::schema::announcement::dsl::*;
 
@@ -110,29 +120,33 @@ impl Announcement {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn archive<C: Connection>(announcement_id: i32, conn: &mut C) -> GreaseResult<()> {
+    pub fn archive(announcement_id: i32, conn: &MysqlConnection) -> GreaseResult<()> {
         use db::schema::announcement::dsl::*;
 
         diesel::update(announcement.filter(id.eq(announcement_id)))
             .set(archived.eq(true))
-            .execute(conn)
-            .map_err(GreaseError::DbError)
+            .execute(conn)?;
+
+        Ok(())
         // format!("No announcement with id {}.", announcement_id),
     }
 }
 
 impl Uniform {
-    pub fn load<C: Connection>(uniform_id: i32, conn: &mut C) -> GreaseResult<Uniform> {
+    pub fn load(uniform_id: i32, conn: &MysqlConnection) -> GreaseResult<Uniform> {
         use db::schema::uniform::dsl::*;
 
         uniform
             .filter(id.eq(uniform_id))
             .first(conn)
-            .map_err(GreaseError::DbError)
-        // format!("No uniform with id {}.", id),
+            .optional()?
+            .ok_or(GreaseError::BadRequest(format!(
+                "No uniform with id {}.",
+                uniform_id
+            )))
     }
 
-    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<Uniform>> {
+    pub fn load_all(conn: &MysqlConnection) -> GreaseResult<Vec<Uniform>> {
         use db::schema::uniform::dsl::*;
 
         uniform
@@ -141,26 +155,39 @@ impl Uniform {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn update<C: Connection>(
+    pub fn load_default(conn: &MysqlConnection) -> GreaseResult<Uniform> {
+        use db::schema::uniform::dsl::*;
+
+        uniform
+            .order_by(name.asc())
+            .first(conn)
+            .optional()?
+            .ok_or(GreaseError::ServerError(
+                "There are currently no uniforms.".to_owned(),
+            ))
+    }
+
+    pub fn update(
         uniform_id: i32,
         updated: &NewUniform,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
         use db::schema::uniform::dsl::*;
 
         diesel::update(uniform.filter(id.eq(uniform_id)))
-            .values(updated)
-            .execute(conn)
-            .map_err(GreaseError::DbError)
+            .set(updated)
+            .execute(conn)?;
+
+        Ok(())
         // format!("No uniform with id {}.", id),
     }
 
-    pub fn delete<C: Connection>(uniform_id: i32, conn: &mut C) -> GreaseResult<()> {
+    pub fn delete(uniform_id: i32, conn: &MysqlConnection) -> GreaseResult<()> {
         use db::schema::uniform::dsl::*;
 
-        diesel::delete(uniform.filter(id.eq(uniform_id)))
-            .execute(conn)
-            .map_err(GreaseError::DbError)
+        diesel::delete(uniform.filter(id.eq(uniform_id))).execute(conn)?;
+
+        Ok(())
         // format!("No uniform with id {}.", id),
     }
 
@@ -184,7 +211,7 @@ impl Uniform {
 }
 
 impl MediaType {
-    pub fn load<C: Connection>(type_name: &str, conn: &mut C) -> GreaseResult<MediaType> {
+    pub fn load(type_name: &str, conn: &MysqlConnection) -> GreaseResult<MediaType> {
         use db::schema::media_type::dsl::*;
 
         media_type
@@ -194,7 +221,7 @@ impl MediaType {
         // format!("No media type named {}.", type_name),
     }
 
-    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<MediaType>> {
+    pub fn load_all(conn: &MysqlConnection) -> GreaseResult<Vec<MediaType>> {
         use db::schema::media_type::dsl::*;
 
         media_type
@@ -205,7 +232,7 @@ impl MediaType {
 }
 
 impl Variable {
-    pub fn load<C: Connection>(given_key: &str, conn: &mut C) -> GreaseResult<Option<Variable>> {
+    pub fn load(given_key: &str, conn: &MysqlConnection) -> GreaseResult<Option<Variable>> {
         use db::schema::variable::dsl::*;
 
         variable
@@ -215,10 +242,10 @@ impl Variable {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn set<C: Connection>(
+    pub fn set(
         given_key: String,
         given_value: String,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Option<String>> {
         use db::schema::variable::dsl::*;
 
@@ -237,7 +264,7 @@ impl Variable {
         }
     }
 
-    pub fn unset<C: Connection>(given_key: &str, conn: &mut C) -> GreaseResult<Option<String>> {
+    pub fn unset(given_key: &str, conn: &MysqlConnection) -> GreaseResult<Option<String>> {
         use db::schema::variable::dsl::*;
 
         let old_val = Variable::load(given_key, conn)?.map(|var| var.value);
@@ -250,7 +277,7 @@ impl Variable {
 }
 
 impl Session {
-    pub fn load<C: Connection>(email: &str, conn: &mut C) -> GreaseResult<Option<Session>> {
+    pub fn load(email: &str, conn: &MysqlConnection) -> GreaseResult<Option<Session>> {
         use db::schema::session::dsl::*;
 
         session
@@ -260,21 +287,21 @@ impl Session {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn delete<C: Connection>(email: &str, conn: &mut C) -> GreaseResult<()> {
+    pub fn delete(email: &str, conn: &MysqlConnection) -> GreaseResult<()> {
         use db::schema::session::dsl::*;
 
-        diesel::delete(session.filter(member.eq(email)))
-            .execute(conn)
-            .map_err(GreaseError::DbError)
+        diesel::delete(session.filter(member.eq(email))).execute(conn)?;
+
+        Ok(())
         // format!("No session for member {}.", email),
     }
 
-    pub fn generate<C: Connection>(given_email: &str, conn: &mut C) -> GreaseResult<String> {
+    pub fn generate(given_email: &str, conn: &MysqlConnection) -> GreaseResult<String> {
         use db::schema::session::dsl::*;
 
         let new_key = Uuid::new_v4().to_string();
         diesel::insert_into(session)
-            .values((member.eq(given_email), key.eq(new_key)))
+            .values((member.eq(given_email), key.eq(&new_key)))
             .execute(conn)
             .map(|_| new_key)
             .map_err(GreaseError::DbError)
@@ -282,31 +309,32 @@ impl Session {
 }
 
 impl GigSong {
-    pub fn load_for_event<C: Connection>(event_id: i32, conn: &mut C) -> GreaseResult<Vec<Song>> {
+    pub fn load_for_event(event_id: i32, conn: &MysqlConnection) -> GreaseResult<Vec<Song>> {
         use db::schema::gig_song::dsl::*;
+        use db::schema::song;
 
         gig_song
-            .inner_join(crate::db::schema::song::table)
-            .select(gig_song)
+            .inner_join(song::table)
             .filter(event.eq(event_id))
             .order_by(order.asc())
-            .load(conn)
+            .load::<(GigSong, Song)>(conn)
+            .map(|rows| rows.into_iter().map(|(_, s)| s).collect())
             .map_err(GreaseError::DbError)
     }
 
     pub fn update_for_event(
         event_id: i32,
         updated_setlist: Vec<NewGigSong>,
-        conn: &mut MysqlConnection,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
         use db::schema::gig_song::dsl::*;
 
         let gig_songs = updated_setlist
             .into_iter()
             .enumerate()
-            .map(|(index, gig_song)| GigSong {
+            .map(|(index, given_gig_song)| GigSong {
                 event: event_id,
-                song: gig_song.song,
+                song: given_gig_song.song,
                 order: index as i32 + 1,
             })
             .collect::<Vec<GigSong>>();
@@ -323,7 +351,7 @@ impl GigSong {
 }
 
 impl Todo {
-    pub fn load<C: Connection>(todo_id: i32, conn: &mut C) -> GreaseResult<Todo> {
+    pub fn load(todo_id: i32, conn: &MysqlConnection) -> GreaseResult<Todo> {
         use db::schema::todo::dsl::*;
 
         todo.filter(id.eq(todo_id))
@@ -332,9 +360,9 @@ impl Todo {
         // format!("No todo with id {}.", todo_id),
     }
 
-    pub fn load_all_for_member<C: Connection>(
+    pub fn load_all_for_member(
         given_member: &str,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<Vec<Todo>> {
         use db::schema::todo::dsl::*;
 
@@ -343,32 +371,38 @@ impl Todo {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn create<C: Connection>(new_todo: NewTodo, conn: &mut C) -> GreaseResult<()> {
+    pub fn create(new_todo: NewTodo, conn: &MysqlConnection) -> GreaseResult<()> {
         use db::schema::todo::dsl::*;
 
-        diesel::insert_into(todo)
-            .values(&new_todo)
-            .execute(conn)
-            .map_err(GreaseError::DbError)
+        let todo_text = new_todo.text;
+        let new_todos = new_todo
+            .members
+            .into_iter()
+            .map(|todo_member| (text.eq(todo_text.clone()), member.eq(todo_member)))
+            .collect::<Vec<_>>();
+        diesel::insert_into(todo).values(&new_todos).execute(conn)?;
+
+        Ok(())
     }
 
-    pub fn mark_complete<C: Connection>(todo_id: i32, conn: &mut C) -> GreaseResult<()> {
+    pub fn mark_complete(todo_id: i32, conn: &MysqlConnection) -> GreaseResult<()> {
         use db::schema::todo::dsl::*;
 
         diesel::update(todo.filter(id.eq(todo_id)))
             .set(completed.eq(true))
-            .execute(conn)
-            .map_err(GreaseError::DbError)
+            .execute(conn)?;
+
+        Ok(())
         // format!("No todo with id {}.", todo_id),
     }
 }
 
 impl RolePermission {
-    pub fn enable<C: Connection>(
+    pub fn enable(
         given_role: &str,
         given_permission: &str,
         given_event_type: &Option<String>,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
         use db::schema::role_permission::dsl::*;
 
@@ -380,30 +414,28 @@ impl RolePermission {
                         .and(event_type.eq(given_event_type)),
                 ),
             )
-            .first(conn)
-            .optional()
-            .map_err(GreaseResult::DbError)?
+            .first::<RolePermission>(conn)
+            .optional()?
             .is_some();
 
-        if already_exists {
-            Ok(())
-        } else {
+        if !already_exists {
             diesel::insert_into(role_permission)
                 .values((
                     role.eq(given_role),
                     permission.eq(given_permission),
                     event_type.eq(given_event_type),
                 ))
-                .execute(conn)
-                .map_err(GreaseError::DbError)
+                .execute(conn)?;
         }
+
+        Ok(())
     }
 
-    pub fn disable<C: Connection>(
+    pub fn disable(
         given_role: &str,
         given_permission: &str,
         given_event_type: &Option<String>,
-        conn: &mut C,
+        conn: &MysqlConnection,
     ) -> GreaseResult<()> {
         use db::schema::role_permission::dsl::*;
 
@@ -414,21 +446,23 @@ impl RolePermission {
                     .and(event_type.eq(given_event_type)),
             ),
         )
-        .execute(conn)
-        .map_err(GreaseError::DbError)
+        .execute(conn)?;
+
+        Ok(())
     }
 }
 
 // TODO: figure out what max quantity actually entails
 impl MemberRole {
-    pub fn load_all<C: Connection>(conn: &mut C) -> GreaseResult<Vec<(Member, Role)>> {
+    pub fn load_all(conn: &MysqlConnection) -> GreaseResult<Vec<(Member, Role)>> {
         use db::schema::{member, member_role::dsl::*, role};
 
         member_role
             .inner_join(member::table)
             .inner_join(role::table)
-            .order_by(role::dsl::rank.asc())
-            .load::<Vec<Member, Role>>(conn)
+            .order_by(role::rank.asc())
+            .load::<(MemberRole, Member, Role)>(conn)
+            .map(|rows| rows.into_iter().map(|(_, m, r)| (m, r)).collect())
             .map_err(GreaseError::DbError)
     }
 }

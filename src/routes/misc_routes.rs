@@ -2,6 +2,7 @@
 
 use auth::User;
 use db::*;
+use diesel::prelude::*;
 use error::GreaseResult;
 use serde_json::{json, Value};
 
@@ -97,25 +98,25 @@ pub fn unset_variable(key: String, mut user: User) -> GreaseResult<Value> {
 /// for the formats of each field.
 pub fn static_data() -> GreaseResult<Value> {
     let mut conn = connect_to_db()?;
+    use db::schema::*;
 
     Ok(json!({
         "mediaTypes": MediaType::load_all(&mut conn)?,
         "uniforms": Uniform::load_all(&mut conn)?,
-        "permissions": conn
-            .load::<Permission>(&Permission::select_all_in_order("name", Order::Asc))?,
-        "roles": conn
-            .load::<Role>(&Role::select_all_in_order("rank", Order::Asc))?,
-        "eventTypes": conn
-            .load::<EventType>(&EventType::select_all_in_order("name", Order::Asc))?,
-        "sections": conn
-            .load::<SectionType>(&SectionType::select_all_in_order("name", Order::Asc))?
+        "permissions": permission::table.order_by(permission::name.asc()).load::<Permission>(&mut conn)?,
+        "roles": role::table.order_by(role::rank.asc()).load::<Role>(&mut conn)?,
+        "eventTypes": event_type::table.order_by(event_type::name.asc()).load::<EventType>(&mut conn)?,
+        "sections": section_type::table
+            .order_by(section_type::name.asc())
+            .load::<SectionType>(&mut conn)?
             .into_iter()
-            .map(|section_type| section_type.name)
+            .map(|type_| type_.name)
             .collect::<Vec<_>>(),
-        "transactionTypes": conn
-            .load::<TransactionType>(&TransactionType::select_all_in_order("name", Order::Asc))?
+        "transactionTypes": transaction_type::table
+            .order_by(transaction_type::name.asc())
+            .load::<TransactionType>(&mut conn)?
             .into_iter()
-            .map(|transaction_type| transaction_type.name)
-            .collect::<Vec<_>>()
+            .map(|type_| type_.name)
+            .collect::<Vec<_>>(),
     }))
 }

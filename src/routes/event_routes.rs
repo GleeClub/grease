@@ -3,7 +3,9 @@
 use super::basic_success;
 use crate::check_for_permission;
 use auth::User;
+use db::schema::*;
 use db::*;
+use diesel::prelude::*;
 use error::*;
 use serde_json::{json, Value};
 
@@ -69,10 +71,15 @@ pub fn get_events(
         let event_types = event_types
             .split(",")
             .map(|type_| {
-                user.conn.first::<EventType>(
-                    &EventType::filter(&format!("name = '{}'", type_)),
-                    format!("No event type exists named {}.", type_),
-                )
+                event_type::table
+                    .filter(event_type::name.eq(type_))
+                    .first(&mut user.conn)
+                    .optional()
+                    .map_err(GreaseError::DbError)?
+                    .ok_or(GreaseError::BadRequest(format!(
+                        "No event type exists named {}.",
+                        type_
+                    )))
             })
             .collect::<GreaseResult<Vec<EventType>>>()?;
         // and filter the events by the provided types
@@ -132,8 +139,8 @@ pub fn get_events(
 ///
 /// Returns an object containing the id of the newly created event
 /// (the first one if multiple were created).
-pub fn new_event((new_event, mut user): (NewEvent, User)) -> GreaseResult<Value> {
-    check_for_permission!(user => "create-event", &new_event.type_);
+pub fn new_event(new_event: NewEvent, mut user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "create-event", &new_event.fields.type_);
     Event::create(new_event, None, &mut user.conn).map(|new_id| json!({ "id": new_id }))
 }
 
@@ -150,10 +157,7 @@ pub fn new_event((new_event, mut user): (NewEvent, User)) -> GreaseResult<Value>
 /// ## Input Format:
 ///
 /// Expects an [EventUpdate](crate::db::models::EventUpdate).
-pub fn update_event(
-    id: i32,
-    (updated_event, mut user): (EventUpdate, User),
-) -> GreaseResult<Value> {
+pub fn update_event(id: i32, updated_event: EventUpdate, mut user: User) -> GreaseResult<Value> {
     if !user.has_permission("edit-all-events", None) {
         let event = Event::load(id, &mut user.conn)?;
         check_for_permission!(user => "modify-event", &event.event.type_);
@@ -239,8 +243,8 @@ pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
                 .map(|section| section.as_str())
         });
 
+    let mut all_attendance = Attendance::load_for_event_separate_by_section(id, &mut user.conn)?;
     if user.has_permission("view-attendance", None) {
-        let all_attendance = Attendance::load_for_event_separate_by_section(id, &mut user.conn)?;
         let mut attendance_json = json!({});
         for (section, section_attendance) in all_attendance.into_iter() {
             attendance_json[section] = section_attendance
@@ -248,7 +252,7 @@ pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
                 .map(|(attendance, member_for_semester)| {
                     json!({
                         "attendance": attendance,
-                        "member": member_for_semester.member.to_json()
+                        "member": member_for_semester.member
                     })
                 })
                 .collect::<Vec<_>>()
@@ -261,17 +265,20 @@ pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
             Some(event.event.type_.as_str()),
         )
     {
-        let section_attendance =
-            Attendance::load_for_event_for_section(id, member_section, &mut user.conn)?;
-        Ok(json!({
-            member_section.unwrap_or("Unsorted"): section_attendance
-                .into_iter()
-                .map(|(attendance, member_for_semester)| json!({
+        let member_section = member_section.unwrap_or("Unsorted");
+        let member_attendance = all_attendance
+            .remove(member_section)
+            .unwrap_or(Vec::new())
+            .into_iter()
+            .map(|(attendance, member_for_semester)| {
+                json!({
                     "attendance": attendance,
-                    "member": member_for_semester.member.to_json()
-                }))
-                .collect::<Vec<_>>()
-        }))
+                    "member": member_for_semester.member,
+                })
+            })
+            .collect::<Vec<_>>();
+
+        Ok(json!({ member_section: member_attendance }))
     } else {
         Err(GreaseError::Forbidden(Some("view-attendance".to_owned())))
     }
@@ -410,7 +417,8 @@ pub fn get_member_attendance_for_semester(member: String, mut user: User) -> Gre
 pub fn update_attendance(
     event_id: i32,
     member: String,
-    (mut user, attendance_form): (User, AttendanceForm),
+    attendance_form: AttendanceForm,
+    mut user: User,
 ) -> GreaseResult<Value> {
     let event = Event::load(event_id, &mut user.conn)?;
     let user_section = user
@@ -488,7 +496,8 @@ pub fn get_carpools(event_id: i32, mut user: User) -> GreaseResult<Value> {
 /// Returns an [UpdatedCarpool](crate::db::models::UpdatedCarpool).
 pub fn update_carpools(
     event_id: i32,
-    (updated_carpools, mut user): (Vec<UpdatedCarpool>, User),
+    updated_carpools: Vec<UpdatedCarpool>,
+    mut user: User,
 ) -> GreaseResult<Value> {
     let event = Event::load(event_id, &mut user.conn)?;
     check_for_permission!(user => "edit-carpool", &event.event.type_.as_str());
@@ -528,7 +537,8 @@ pub fn get_setlist(event_id: i32, mut user: User) -> GreaseResult<Value> {
 /// in the order that the songs should appear for the setlist.
 pub fn edit_setlist(
     event_id: i32,
-    (updated_setlist, mut user): (Vec<NewGigSong>, User),
+    updated_setlist: Vec<NewGigSong>,
+    mut user: User,
 ) -> GreaseResult<Value> {
     let event = Event::load(event_id, &mut user.conn)?;
     check_for_permission!(user => "edit-carpool", &event.event.type_.as_str());
@@ -601,7 +611,8 @@ pub fn member_is_excused(event_id: i32, mut user: User) -> GreaseResult<Value> {
 /// Expects a [NewAbsenceRequest](crate::db::models::NewAbsenceRequest).
 pub fn submit_absence_request(
     event_id: i32,
-    (new_request, mut user): (NewAbsenceRequest, User),
+    new_request: NewAbsenceRequest,
+    mut user: User,
 ) -> GreaseResult<Value> {
     AbsenceRequest::create(
         &user.member.member.email,
@@ -654,9 +665,11 @@ pub fn deny_absence_request(event_id: i32, member: String, mut user: User) -> Gr
 ///
 /// Returns a list of [EventType](crate::db::models::EventType)s.
 pub fn get_event_types(mut user: User) -> GreaseResult<Value> {
-    user.conn
-        .load::<EventType>(&EventType::select_all_in_order("name", Order::Asc))
+    event_type::table
+        .order_by(event_type::name.asc())
+        .load::<EventType>(&mut user.conn)
         .map(|types| json!(types))
+        .map_err(GreaseError::DbError)
 }
 
 /// Get all section types.
@@ -669,9 +682,11 @@ pub fn get_event_types(mut user: User) -> GreaseResult<Value> {
 ///
 /// Returns a list of [SectionType](crate::db::models::SectionType)s.
 pub fn get_section_types(mut user: User) -> GreaseResult<Value> {
-    user.conn
-        .load::<SectionType>(&SectionType::select_all_in_order("name", Order::Asc))
+    section_type::table
+        .order_by(section_type::name.asc())
+        .load::<SectionType>(&mut user.conn)
         .map(|types| json!(types))
+        .map_err(GreaseError::DbError)
 }
 
 /// Get a single gig request.
@@ -733,10 +748,21 @@ pub fn get_gig_requests(all: Option<bool>, mut user: User) -> GreaseResult<Value
 /// ```
 ///
 /// Returns an object containing the id of the newly created gig request.
-pub fn new_gig_request((new_request, mut conn): (NewGigRequest, DbConn)) -> GreaseResult<Value> {
-    new_request
-        .insert_returning_id(&mut conn)
-        .map(|new_id| json!({ "id": new_id }))
+pub fn new_gig_request(new_request: NewGigRequest) -> GreaseResult<Value> {
+    let conn = connect_to_db()?;
+
+    conn.transaction(|| {
+        diesel::insert_into(gig_request::table)
+            .values(&new_request)
+            .execute(&conn)?;
+
+        gig_request::table
+            .select(gig_request::id)
+            .order_by(gig_request::id.desc())
+            .first(&conn)
+            .map(|new_id: i32| json!({ "id": new_id }))
+    })
+    .map_err(GreaseError::DbError)
 }
 
 /// Dismiss a gig request.
@@ -747,9 +773,9 @@ pub fn new_gig_request((new_request, mut conn): (NewGigRequest, DbConn)) -> Grea
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the gig request
-pub fn dismiss_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value> {
+pub fn dismiss_gig_request(request_id: i32, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "process-gig-requests");
-    GigRequest::set_status(request_id, GigRequestStatus::Dismissed, &mut user.conn)
+    GigRequest::set_status(request_id, GigRequestStatus::Dismissed, &user.conn)
         .map(|_| basic_success())
 }
 
@@ -792,7 +818,8 @@ pub fn reopen_gig_request(request_id: i32, mut user: User) -> GreaseResult<Value
 /// (the first one if multiple were created).
 pub fn create_event_from_gig_request(
     request_id: i32,
-    (form, mut user): (GigRequestForm, User),
+    form: NewEvent,
+    mut user: User,
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "process-gig-requests");
     let request = GigRequest::load(request_id, &mut user.conn)?;
@@ -801,7 +828,6 @@ pub fn create_event_from_gig_request(
             "The gig request must be pending to create an event for it.".to_owned(),
         ))
     } else {
-        Event::create(form.event, Some((request, form.gig)), &mut user.conn)
-            .map(|new_id| json!({ "id": new_id }))
+        Event::create(form, Some(request), &mut user.conn).map(|new_id| json!({ "id": new_id }))
     }
 }
