@@ -20,3 +20,6 @@ diesel-derive-enum = { version = "0.4.4", features = [ "mysql" ] }
 
 [profile.release]
 panic = "unwind"
+
+[patch.crates-io]
+mysqlclient-sys = { git = "https://github.com/pzmarzly/mysqlclient-sys", rev = "acd1b2b" }

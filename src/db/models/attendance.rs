@@ -106,10 +106,7 @@ impl Attendance {
             .map_err(GreaseError::DbError)
     }
 
-    pub fn create_for_new_member(
-        given_member: &str,
-        conn: &MysqlConnection,
-    ) -> GreaseResult<()> {
+    pub fn create_for_new_member(given_member: &str, conn: &MysqlConnection) -> GreaseResult<()> {
         let now = Local::now().naive_local();
         let all_events_for_semester = Event::load_all_for_current_semester(conn)?;
         let new_attendances = all_events_for_semester

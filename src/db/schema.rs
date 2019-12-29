@@ -218,8 +218,8 @@ table! {
 
 #[derive(Deserialize, Serialize, DbEnum, Debug)]
 pub enum PermissionType {
-    Local,
-    Remote,
+    Static,
+    Event,
 }
 
 table! {
@@ -283,47 +283,26 @@ table! {
 
 #[derive(Deserialize, Serialize, DbEnum, Debug)]
 pub enum Pitch {
-    #[db_rename = "A\x26\x6D"]
     AFlat,
-    #[db_rename = "A"]
     A,
-    #[db_rename = "A\x26\x6F"]
     ASharp,
-    #[db_rename = "B\x26\x6D"]
     BFlat,
-    #[db_rename = "B"]
     B,
-    #[db_rename = "B\x26\x6F"]
     BSharp,
-    #[db_rename = "C\x26\x6D"]
     CFlat,
-    #[db_rename = "C"]
     C,
-    #[db_rename = "C\x26\x6F"]
     CSharp,
-    #[db_rename = "D\x26\x6D"]
     DFlat,
-    #[db_rename = "D"]
     D,
-    #[db_rename = "D\x26\x6F"]
     DSharp,
-    #[db_rename = "E\x26\x6D"]
     EFlat,
-    #[db_rename = "E"]
     E,
-    #[db_rename = "E\x26\x6F"]
     ESharp,
-    #[db_rename = "F\x26\x6D"]
     FFlat,
-    #[db_rename = "F"]
     F,
-    #[db_rename = "F\x26\x6F"]
     FSharp,
-    #[db_rename = "G\x26\x6D"]
     GFlat,
-    #[db_rename = "G"]
     G,
-    #[db_rename = "G\x26\x6F"]
     GSharp,
 }
 

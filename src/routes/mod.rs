@@ -10,7 +10,11 @@ pub mod repertoire_routes;
 #[macro_use]
 pub mod router;
 
-use cgi::http::{self, response};
+use cgi::http::{
+    self,
+    header::{CONTENT_LENGTH, CONTENT_TYPE},
+    response,
+};
 use error::*;
 use serde_json::{json, Value};
 use std::panic::{self, AssertUnwindSafe};
@@ -45,10 +49,14 @@ pub fn handle_request(request: cgi::Request) -> cgi::Response {
                 Err(error) => error.as_response(),
             };
 
+            let body = serde_json::to_string(&value).unwrap().into_bytes();
             response = Some(
-                cgi::http::response::Builder::new()
+                response::Builder::new()
                     .status(status_code)
-                    .body(serde_json::to_string(&value).unwrap().into_bytes())
+                    .header(CONTENT_TYPE, "application/json")
+                    .header("Access-Control-Allow-Origin", "*")
+                    .header(CONTENT_LENGTH, body.len().to_string().as_str())
+                    .body(body)
                     .unwrap(),
             );
         }))
@@ -432,6 +440,38 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
 
         (GET) [/transaction_types] =>
             || get_transaction_types(load_user()?),
+
+        // extra
+        (GET) [/run_migrations] =>
+            || {
+                let migration_args = std::fs::read_to_string("../httpsdocs/dev/smores/migration_command.txt")
+                    .map_err(|err| {
+                        GreaseError::ServerError(format!(
+                            "Couldn't retrieve passwords for the old and new databases: {:?}",
+                            err
+                        ))
+                    })?;
+
+                match std::process::Command::new("../httpsdocs/dev/smores/migration_script")
+                    .args(migration_args.trim().split_whitespace().skip(1))
+                    .spawn()
+                {
+                    Ok(_) => Ok(basic_success()),
+                    Err(err) => Err(GreaseError::ServerError(format!(
+                        "Couldn't spawn the migration script as a child process: {:?}",
+                        err
+                    ))),
+                }
+            },
+
+        (POST) [/upload_migrations] =>
+            || {
+                std::fs::write("../httpsdocs/dev/smores/migration_script", request.body())
+                    .map(|_| basic_success())
+                    .map_err(|err| GreaseError::ServerError(
+                        format!("Couldn't upload migration script: {}", err),
+                    ))
+            },
     )
 }
 

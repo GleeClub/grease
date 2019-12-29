@@ -205,10 +205,12 @@ CREATE TABLE song (
   title varchar(128) NOT NULL,
   info text DEFAULT NULL,
   current boolean NOT NULL DEFAULT '0',
-  `key` enum('A♭', 'A', 'A♯', 'B♭', 'B', 'B♯', 'C♭', 'C', 'C♯', 'D♭', 'D', 'D♯', 'E♭',
-             'E', 'E♯', 'F♭', 'F', 'F♯', 'G♭', 'G', 'G♯') DEFAULT NULL,
-  starting_pitch enum('A♭', 'A', 'A♯', 'B♭', 'B', 'B♯', 'C♭', 'C', 'C♯', 'D♭', 'D', 'D♯',
-                      'E♭', 'E', 'E♯', 'F♭', 'F', 'F♯', 'G♭', 'G', 'G♯') DEFAULT NULL,
+  `key` enum('a_flat', 'a', 'a_flat', 'b_flat', 'b', 'b_flat', 'c_flat', 'c', 'c_flat',
+             'd_flat', 'd', 'd_flat', 'e_flat', 'e', 'e_flat', 'f_flat', 'f', 'f_flat',
+             'g_flat', 'g', 'g_flat') DEFAULT NULL,
+  starting_pitch enum('a_flat', 'a', 'a_flat', 'b_flat', 'b', 'b_flat', 'c_flat', 'c', 'c_flat',
+                      'd_flat', 'd', 'd_flat', 'e_flat', 'e', 'e_flat', 'f_flat', 'f', 'f_flat',
+                      'g_flat', 'g', 'g_flat') DEFAULT NULL,
   mode enum('major', 'minor') DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

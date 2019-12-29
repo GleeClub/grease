@@ -158,9 +158,13 @@ impl Event {
         }
 
         let period = new_event.repeat.parse::<Period>()?;
-        let until = new_event.repeat_until.ok_or(GreaseError::BadRequest(
-            "Must supply a repeat until time if repeat is supplied.".to_owned(),
-        ))?;
+        let until = if period == Period::No {
+            new_event.fields.call_time.date()
+        } else {
+            new_event.repeat_until.ok_or(GreaseError::BadRequest(
+                "Must supply a repeat until time if repeat is supplied.".to_owned(),
+            ))?
+        };
         let call_and_release_time_pairs = Event::repeat_event_times(
             &new_event.fields.call_time,
             &new_event.fields.release_time,
@@ -387,6 +391,7 @@ impl Event {
     }
 }
 
+#[derive(PartialEq)]
 pub enum Period {
     No,
     Daily,

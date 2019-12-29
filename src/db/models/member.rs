@@ -533,8 +533,9 @@ impl Member {
 
         member_role::table
             .inner_join(role_permission::table.on(member_role::role.eq(role_permission::role)))
-            .select((role_permission::role, role_permission::event_type))
-            .filter(member_role::dsl::member.eq(&self.email))
+            .select((role_permission::permission, role_permission::event_type))
+            .filter(member_role::member.eq(&self.email))
+            .distinct()
             .load(conn)
             .map_err(GreaseError::DbError)
     }
@@ -543,8 +544,8 @@ impl Member {
         use db::schema::member_role;
 
         member_role::table
-            .select(member_role::dsl::role)
-            .filter(member_role::dsl::member.eq(&self.email))
+            .select(member_role::role)
+            .filter(member_role::member.eq(&self.email))
             .load(conn)
             .map_err(GreaseError::DbError)
     }
