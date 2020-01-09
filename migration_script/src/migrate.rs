@@ -1,10 +1,10 @@
 use crate::error::*;
 use crate::new_schema::*;
 use crate::old_schema::*;
+use bcrypt::hash;
 use mysql::Pool;
 use std::collections::HashMap;
 use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
-use bcrypt::hash;
 
 pub trait Load: Sized {
     fn load(old_db: &Pool) -> MigrateResult<Vec<Self>>;
@@ -48,10 +48,9 @@ impl Migrate<OldMember> for NewMember {
                         .clone()
                         .ok_or(MigrateError::Other("old member had no password".to_owned()))
                         .and_then(|pass_hash| {
-                            hash(&pass_hash, 10)
-                                .map_err(|err| MigrateError::Other(format!(
-                                    "Invalid password hash: {}", err,
-                                )))
+                            hash(&pass_hash, 10).map_err(|err| {
+                                MigrateError::Other(format!("Invalid password hash: {}", err,))
+                            })
                         })?,
                     phone_number: old_member
                         .phone
@@ -149,7 +148,11 @@ impl Migrate<OldRole> for NewRole {
                             old_role.id
                         )))?
                         .clone(),
-                    rank: if old_role.rank < 0 { 100 } else { old_role.rank },
+                    rank: if old_role.rank < 0 {
+                        100
+                    } else {
+                        old_role.rank
+                    },
                     max_quantity: std::cmp::max(old_role.quantity, 0),
                 })
             })
@@ -653,7 +656,8 @@ impl Migrate<OldGig> for NewGig {
                             .iter()
                             .find(|new_uniform| new_uniform.name == old_uniform.name)
                             .ok_or(MigrateError::Other(format!(
-                                "no new uniform with name {}", &old_uniform.name
+                                "no new uniform with name {}",
+                                &old_uniform.name
                             )))?;
                         new_uniform.id
                     },
@@ -705,27 +709,27 @@ impl Migrate<OldSong> for NewSong {
         _dependencies: &Self::Dependencies,
     ) -> MigrateResult<(Vec<OldSong>, Vec<Self>)> {
         let map_key = |old_key, song_id| match old_key {
-            "A♭" | "a♭" => Ok(Some("A♭")),
-            "A" | "a" => Ok(Some("A")),
-            "A♯" | "a♯" => Ok(Some("A♯")),
-            "B♭" | "b♭" => Ok(Some("B♭")),
-            "B" | "b" => Ok(Some("B")),
-            "B♯" | "b♯" => Ok(Some("B♯")),
-            "C♭" | "c♭" => Ok(Some("C♭")),
-            "C" | "c" => Ok(Some("C")),
-            "C♯" | "c♯" => Ok(Some("C♯")),
-            "D♭" | "d♭" => Ok(Some("D♭")),
-            "D" | "d" => Ok(Some("D")),
-            "D♯" | "d♯" => Ok(Some("D♯")),
-            "E♭" | "e♭" => Ok(Some("E♭")),
-            "E" | "e" => Ok(Some("E")),
-            "E♯" | "e♯" => Ok(Some("E♯")),
-            "F♭" | "f♭" => Ok(Some("F♭")),
-            "F" | "f" => Ok(Some("F")),
-            "F♯" | "f♯" => Ok(Some("F♯")),
-            "G♭" | "g♭" => Ok(Some("G♭")),
-            "G" | "g" => Ok(Some("G")),
-            "G♯" | "g♯" => Ok(Some("G♯")),
+            "A♭" | "a♭" => Ok(Some("a_flat")),
+            "A" | "a" => Ok(Some("a")),
+            "A♯" | "a♯" => Ok(Some("a_sharp")),
+            "B♭" | "b♭" => Ok(Some("b_flat")),
+            "B" | "b" => Ok(Some("b")),
+            "B♯" | "b♯" => Ok(Some("b_sharp")),
+            "C♭" | "c♭" => Ok(Some("c_flat")),
+            "C" | "c" => Ok(Some("c")),
+            "C♯" | "c♯" => Ok(Some("c_sharp")),
+            "D♭" | "d♭" => Ok(Some("d_flat")),
+            "D" | "d" => Ok(Some("d")),
+            "D♯" | "d♯" => Ok(Some("d_sharp")),
+            "E♭" | "e♭" => Ok(Some("e_flat")),
+            "E" | "e" => Ok(Some("e")),
+            "E♯" | "e♯" => Ok(Some("e_sharp")),
+            "F♭" | "f♭" => Ok(Some("f_flat")),
+            "F" | "f" => Ok(Some("f")),
+            "F♯" | "f♯" => Ok(Some("f_sharp")),
+            "G♭" | "g♭" => Ok(Some("g_flat")),
+            "G" | "g" => Ok(Some("g")),
+            "G♯" | "g♯" => Ok(Some("g_sharp")),
             "?" => Ok(None),
             _other => Err(MigrateError::Other(format!(
                 "song with id {} had unknown key/pitch = {:?}",
@@ -914,14 +918,17 @@ impl Migrate<OldRolePermission> for NewRolePermission {
                     id: old_role_permission.id,
                     permission: old_role_permission.permission.clone(),
                     event_type: if let Some(event_type) = &old_role_permission.eventType {
-                        Some(old_event_types
-                            .iter()
-                            .find(|given_event_type| &given_event_type.id == event_type)
-                            .ok_or(MigrateError::Other(format!(
-                                "role permission had invalid event type {}", event_type,
-                            )))?
-                            .name
-                            .clone())
+                        Some(
+                            old_event_types
+                                .iter()
+                                .find(|given_event_type| &given_event_type.id == event_type)
+                                .ok_or(MigrateError::Other(format!(
+                                    "role permission had invalid event type {}",
+                                    event_type,
+                                )))?
+                                .name
+                                .clone(),
+                        )
                     } else {
                         None
                     },
