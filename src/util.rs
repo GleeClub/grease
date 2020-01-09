@@ -22,34 +22,31 @@ pub struct Email<'e> {
 }
 
 impl<'e> Email<'e> {
+    pub const DEFAULT_NAME: &'static str = "Glee Club Officers";
+    pub const DEFAULT_ADDRESS: &'static str = "gleeclub_officers@lists.gatech.edu";
+
     pub fn send(&self) -> GreaseResult<()> {
-        let email = format!(
-            "To: {} <{}>\nFrom: {} <{}>\nSubject: {}\n{}\n.\n",
-            self.to_name,
-            self.to_address,
-            self.from_name,
-            self.from_address,
-            self.subject,
-            self.content
-        );
-        let mut sendmail = Command::new("sendmail")
+        let mut mail = Command::new("mail")
+            .args(&["-s", self.subject, self.to_address])
             .stdin(Stdio::piped())
             .spawn()
             .map_err(|err| {
-                GreaseError::ServerError(format!("Couldn't run sendmail to send an email: {}", err))
+                GreaseError::ServerError(format!("Couldn't run mail to send an email: {}", err))
             })?;
-        sendmail
-            .stdin
+        mail.stdin
             .as_mut()
             .ok_or(GreaseError::ServerError(
-                "No stdin was available for sendmail.".to_owned(),
+                "No stdin was available for mail.".to_owned(),
             ))?
-            .write_all(email.as_bytes())
+            .write_all(self.content.as_bytes())
             .map_err(|err| {
-                GreaseError::ServerError(format!("Couldn't send an email with sendmail: {}", err))
+                GreaseError::ServerError(format!("Couldn't send an email with mail: {}", err))
             })?;
-        let output = sendmail.wait_with_output().map_err(|err| {
-            GreaseError::ServerError(format!("sendmail failed to send an email: {}", err))
+        let output = mail.wait_with_output().map_err(|err| {
+            GreaseError::ServerError(format!(
+                "The output of the mail command couldn't be retrieved: {}",
+                err
+            ))
         })?;
 
         if output.status.success() {
@@ -57,11 +54,12 @@ impl<'e> Email<'e> {
         } else {
             let error_message = std::str::from_utf8(&output.stderr).map_err(|_err| {
                 GreaseError::ServerError(
-                    "sendmail errored out with a non-utf8 error message.".to_owned(),
+                    "mail errored out with a non-utf8 error message.".to_owned(),
                 )
             })?;
             Err(GreaseError::ServerError(format!(
-                "sendmail failed to send an email: {}",
+                "mail failed to send an email with error code {}: {}",
+                output.status.code().unwrap_or(1),
                 error_message
             )))
         }
@@ -206,4 +204,48 @@ fn clean_up_old_logs() {
             std::fs::remove_file(log_file).expect("could not delete old log file");
         });
     }
+}
+
+pub fn write_zip_to_directory<D: AsRef<std::path::Path>>(
+    zip_contents: &Vec<u8>,
+    directory: D,
+) -> GreaseResult<()> {
+    use std::{fs, io, path};
+
+    let mut archive = zip::ZipArchive::new(io::Cursor::new(zip_contents)).map_err(|err| {
+        GreaseError::BadRequest(format!("Couldn't read zip as a zip archive: {}", err))
+    })?;
+    let base_path: &path::Path = directory.as_ref();
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i).unwrap();
+        let outpath: PathBuf = base_path.join(
+            file.sanitized_name()
+                .into_iter()
+                .skip(1)
+                .collect::<PathBuf>(),
+        );
+
+        if (&*file.name()).ends_with('/') {
+            fs::create_dir_all(&outpath).map_err(|err| {
+                GreaseError::ServerError(format!("Couldn't create a directory: {}", err))
+            })?;
+        } else {
+            if let Some(p) = outpath.parent() {
+                if !p.exists() {
+                    fs::create_dir_all(&p).map_err(|err| {
+                        GreaseError::ServerError(format!("Couldn't create a directory: {}", err))
+                    })?;
+                }
+            }
+            let mut outfile = fs::File::create(&outpath).map_err(|err| {
+                GreaseError::ServerError(format!("Couldn't create a file: {}", err))
+            })?;
+            io::copy(&mut file, &mut outfile).map_err(|err| {
+                GreaseError::ServerError(format!("Couldn't write to a file: {}", err))
+            })?;
+        }
+    }
+
+    Ok(())
 }

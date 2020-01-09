@@ -27,7 +27,10 @@ impl MeetingMinutes {
     pub fn create(new_meeting: &NewMeetingMinutes, conn: &MysqlConnection) -> GreaseResult<i32> {
         conn.transaction(|| {
             diesel::insert_into(minutes)
-                .values(new_meeting)
+                .values((
+                    name.eq(&new_meeting.name),
+                    date.eq(chrono::Local::today().naive_local()),
+                ))
                 .execute(conn)?;
 
             minutes.select(id).order_by(id.desc()).first(conn)
@@ -62,7 +65,7 @@ impl MeetingMinutes {
         json!({
             "id": &self.id,
             "name": &self.name,
-            "date": &self.date,
+            "date": &self.date.and_hms(0, 0, 0).timestamp() * 1000,
             "public": &self.public,
             "private": &self.private.as_ref().filter(|_| can_view_private)
         })

@@ -244,12 +244,11 @@ extern crate regex;
 #[macro_use]
 extern crate diesel;
 extern crate diesel_derive_enum;
-// extern crate lettre;
-// extern crate lettre_email;
 extern crate serde;
 extern crate serde_json;
 extern crate url;
 extern crate uuid;
+extern crate zip;
 
 pub mod auth;
 pub mod db;

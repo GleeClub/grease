@@ -97,26 +97,27 @@ pub fn unset_variable(key: String, mut user: User) -> GreaseResult<Value> {
 /// [Uniform](crate::db::models::Uniform)
 /// for the formats of each field.
 pub fn static_data() -> GreaseResult<Value> {
-    let mut conn = connect_to_db()?;
+    let conn = connect_to_db()?;
     use db::schema::*;
 
     Ok(json!({
-        "mediaTypes": MediaType::load_all(&mut conn)?,
-        "uniforms": Uniform::load_all(&mut conn)?,
-        "permissions": permission::table.order_by(permission::name.asc()).load::<Permission>(&mut conn)?,
-        "roles": role::table.order_by(role::rank.asc()).load::<Role>(&mut conn)?,
-        "eventTypes": event_type::table.order_by(event_type::name.asc()).load::<EventType>(&mut conn)?,
+        "mediaTypes": MediaType::load_all(&conn)?,
+        "uniforms": Uniform::load_all(&conn)?,
+        "permissions": permission::table.order_by(permission::name.asc()).load::<Permission>(&conn)?,
+        "roles": role::table.order_by(role::rank.asc()).load::<Role>(&conn)?,
+        "eventTypes": event_type::table.order_by(event_type::name.asc()).load::<EventType>(&conn)?,
         "sections": section_type::table
             .order_by(section_type::name.asc())
-            .load::<SectionType>(&mut conn)?
+            .load::<SectionType>(&conn)?
             .into_iter()
             .map(|type_| type_.name)
             .collect::<Vec<_>>(),
         "transactionTypes": transaction_type::table
             .order_by(transaction_type::name.asc())
-            .load::<TransactionType>(&mut conn)?
+            .load::<TransactionType>(&conn)?
             .into_iter()
             .map(|type_| type_.name)
             .collect::<Vec<_>>(),
+        "documents": google_docs::table.order_by(google_docs::name.asc()).load::<GoogleDoc>(&conn)?,
     }))
 }

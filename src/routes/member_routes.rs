@@ -28,13 +28,13 @@ use std::collections::HashSet;
 /// multiple times will return the existing token instead of generating
 /// another one.
 pub fn login(form: LoginInfo) -> GreaseResult<Value> {
-    let mut conn = connect_to_db()?;
-    if let Some(_member) = Member::check_login(&form.email, &form.pass_hash, &mut conn)? {
-        if let Some(existing_session) = Session::load(&form.email, &mut conn)? {
+    let conn = connect_to_db()?;
+    if let Some(_member) = Member::check_login(&form.email, &form.pass_hash, &conn)? {
+        if let Some(existing_session) = Session::load_for_email(&form.email, &conn)? {
             Err(GreaseError::AlreadyLoggedIn(existing_session.key))
         } else {
             Ok(json!({
-                "token": Session::generate(&form.email, &mut conn)?
+                "token": Session::generate(&form.email, &conn)?
             }))
         }
     } else {
@@ -49,8 +49,23 @@ pub fn login(form: LoginInfo) -> GreaseResult<Value> {
 /// ## Required Permissions:
 ///
 /// The user must be logged in.
-pub fn logout(mut user: User) -> GreaseResult<Value> {
-    Session::delete(&user.member.member.email, &mut user.conn).map(|_| basic_success())
+pub fn logout(user: User) -> GreaseResult<Value> {
+    Session::delete(&user.member.member.email, &user.conn).map(|_| basic_success())
+}
+
+pub fn forgot_password(email: String) -> GreaseResult<Value> {
+    let conn = connect_to_db()?;
+
+    Session::generate_for_forgotten_password(email, &conn).map(|_| basic_success())
+}
+
+pub fn reset_password(token: Option<String>, reset_form: PasswordReset) -> GreaseResult<Value> {
+    let conn = connect_to_db()?;
+    let token = token.ok_or(GreaseError::BadRequest(
+        "You must provide a reset token to reset your password.".to_owned(),
+    ))?;
+
+    Session::reset_password(token, reset_form, &conn).map(|_| basic_success())
 }
 
 /// Get a single member.
@@ -132,10 +147,6 @@ pub fn get_current_user(user: GreaseResult<User>) -> GreaseResult<Value> {
 ///       list of types from the allowed values of "class", "club", and "inactive".
 ///       If `include` isn't provided, defaults to returning only all currently active members.
 ///
-/// ## Required Permissions:
-///
-/// The user must be logged in and be able to "view-users" generally.
-///
 /// ## Return Format:
 ///
 /// If `grades = true`, then the format from
@@ -148,7 +159,6 @@ pub fn get_members(
     include: Option<String>,
     mut user: User,
 ) -> GreaseResult<Value> {
-    check_for_permission!(user => "view-users");
     let current_semester = Semester::load_current(&mut user.conn)?;
     let (include_class, include_club, include_inactive) = if let Some(include) = include {
         let mut included = include.split(",").collect::<HashSet<&str>>();

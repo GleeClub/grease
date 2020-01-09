@@ -196,17 +196,14 @@ pub fn get_meeting_minutes(minutes_id: i32, user: User) -> GreaseResult<Value> {
 /// ordered chronologically and then alphabetically by title.
 pub fn get_all_meeting_minutes(user: User) -> GreaseResult<Value> {
     MeetingMinutes::load_all(&user.conn).map(|all_minutes| {
-        all_minutes
+        json!(all_minutes
             .into_iter()
-            .map(|minutes| {
-                json!({
-                    "id": minutes.id,
-                    "name": minutes.name,
-                    "date": minutes.date
-                })
+            .map(|minutes| MeetingMinutes {
+                public: None,
+                private: None,
+                ..minutes
             })
-            .collect::<Vec<_>>()
-            .into()
+            .collect::<Vec<_>>())
     })
 }
 

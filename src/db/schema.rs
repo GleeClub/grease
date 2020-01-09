@@ -304,6 +304,9 @@ pub enum Pitch {
     GFlat,
     G,
     GSharp,
+    #[db_rename = ""]
+    #[serde(rename = "")]
+    Unknown,
 }
 
 #[derive(Deserialize, Serialize, DbEnum, Debug)]

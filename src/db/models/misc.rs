@@ -1,6 +1,7 @@
+use chrono::{Duration, NaiveDateTime, Utc};
 use db::{
     Announcement, GigSong, GoogleDoc, MediaType, Member, MemberRole, NewGigSong, NewTodo,
-    NewUniform, Role, RolePermission, Session, Song, Todo, Uniform, Variable,
+    NewUniform, PasswordReset, Role, RolePermission, Session, Song, Todo, Uniform, Variable,
 };
 use diesel::prelude::*;
 use error::*;
@@ -277,11 +278,21 @@ impl Variable {
 }
 
 impl Session {
-    pub fn load(email: &str, conn: &MysqlConnection) -> GreaseResult<Option<Session>> {
+    pub fn load_for_email(email: &str, conn: &MysqlConnection) -> GreaseResult<Option<Session>> {
         use db::schema::session::dsl::*;
 
         session
             .filter(member.eq(email))
+            .first(conn)
+            .optional()
+            .map_err(GreaseError::DbError)
+    }
+
+    pub fn load_for_token(token: &str, conn: &MysqlConnection) -> GreaseResult<Option<Session>> {
+        use db::schema::session::dsl::*;
+
+        session
+            .filter(key.eq(token))
             .first(conn)
             .optional()
             .map_err(GreaseError::DbError)
@@ -305,6 +316,97 @@ impl Session {
             .execute(conn)
             .map(|_| new_key)
             .map_err(GreaseError::DbError)
+    }
+
+    pub fn generate_for_forgotten_password(
+        email: String,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<()> {
+        use db::schema::session::dsl::*;
+        use util::Email;
+
+        let given_member = Member::load(&email, &conn)?;
+
+        conn.transaction(|| {
+            diesel::delete(session.filter(member.eq(&email))).execute(conn)?;
+            let now = chrono::Utc::now().timestamp_millis();
+            let rand_string = Uuid::new_v4()
+                .to_string()
+                .chars()
+                .take(32)
+                .collect::<String>();
+            let new_token = format!("{}X{}", rand_string, now);
+
+            diesel::insert_into(session)
+                .values((member.eq(&email), key.eq(&new_token)))
+                .execute(conn)?;
+
+            let email_content = format!(
+                "
+                You have requested a password reset on your Glee Club account. \
+                Please click this link to reset your password:
+                https://gleeclub.gatech.edu/glubhub/#/reset-password/{}",
+                new_token
+            );
+            Email {
+                from_name: Email::DEFAULT_NAME,
+                from_address: Email::DEFAULT_ADDRESS,
+                to_name: &given_member.full_name(),
+                to_address: &email,
+                subject: "Reset Your Password",
+                content: &email_content,
+            }
+            .send()?;
+
+            Ok(())
+        })
+    }
+
+    pub fn reset_password(
+        token: String,
+        password_reset: PasswordReset,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<()> {
+        use db::schema::{member as member_table, session::dsl::*};
+
+        let member_session =
+            Session::load_for_token(&token, conn)?.ok_or(GreaseError::BadRequest(
+                "No password reset request was found for the given token. \
+                 Please request another password reset."
+                    .to_owned(),
+            ))?;
+
+        let time_requested = member_session
+            .key
+            .split('X')
+            .nth(1)
+            .and_then(|timestamp_str| timestamp_str.parse::<i64>().ok())
+            .map(|timestamp| NaiveDateTime::from_timestamp(timestamp / 1000, 0));
+
+        if time_requested
+            .map(|time| time + Duration::days(1) >= Utc::now().naive_utc())
+            .unwrap_or(false)
+        {
+            let pass_hash = bcrypt::hash(&password_reset.pass_hash, 10).map_err(|err| {
+                GreaseError::ServerError(format!("Unable to hash new password: {}", err))
+            })?;
+            conn.transaction(|| {
+                diesel::delete(session.filter(member.eq(&member_session.member))).execute(conn)?;
+
+                diesel::update(
+                    member_table::table.filter(member_table::email.eq(&member_session.member)),
+                )
+                .set(member_table::pass_hash.eq(pass_hash))
+                .execute(conn)?;
+
+                Ok(())
+            })
+        } else {
+            Err(GreaseError::BadRequest(
+                "Your token expired after 24 hours. Please request another password reset."
+                    .to_owned(),
+            ))
+        }
     }
 }
 

@@ -106,9 +106,10 @@ pub fn get_events(
             .zip(grades.into_iter().map(Some).chain(std::iter::repeat(None)))
             .map(|(event_with_gig, grade_change)| {
                 event_with_gig.to_json_with_grade_change(
-                    grade_change.as_ref(),
+                    &user.member.member.email,
+                    grade_change,
                     user.member.active_semester.is_some(),
-                    &mut user.conn,
+                    &user.conn,
                 )
             })
             .collect::<GreaseResult<Vec<Value>>>()
@@ -139,9 +140,9 @@ pub fn get_events(
 ///
 /// Returns an object containing the id of the newly created event
 /// (the first one if multiple were created).
-pub fn new_event(new_event: NewEvent, mut user: User) -> GreaseResult<Value> {
+pub fn new_event(new_event: NewEvent, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "create-event", &new_event.fields.type_);
-    Event::create(new_event, None, &mut user.conn).map(|new_id| json!({ "id": new_id }))
+    Event::create(new_event, None, &user.conn).map(|new_id| json!({ "id": new_id }))
 }
 
 /// Update an existing event.
@@ -157,13 +158,13 @@ pub fn new_event(new_event: NewEvent, mut user: User) -> GreaseResult<Value> {
 /// ## Input Format:
 ///
 /// Expects an [EventUpdate](crate::db::models::EventUpdate).
-pub fn update_event(id: i32, updated_event: EventUpdate, mut user: User) -> GreaseResult<Value> {
+pub fn update_event(id: i32, updated_event: EventUpdate, user: User) -> GreaseResult<Value> {
     if !user.has_permission("edit-all-events", None) {
-        let event = Event::load(id, &mut user.conn)?;
+        let event = Event::load(id, &user.conn)?;
         check_for_permission!(user => "modify-event", &event.event.type_);
     }
 
-    Event::update(id, updated_event, &mut user.conn).map(|_| basic_success())
+    Event::update(id, updated_event, &user.conn).map(|_| basic_success())
 }
 
 /// RSVP for an event.
@@ -174,8 +175,8 @@ pub fn update_event(id: i32, updated_event: EventUpdate, mut user: User) -> Grea
 /// ## Required Permissions:
 ///
 /// The user must be logged in and active for the semester of the event.
-pub fn rsvp_for_event(id: i32, attending: bool, mut user: User) -> GreaseResult<Value> {
-    Event::rsvp(id, &user.member, attending, &mut user.conn).map(|_| basic_success())
+pub fn rsvp_for_event(id: i32, attending: bool, user: User) -> GreaseResult<Value> {
+    Event::rsvp(id, &user.member, attending, &user.conn).map(|_| basic_success())
 }
 
 /// Delete an event.

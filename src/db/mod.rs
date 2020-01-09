@@ -1916,6 +1916,12 @@ pub struct LoginInfo {
     pub pass_hash: String,
 }
 
+#[derive(Deserialize)]
+pub struct PasswordReset {
+    #[serde(rename = "passHash")]
+    pub pass_hash: String,
+}
+
 /// The model for any other variables needed by the API.
 ///
 /// ## Database Format:

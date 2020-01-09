@@ -109,6 +109,12 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
         (GET) [/logout] =>
             || logout(load_user()?),
 
+        (POST) [/forgot_password/(email: String)] =>
+            |email| forgot_password(email),
+
+        (POST) [/reset_password?(token: String)] =>
+            |token| reset_password(token, parse_body!()),
+
         // members
         (GET) [/user] =>
             || get_current_user(load_user()),
@@ -442,35 +448,48 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             || get_transaction_types(load_user()?),
 
         // extra
-        (GET) [/run_migrations] =>
-            || {
-                let migration_args = std::fs::read_to_string("../httpsdocs/dev/smores/migration_command.txt")
-                    .map_err(|err| {
-                        GreaseError::ServerError(format!(
-                            "Couldn't retrieve passwords for the old and new databases: {:?}",
-                            err
-                        ))
-                    })?;
+        // (GET) [/run_migrations] =>
+        //     || {
+        //         let migration_args = std::fs::read_to_string("../httpsdocs/dev/smores/migration_command.txt")
+        //             .map_err(|err| {
+        //                 GreaseError::ServerError(format!(
+        //                     "Couldn't retrieve passwords for the old and new databases: {:?}",
+        //                     err
+        //                 ))
+        //             })?;
 
-                match std::process::Command::new("../httpsdocs/dev/smores/migration_script")
-                    .args(migration_args.trim().split_whitespace().skip(1))
-                    .spawn()
-                {
-                    Ok(_) => Ok(basic_success()),
-                    Err(err) => Err(GreaseError::ServerError(format!(
-                        "Couldn't spawn the migration script as a child process: {:?}",
-                        err
-                    ))),
-                }
+        //         match std::process::Command::new("../httpsdocs/dev/smores/migration_script")
+        //             .args(migration_args.trim().split_whitespace().skip(1))
+        //             .spawn()
+        //         {
+        //             Ok(_) => Ok(basic_success()),
+        //             Err(err) => Err(GreaseError::ServerError(format!(
+        //                 "Couldn't spawn the migration script as a child process: {:?}",
+        //                 err
+        //             ))),
+        //         }
+        //     },
+
+        (POST) [/upload_frontend] =>
+            || {
+                load_user()?;
+                crate::util::write_zip_to_directory(request.body(), "../httpsdocs/glubhub/")
+                    .map(|_| basic_success())
             },
 
-        (POST) [/upload_migrations] =>
+        (GET) [/show_files] =>
             || {
-                std::fs::write("../httpsdocs/dev/smores/migration_script", request.body())
-                    .map(|_| basic_success())
+                std::process::Command::new("find")
+                    .args(&["../httpsdocs", "-print"])
+                    .output()
                     .map_err(|err| GreaseError::ServerError(
-                        format!("Couldn't upload migration script: {}", err),
+                        format!("Couldn't find all files in directory: {}", err),
                     ))
+                    .map(|output| json!({
+                        "files": String::from_utf8_lossy(&output.stdout)
+                            .lines()
+                            .collect::<Vec<_>>(),
+                    }))
             },
     )
 }

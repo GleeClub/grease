@@ -474,7 +474,8 @@ impl EventWithGig {
     ///       included if they were ever active during the semester of the event. It is null otherwise.
     pub fn to_json_with_grade_change(
         &self,
-        grade_change: Option<&GradeChange>,
+        email: &str,
+        grade_change: Option<GradeChange>,
         is_active: bool,
         conn: &MysqlConnection,
     ) -> GreaseResult<Value> {
@@ -485,28 +486,36 @@ impl EventWithGig {
         } else {
             None
         };
+
+        let member_attendance = if grade_change.is_some() {
+            grade_change
+                .as_ref()
+                .map(|grade_change| grade_change.attendance.clone())
+        } else {
+            Attendance::load(email, self.event.id, conn)?
+        };
+
         json_val["uniform"] = json!(uniform);
-        json_val["shouldAttend"] = json!(grade_change
-            .map(|grade_change| &grade_change.attendance)
-            .map(|attendance| attendance.should_attend));
-        json_val["didAttend"] = json!(grade_change
-            .map(|grade_change| &grade_change.attendance)
-            .map(|attendance| attendance.did_attend));
-        json_val["confirmed"] = json!(grade_change
-            .map(|grade_change| &grade_change.attendance)
-            .map(|attendance| attendance.confirmed));
-        json_val["minutesLate"] = json!(grade_change
-            .map(|grade_change| &grade_change.attendance)
+        json_val["shouldAttend"] = json!(&member_attendance
+            .as_ref()
+            .map(|attendance| &attendance.should_attend));
+        json_val["didAttend"] = json!(&member_attendance
+            .as_ref()
+            .map(|attendance| &attendance.did_attend));
+        json_val["confirmed"] = json!(&member_attendance
+            .as_ref()
+            .map(|attendance| &attendance.confirmed));
+        json_val["minutesLate"] = json!(&member_attendance
+            .as_ref()
             .map(|attendance| attendance.minutes_late));
-        json_val["gradeChange"] = json!(grade_change.map(|change| change.change));
-        json_val["gradeChangeReason"] = json!(grade_change.map(|change| &change.reason));
-        json_val["partialScore"] = json!(grade_change.map(|change| &change.partial_score));
-        let rsvp_issue =
-            if let Some(attendance) = grade_change.map(|grade_change| &grade_change.attendance) {
-                Event::rsvp_issue(&self.event, &attendance, is_active)
-            } else {
-                Some("Inactive members cannot RSVP for events.".to_owned())
-            };
+        json_val["gradeChange"] = json!(grade_change.as_ref().map(|change| change.change));
+        json_val["gradeChangeReason"] = json!(grade_change.as_ref().map(|change| &change.reason));
+        json_val["partialScore"] = json!(grade_change.as_ref().map(|change| &change.partial_score));
+        let rsvp_issue = if let Some(attendance) = member_attendance {
+            Event::rsvp_issue(&self.event, &attendance, is_active)
+        } else {
+            Some("Inactive members cannot RSVP for events.".to_owned())
+        };
         json_val["rsvpIssue"] = json!(rsvp_issue);
 
         Ok(json_val)
@@ -610,73 +619,3 @@ impl NewGig {
         }
     }
 }
-
-// #[derive(grease_derive::FromRow, grease_derive::FieldNames)]
-// struct EventWithGigRow {
-//     // event fields
-//     pub id: i32,
-//     pub name: String,
-//     pub semester: String,
-//     #[rename = "type"]
-//     pub type_: String,
-//     pub call_time: NaiveDateTime,
-//     pub release_time: Option<NaiveDateTime>,
-//     pub points: i32,
-//     pub comments: Option<String>,
-//     pub location: Option<String>,
-//     pub gig_count: bool,
-//     pub default_attend: bool,
-//     pub section: Option<String>,
-//     // gig fields
-//     pub event: Option<i32>,
-//     pub performance_time: Option<NaiveDateTime>,
-//     pub uniform: Option<i32>,
-//     pub contact_name: Option<String>,
-//     pub contact_email: Option<String>,
-//     pub contact_phone: Option<String>,
-//     pub price: Option<i32>,
-//     pub public: Option<bool>,
-//     pub summary: Option<String>,
-//     pub description: Option<String>,
-// }
-
-// impl Into<EventWithGig> for EventWithGigRow {
-//     fn into(self) -> EventWithGig {
-//         EventWithGig {
-//             event: Event {
-//                 id: self.id,
-//                 name: self.name,
-//                 semester: self.semester,
-//                 type_: self.type_,
-//                 call_time: self.call_time,
-//                 release_time: self.release_time,
-//                 points: self.points,
-//                 comments: self.comments,
-//                 location: self.location,
-//                 gig_count: self.gig_count,
-//                 default_attend: self.default_attend,
-//                 section: self.section,
-//             },
-//             gig: if self.event.is_some()
-//                 && self.performance_time.is_some()
-//                 && self.uniform.is_some()
-//                 && self.public.is_some()
-//             {
-//                 Some(Gig {
-//                     event: self.event.unwrap(),
-//                     performance_time: self.performance_time.unwrap(),
-//                     uniform: self.uniform.unwrap(),
-//                     contact_name: self.contact_name,
-//                     contact_email: self.contact_email,
-//                     contact_phone: self.contact_phone,
-//                     price: self.price,
-//                     public: self.public.unwrap(),
-//                     summary: self.summary,
-//                     description: self.description,
-//                 })
-//             } else {
-//                 None
-//             },
-//         }
-//     }
-// }

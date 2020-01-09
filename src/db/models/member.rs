@@ -58,16 +58,16 @@ impl Member {
     ///
     /// If the member's `preferred_name` is not `None`, then their full name is
     /// `<preferred_name> <last_name>`. Otherwise, it defaults to `<first_name> <last_name>`.
-    // pub fn full_name(&self) -> String {
-    //     format!(
-    //         "{} {}",
-    //         self.preferred_name
-    //             .as_ref()
-    //             .filter(|name| name.len() > 0)
-    //             .unwrap_or(&self.first_name),
-    //         self.last_name
-    //     )
-    // }
+    pub fn full_name(&self) -> String {
+        format!(
+            "{} {}",
+            self.preferred_name
+                .as_ref()
+                .filter(|name| name.len() > 0)
+                .unwrap_or(&self.first_name),
+            self.last_name
+        )
+    }
 
     /// Render this member's data to JSON, with some extra details.
     ///
@@ -368,7 +368,14 @@ impl Member {
             )));
         }
         conn.transaction(|| {
-            let member_for_semester = new_member.for_current_semester(conn)?;
+            let mut member_for_semester = new_member.for_current_semester(conn)?;
+            member_for_semester.member.pass_hash = hash(&member_for_semester.member.pass_hash, 10)
+                .map_err(|err| {
+                    GreaseError::BadRequest(format!(
+                        "Unable to generate a hash from the given password: {}",
+                        err
+                    ))
+                })?;
             diesel::insert_into(member)
                 .values(&member_for_semester.member)
                 .execute(conn)
