@@ -1339,7 +1339,7 @@ pub struct Song {
 #[table_name = "song"]
 pub struct NewSong {
     pub title: String,
-    #[serde(deserialize_with = "deser_opt_string")]
+    #[serde(default, deserialize_with = "deser_opt_string")]
     pub info: Option<String>,
 }
 
@@ -1868,6 +1868,15 @@ pub struct NewTransaction {
     #[serde(rename = "type")]
     pub type_: String,
     pub resolved: bool,
+}
+
+#[derive(Deserialize)]
+pub struct TransactionBatch {
+    pub members: Vec<String>,
+    #[serde(rename = "type")]
+    pub type_: String,
+    pub amount: i32,
+    pub description: String,
 }
 
 /// The model for login sessions for members.

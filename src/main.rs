@@ -233,6 +233,7 @@
 //! **GET**    | /static_data       | [static_data](crate::routes::misc_routes::static_data)
 
 #![recursion_limit = "256"]
+#![feature(drain_filter)]
 
 extern crate base64;
 extern crate bcrypt;
@@ -244,17 +245,18 @@ extern crate regex;
 #[macro_use]
 extern crate diesel;
 extern crate diesel_derive_enum;
+extern crate itertools;
 extern crate serde;
 extern crate serde_json;
 extern crate url;
 extern crate uuid;
 extern crate zip;
 
-pub mod auth;
-pub mod db;
-pub mod error;
+mod auth;
+mod db;
+mod error;
 pub mod routes;
-pub mod util;
+mod util;
 
 fn main() {
     dotenv::dotenv().ok();

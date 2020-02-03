@@ -814,6 +814,13 @@ pub fn remove_officership(old_member_role: MemberRole, user: User) -> GreaseResu
     Ok(basic_success())
 }
 
+pub fn get_transactions(user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "view-transactions");
+    let current_semester = Semester::load_current(&user.conn)?;
+    Transaction::load_all_for_semester(&current_semester.name, &user.conn)
+        .map(|transactions| json!(transactions))
+}
+
 /// Get all of a member's transactions.
 ///
 /// ## Path Parameters:
@@ -854,6 +861,14 @@ pub fn add_transactions(new_transactions: Vec<NewTransaction>, user: User) -> Gr
     Ok(basic_success())
 }
 
+pub fn resolve_transaction(id: i32, resolved: bool, user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-transaction");
+
+    Transaction::resolve(id, resolved, &user.conn)?;
+
+    Ok(basic_success())
+}
+
 /// Get all transaction types.
 ///
 /// ## Required Permissions:
@@ -885,20 +900,42 @@ pub fn get_fees(user: User) -> GreaseResult<Value> {
     Fee::load_all(&user.conn).map(|fees| json!(fees))
 }
 
-/// Apply a fee to all currently active semesters.
-///
-/// CAUTION: This endpoint may not yet work correctly, so use with caution.
-///
-/// ## Path Parameters:
-///   * name: string (*required*) - The name of the fee
+/// Charge dues for all active members that haven't been charged yet.
 ///
 /// ## Required Permissions:
 ///
 /// The user must be logged in and be able to "edit-transaction" generally.
-pub fn apply_fee_for_all_active_members(name: String, user: User) -> GreaseResult<Value> {
+pub fn charge_dues(user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-transaction");
-    let fee = Fee::load(&name, &user.conn)?;
-    fee.charge_for_the_semester(&user.conn)?;
+    Fee::charge_dues_for_semester(&user.conn)?;
+
+    Ok(basic_success())
+}
+
+/// Charge late dues for all active members that haven't paid their dues yet.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-transaction" generally.
+pub fn charge_late_dues(user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-transaction");
+    Fee::charge_late_dues_for_semester(&user.conn)?;
+
+    Ok(basic_success())
+}
+
+/// Create a batch of transactions for active members.
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and be able to "edit-transaction" generally.
+///
+/// ## Input Format:
+///
+/// Expects a [TransactionBatch](crate::db::models::TransactionBatch).
+pub fn batch_transactions(batch: TransactionBatch, user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "edit-transaction");
+    Transaction::charge_for_members(batch, &user.conn)?;
 
     Ok(basic_success())
 }

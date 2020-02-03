@@ -196,7 +196,7 @@ CREATE TABLE gig_request (
   comments text DEFAULT NULL,
   status enum('pending', 'accepted', 'dismissed') NOT NULL DEFAULT 'pending',
 
-  FOREIGN KEY (event) REFERENCES event (id) ON UPDATE CASCADE
+  FOREIGN KEY (event) REFERENCES event (id) ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 

@@ -79,6 +79,7 @@ impl Carpool {
 
             let rides_ins = new_carpool_ids
                 .into_iter()
+                .rev()
                 .zip(new_carpools.into_iter())
                 .flat_map(|(new_id, new_carpool)| {
                     new_carpool

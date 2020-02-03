@@ -3,6 +3,7 @@
 use super::basic_success;
 use crate::check_for_permission;
 use auth::User;
+use db::models::grades::Grades;
 use db::schema::*;
 use db::*;
 use diesel::prelude::*;
@@ -28,15 +29,18 @@ use serde_json::{json, Value};
 /// will be returned. Otherwise, the format from
 /// [to_json](crate::db::models::event::EventWithGig::to_json)
 /// will be returned.
-pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseResult<Value> {
-    Event::load(event_id, &mut user.conn).and_then(|event_with_gig| {
-        if full.unwrap_or(false) {
-            let attendance = Attendance::load(&user.member.member.email, event_id, &mut user.conn)?;
-            event_with_gig.to_json_full(
-                attendance.as_ref(),
-                user.member.active_semester.is_some(),
-                &mut user.conn,
-            )
+pub fn get_event(event_id: i32, attendance: Option<bool>, user: User) -> GreaseResult<Value> {
+    Event::load(event_id, &user.conn).and_then(|event_with_gig| {
+        if attendance.unwrap_or(false) {
+            Ok(json!({
+                "event": event_with_gig,
+                "attendance": Attendance::load(&user.member.member.email, event_id, &user.conn)?,
+                "absenceRequest": AbsenceRequest::load(
+                    &user.member.member.email,
+                    event_id,
+                    &user.conn
+                )?,
+            }))
         } else {
             Ok(json!(event_with_gig))
         }
@@ -46,7 +50,8 @@ pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseRes
 /// Get all events for the semester.
 ///
 /// ## Query Parameters:
-///   * full: boolean (*optional*) - Whether to include uniform and attendance.
+///   * full: boolean (*optional*) - Whether to include uniform and attendance, overrides `attendance`.
+///   * attendance: boolean (*optional*) - Whether to include just attendance.
 ///   * event_types: string (*optional*) - A comma-delimited list of event types to
 ///       filter the events by. If unspecified, simply returns all events.
 ///
@@ -59,63 +64,69 @@ pub fn get_event(event_id: i32, full: Option<bool>, mut user: User) -> GreaseRes
 /// Returns a list of [Event](crate::db::models::Event)s, ordered by
 /// [callTime](crate::db::models::Event#structfield.call_time).
 /// See [get_event](crate::routes::event_routes::get_event) for the format of each individual event.
-pub fn get_events(
-    full: Option<bool>,
-    event_types: Option<String>,
-    mut user: User,
-) -> GreaseResult<Value> {
-    let mut events_with_gigs = Event::load_all_for_current_semester(&mut user.conn)?;
-    // if event types are provided,
-    if let Some(event_types) = event_types {
-        // load all of the event types with those names
-        let event_types = event_types
-            .split(",")
-            .map(|type_| {
-                event_type::table
-                    .filter(event_type::name.eq(type_))
-                    .first(&mut user.conn)
-                    .optional()
-                    .map_err(GreaseError::DbError)?
-                    .ok_or(GreaseError::BadRequest(format!(
-                        "No event type exists named {}.",
-                        type_
-                    )))
-            })
-            .collect::<GreaseResult<Vec<EventType>>>()?;
-        // and filter the events by the provided types
-        events_with_gigs.retain(|event| {
-            event_types
-                .iter()
-                .filter(|type_| &event.event.type_ == &type_.name)
-                .next()
-                .is_some()
-        });
-    }
+pub fn get_events(full: Option<bool>, attendance: Option<bool>, user: User) -> GreaseResult<Value> {
+    let just_events =
+        || Event::load_all_for_current_semester(&user.conn).map(|events| json!(events));
+    let events_with_attendance = |active_semester: &ActiveSemester| {
+        Attendance::load_for_member_at_all_events(
+            &user.member.member.email,
+            &active_semester.semester,
+            &user.conn,
+        )
+        .map(|events| {
+            events
+                .into_iter()
+                .map(|member_attendance| {
+                    let mut json_val = json!(member_attendance);
+                    json_val["rsvpIssue"] = json!(Event::rsvp_issue(
+                        &member_attendance.event.event,
+                        &member_attendance.attendance,
+                        user.member.active_semester.is_some()
+                    ));
+                    json_val
+                })
+                .collect::<Vec<_>>()
+        })
+        .map(|events| json!(events))
+    };
+    let full_events = || {
+        let json_events: Vec<Value> = if let Some(active_semester) = &user.member.active_semester {
+            let grade_changes =
+                Grades::for_member(&user.member.member, &active_semester, &user.conn)?.changes;
+
+            grade_changes
+                .into_iter()
+                .map(|change| {
+                    change.event.to_json_with_grade_change(
+                        Some(&change),
+                        user.member.active_semester.is_some(),
+                    )
+                })
+                .collect()
+        } else {
+            let events = Event::load_all_for_current_semester(&user.conn)?;
+
+            events
+                .into_iter()
+                .map(|event| {
+                    event.to_json_with_grade_change(None, user.member.active_semester.is_some())
+                })
+                .collect()
+        };
+
+        Ok(json!(json_events))
+    };
 
     if full.unwrap_or(false) {
-        let grades = if let Some(active_semester) = &user.member.active_semester {
-            user.member
-                .member
-                .calc_grades(active_semester, &mut user.conn)?
-                .changes
+        full_events()
+    } else if attendance.unwrap_or(false) {
+        if let Some(ref active_semester) = &user.member.active_semester {
+            events_with_attendance(active_semester)
         } else {
-            Vec::new()
-        };
-        events_with_gigs
-            .into_iter()
-            .zip(grades.into_iter().map(Some).chain(std::iter::repeat(None)))
-            .map(|(event_with_gig, grade_change)| {
-                event_with_gig.to_json_with_grade_change(
-                    &user.member.member.email,
-                    grade_change,
-                    user.member.active_semester.is_some(),
-                    &user.conn,
-                )
-            })
-            .collect::<GreaseResult<Vec<Value>>>()
-            .map(|events_with_gigs| events_with_gigs.into())
+            just_events()
+        }
     } else {
-        Ok(json!(events_with_gigs))
+        just_events()
     }
 }
 
@@ -179,6 +190,18 @@ pub fn rsvp_for_event(id: i32, attending: bool, user: User) -> GreaseResult<Valu
     Event::rsvp(id, &user.member, attending, &user.conn).map(|_| basic_success())
 }
 
+/// Confirm attendance for an event.
+///
+/// ## Path Parameters:
+///   * id: integer (*required*) - The ID of the event
+///
+/// ## Required Permissions:
+///
+/// The user must be logged in and active for the semester of the event.
+pub fn confirm_for_event(event_id: i32, user: User) -> GreaseResult<Value> {
+    Event::confirm(event_id, &user.member, &user.conn).map(|_| basic_success())
+}
+
 /// Delete an event.
 ///
 /// ## Path Parameters:
@@ -188,11 +211,11 @@ pub fn rsvp_for_event(id: i32, attending: bool, user: User) -> GreaseResult<Valu
 ///
 /// The user must be logged in, and must be able to "delete-event"
 /// generally or for the specified event's type.
-pub fn delete_event(id: i32, mut user: User) -> GreaseResult<Value> {
-    let event = Event::load(id, &mut user.conn)?;
+pub fn delete_event(id: i32, user: User) -> GreaseResult<Value> {
+    let event = Event::load(id, &user.conn)?;
     check_for_permission!(user => "delete-event", &event.event.type_);
 
-    Event::delete(id, &mut user.conn).map(|_| basic_success())
+    Event::delete(id, &user.conn).map(|_| basic_success())
 }
 
 /// Load the attendance for an event.
@@ -382,20 +405,8 @@ pub fn get_member_attendance_for_semester(member: String, mut user: User) -> Gre
     }
 
     let current_semester = Semester::load_current(&mut user.conn)?;
-    Attendance::load_for_member_at_all_events(&member, &current_semester.name, &mut user.conn).map(
-        |event_attendance_pairs| {
-            event_attendance_pairs
-                .into_iter()
-                .map(|(event, attendance)| {
-                    json!({
-                        "event": event,
-                        "attendance": attendance
-                    })
-                })
-                .collect::<Vec<_>>()
-                .into()
-        },
-    )
+    Attendance::load_for_member_at_all_events(&member, &current_semester.name, &mut user.conn)
+        .map(|attendance| json!(attendance))
 }
 
 /// Update the attendance for a member at an event.
@@ -419,15 +430,15 @@ pub fn update_attendance(
     event_id: i32,
     member: String,
     attendance_form: AttendanceForm,
-    mut user: User,
+    user: User,
 ) -> GreaseResult<Value> {
-    let event = Event::load(event_id, &mut user.conn)?;
+    let event = Event::load(event_id, &user.conn)?;
     let user_section = user
         .member
         .active_semester
         .as_ref()
         .and_then(|active_semester| active_semester.section.clone());
-    let member_section = ActiveSemester::load(&member, &event.event.semester, &mut user.conn)?
+    let member_section = ActiveSemester::load(&member, &event.event.semester, &user.conn)?
         .and_then(|active_semester| active_semester.section);
 
     if user.has_permission("edit-attendance", Some(event.event.type_.as_str()))
@@ -437,8 +448,7 @@ pub fn update_attendance(
                 Some(event.event.type_.as_str()),
             ))
     {
-        Attendance::update(event_id, &member, &attendance_form, &mut user.conn)
-            .map(|_| basic_success())
+        Attendance::update(event_id, &member, &attendance_form, &user.conn).map(|_| basic_success())
     } else {
         Err(GreaseError::Forbidden(Some("edit-attendance".to_owned())))
     }
@@ -560,8 +570,8 @@ pub fn edit_setlist(
 /// ## Return Format:
 ///
 /// Returns an [AbsenceRequest](crate::db::models::AbsenceRequest).
-pub fn get_absence_request(event_id: i32, mut user: User) -> GreaseResult<Value> {
-    AbsenceRequest::load(&user.member.member.email, event_id, &mut user.conn)
+pub fn get_absence_request(event_id: i32, user: User) -> GreaseResult<Value> {
+    AbsenceRequest::load(&user.member.member.email, event_id, &user.conn)
         .map(|request| json!(request))
 }
 
@@ -569,14 +579,14 @@ pub fn get_absence_request(event_id: i32, mut user: User) -> GreaseResult<Value>
 ///
 /// ## Required Permissions:
 ///
-/// The user must be logged in and be able to "process-gig-requests" generally.
+/// The user must be logged in and be able to "process-absence-requests" generally.
 ///
 /// ## Return Format:
 ///
 /// Returns a list of [AbsenceRequest](crate::db::models::AbsenceRequest)s.
-pub fn get_absence_requests(mut user: User) -> GreaseResult<Value> {
-    check_for_permission!(user => "process-gig-requests");
-    AbsenceRequest::load_all_for_this_semester(&mut user.conn).map(|requests| json!(requests))
+pub fn get_absence_requests(user: User) -> GreaseResult<Value> {
+    check_for_permission!(user => "process-absence-requests");
+    AbsenceRequest::load_all_for_this_semester(&user.conn).map(|requests| json!(requests))
 }
 
 /// Check if the current member is excused from an event.
@@ -628,7 +638,7 @@ pub fn submit_absence_request(
 ///
 /// ## Required Permissions:
 ///
-/// The user must be logged in and be able to "process-gig-requests" generally.
+/// The user must be logged in and be able to "process-absence-requests" generally.
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
@@ -638,7 +648,7 @@ pub fn approve_absence_request(
     member: String,
     mut user: User,
 ) -> GreaseResult<Value> {
-    check_for_permission!(user => "process-gig-requests");
+    check_for_permission!(user => "process-absence-requests");
     AbsenceRequest::approve(&member, event_id, &mut user.conn).map(|_| basic_success())
 }
 
@@ -646,13 +656,13 @@ pub fn approve_absence_request(
 ///
 /// ## Required Permissions:
 ///
-/// The user must be logged in and be able to "process-gig-requests" generally.
+/// The user must be logged in and be able to "process-absence-requests" generally.
 ///
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
 ///   * member: string (*required*) - The email of the requested member
 pub fn deny_absence_request(event_id: i32, member: String, mut user: User) -> GreaseResult<Value> {
-    check_for_permission!(user => "process-gig-requests");
+    check_for_permission!(user => "process-absence-requests");
     AbsenceRequest::deny(&member, event_id, &mut user.conn).map(|_| basic_success())
 }
 

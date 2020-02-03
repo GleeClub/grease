@@ -1,9 +1,9 @@
 use auth::MemberPermission;
 use bcrypt::{hash, verify};
-use chrono::Local;
+use db::models::grades::Grades;
 use db::schema::member::dsl::*;
 use db::{
-    AbsenceRequest, ActiveSemester, ActiveSemesterUpdate, Attendance, Event, Member, NewMember,
+    ActiveSemester, ActiveSemesterUpdate, Attendance, Enrollment, Member, NewMember,
     RegisterForSemesterForm, Semester, Session,
 };
 use diesel::prelude::*;
@@ -15,6 +15,14 @@ use serde_json::{json, Value};
 pub struct MemberForSemester {
     pub member: Member,
     pub active_semester: Option<ActiveSemester>,
+}
+
+#[derive(Serialize)]
+pub struct MemberForSemesterJsonFormat<'a> {
+    #[serde(flatten)]
+    pub member: &'a Member,
+    pub enrollment: Option<&'a Enrollment>,
+    pub section: Option<&'a String>,
 }
 
 impl Member {
@@ -84,6 +92,7 @@ impl Member {
     /// ```
     ///
     /// if `active_semester` is not None, then
+    // TODO: finish these docs
     pub fn to_json_full_for_semester(
         &self,
         active_semester: ActiveSemester,
@@ -94,7 +103,7 @@ impl Member {
             "semester": &active_semester.semester,
             "enrollment": &active_semester.enrollment,
             "section": &active_semester.section,
-            "grades": self.calc_grades(&active_semester, conn)?
+            "grades": Grades::for_member(&self, &active_semester, conn)?,
         }]);
         json_val["permissions"] = json!(self.permissions(conn)?);
         json_val["positions"] = json!(self.positions(conn)?);
@@ -107,7 +116,7 @@ impl Member {
         let semesters = ActiveSemester::load_all_for_member(&self.email, conn)?
             .iter()
             .map(|active_semester| {
-                let grades = self.calc_grades(&active_semester, conn)?;
+                let grades = Grades::for_member(&self, &active_semester, conn)?;
                 Ok(json!({
                     "semester": &active_semester.semester,
                     "enrollment": &active_semester.enrollment,
@@ -121,236 +130,6 @@ impl Member {
         json_val["positions"] = json!(self.positions(conn)?);
 
         Ok(json_val)
-    }
-
-    pub fn to_json_with_grades(
-        &self,
-        active_semester: Option<ActiveSemester>,
-        conn: &MysqlConnection,
-    ) -> GreaseResult<Value> {
-        let mut json_val = json!(self);
-
-        if let Some(ref active_semester) = active_semester {
-            json_val["grades"] = json!(self.calc_grades(&active_semester, conn)?);
-        };
-        json_val["section"] = json!(&active_semester.as_ref().map(|a_s| &a_s.section));
-        json_val["enrollment"] = json!(&active_semester.as_ref().map(|a_s| &a_s.enrollment));
-        json_val["permissions"] = json!(self.permissions(conn)?);
-        json_val["positions"] = json!(self.positions(conn)?);
-
-        Ok(json_val)
-    }
-
-    pub fn calc_grades(
-        &self,
-        given_active_semester: &ActiveSemester,
-        conn: &MysqlConnection,
-    ) -> GreaseResult<Grades> {
-        use db::schema::{absence_request, event};
-
-        let now = Local::now().naive_local();
-        let mut grade: f32 = 100.0;
-        let event_attendance_pairs = Attendance::load_for_member_at_all_events(
-            &self.email,
-            &given_active_semester.semester,
-            conn,
-        )?;
-        let given_semester = Semester::load(&given_active_semester.semester, conn)?;
-        let semester_is_finished = given_semester.end_date < now;
-        let gig_requirement = given_semester.gig_requirement as usize;
-        let mut grade_items = Vec::new();
-        let mut volunteer_gigs_attended = 0;
-        let semester_absence_requests = event::table
-            .inner_join(absence_request::table)
-            .filter(
-                absence_request::dsl::member
-                    .eq(&self.email)
-                    .and(event::dsl::semester.eq(&given_active_semester.semester)),
-            )
-            .load::<(Event, AbsenceRequest)>(conn)
-            .map(|rows| rows.into_iter().map(|(_e, a)| a).collect())
-            .map_err(GreaseError::DbError)?;
-
-        let event_attendance_checks = event_attendance_pairs
-            .iter()
-            .filter_map(|(event, _attendance)| {
-                if event.call_time < now {
-                    let went_to_sectionals = event.went_to_event_type_during_week_of(
-                        &event_attendance_pairs,
-                        &semester_absence_requests,
-                        "sectional",
-                    );
-                    let went_to_rehearsal = event.went_to_event_type_during_week_of(
-                        &event_attendance_pairs,
-                        &semester_absence_requests,
-                        "rehearsal",
-                    );
-
-                    Some((went_to_sectionals, went_to_rehearsal))
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<(Option<bool>, Option<bool>)>>();
-
-        for ((event, attendance), (went_to_sectionals, went_to_rehearsal)) in event_attendance_pairs
-            .into_iter()
-            .zip(event_attendance_checks.into_iter())
-            .take_while(|((event, _attendance), _checks)| event.call_time < now)
-        {
-            let (point_change, reason) = {
-                if attendance.did_attend {
-                    let bonus_event = event.type_ == "Volunteer Gig"
-                        || event.type_ == "Ombuds"
-                        || (event.type_ == "Other" && !attendance.should_attend)
-                        || (event.type_ == "Sectional" && went_to_sectionals.unwrap_or(false));
-                    if !went_to_rehearsal.unwrap_or(event.type_ != "Rehearsal")
-                        && ["Volunteer Gig", "Tutti Gig"].contains(&event.type_.as_str())
-                    {
-                        // If you haven't been to rehearsal this week, you can't get points or gig credit
-                        if event.type_ == "Volunteer Gig" {
-                            (0.0, format!("{}-point bonus denied because this week's rehearsal was missed", event.points))
-                        } else {
-                            (
-                                -(event.points as f32),
-                                "Full deduction for unexcused absence from this week's rehearsal"
-                                    .to_owned(),
-                            )
-                        }
-                    } else if attendance.minutes_late > 0 && event.type_ != "Ombuds" {
-                        // Lose points equal to the percentage of the event missed, if they should have attended
-                        let event_duration = if let Some(release_time) = event.release_time {
-                            if release_time <= event.call_time {
-                                60.0
-                            } else {
-                                (release_time - event.call_time).num_minutes() as f32
-                            }
-                        } else {
-                            60.0
-                        };
-                        let delta =
-                            (attendance.minutes_late as f32 / event_duration) * event.points as f32;
-
-                        if bonus_event {
-                            if event.type_ == "Volunteer Gig" && event.gig_count {
-                                volunteer_gigs_attended += 1;
-                            }
-                            if grade + event.points as f32 - delta > 100.0 {
-                                (
-                                    100.0 - grade,
-                                    format!(
-                                        "Event would grant {}-point bonus, \
-                                         but {:.2} points deducted for lateness (capped at 100%)",
-                                        event.points, delta
-                                    ),
-                                )
-                            } else {
-                                (
-                                    event.points as f32 - delta,
-                                    format!(
-                                        "Event would grant {}-point bonus, \
-                                         but {:.2} points deducted for lateness",
-                                        event.points, delta
-                                    ),
-                                )
-                            }
-                        } else if attendance.should_attend {
-                            (
-                                -delta,
-                                format!(
-                                    "{:.2} points deducted for lateness to required event",
-                                    delta
-                                ),
-                            )
-                        } else {
-                            (
-                                0.0,
-                                "No point change for attending required event".to_owned(),
-                            )
-                        }
-                    } else if bonus_event {
-                        if event.type_ == "Volunteer Gig" && event.gig_count {
-                            volunteer_gigs_attended += 1;
-                        }
-                        // Get back points for volunteer gigs and and extra sectionals and ombuds events
-                        if grade + event.points as f32 > 100.0 {
-                            let point_change = 100.0 - grade;
-                            (
-                                point_change,
-                                format!(
-                                    "Event grants {:}-point bonus, but grade is capped at 100%",
-                                    event.points
-                                ),
-                            )
-                        } else {
-                            (
-                                event.points as f32,
-                                "Full bonus awarded for attending volunteer or extra event"
-                                    .to_owned(),
-                            )
-                        }
-                    } else {
-                        (
-                            0.0,
-                            "No point change for attending required event".to_owned(),
-                        )
-                    }
-                } else if attendance.should_attend {
-                    // Lose the full point value if did not attend
-                    if event.type_ == "Ombuds" {
-                        (
-                            0.0,
-                            "You do not lose points for missing an ombuds event".to_owned(),
-                        )
-                    } else if event.type_ == "Sectional" && went_to_sectionals == Some(true) {
-                        (
-                            0.0,
-                            "No deduction because you attended a different sectional this week"
-                                .to_owned(),
-                        )
-                    } else if event.type_ == "Sectional"
-                        && went_to_sectionals.is_none()
-                        && event.load_sectionals_the_week_of(conn)?.len() > 1
-                    {
-                        (
-                            0.0,
-                            "No deduction because not all sectionals occurred yet".to_owned(),
-                        )
-                    } else {
-                        (
-                            -(event.points as f32),
-                            "Full deduction for unexcused absence from event".to_owned(),
-                        )
-                    }
-                } else {
-                    (0.0, "Did not attend and not expected to".to_owned())
-                }
-            };
-
-            grade += point_change;
-            // Prevent the grade from ever rising above 100
-            if grade > 100.0 {
-                grade = 100.0;
-            } else if grade < 0.0 {
-                grade = 0.0;
-            }
-
-            grade_items.push(GradeChange {
-                event,
-                attendance,
-                change: point_change,
-                partial_score: grade,
-                reason,
-            });
-        }
-
-        Ok(Grades {
-            final_grade: grade,
-            volunteer_gigs_attended,
-            gig_requirement,
-            semester_is_finished,
-            changes: grade_items,
-        })
     }
 
     pub fn create(new_member: NewMember, conn: &MysqlConnection) -> GreaseResult<()> {
@@ -472,10 +251,12 @@ impl Member {
     ) -> GreaseResult<()> {
         conn.transaction(|| {
             let member_with_same_email = member
-                .filter(email.eq(given_email))
-                .first::<Member>(conn)
-                .optional()?;
-            if given_email != &update.email && member_with_same_email.is_some() {
+                .select(email)
+                .filter(email.eq(&update.email))
+                .first::<String>(conn)
+                .optional()?
+                .is_some();
+            if given_email != &update.email && member_with_same_email {
                 return Err(GreaseError::BadRequest(format!(
                     "Cannot change email to {}, as another user has that email.",
                     &update.email
@@ -637,41 +418,66 @@ impl MemberForSemester {
     }
 
     pub fn to_json(&self) -> Value {
-        let mut json = json!(self.member);
-        json["enrollment"] = json!(self
-            .active_semester
-            .as_ref()
-            .map(|active_semester| &active_semester.enrollment));
-        json["section"] = json!(self
-            .active_semester
-            .as_ref()
-            .and_then(|active_semester| active_semester.section.as_ref()));
-
-        json
+        json!(MemberForSemesterJsonFormat {
+            member: &self.member,
+            enrollment: self.active_semester.as_ref().map(|a_s| &a_s.enrollment),
+            section: self
+                .active_semester
+                .as_ref()
+                .and_then(|a_s| a_s.section.as_ref()),
+        })
     }
-}
 
-#[derive(Serialize)]
-pub struct Grades {
-    #[serde(rename = "finalGrade")]
-    pub final_grade: f32,
-    pub changes: Vec<GradeChange>,
-    #[serde(rename = "volunteerGigsAttended")]
-    pub volunteer_gigs_attended: usize,
-    #[serde(rename = "gigRequirement")]
-    pub gig_requirement: usize,
-    #[serde(rename = "semesterIsFinished")]
-    pub semester_is_finished: bool,
-}
+    pub fn to_json_full(&self, conn: &MysqlConnection) -> GreaseResult<Value> {
+        #[derive(Serialize)]
+        struct JsonFormat<'m> {
+            #[serde(flatten)]
+            member: MemberForSemesterJsonFormat<'m>,
+            permissions: Vec<MemberPermission>,
+            positions: Vec<String>,
+        }
 
-#[derive(Serialize, Clone)]
-pub struct GradeChange {
-    pub event: Event,
-    pub attendance: Attendance,
-    pub reason: String,
-    pub change: f32,
-    #[serde(rename = "partialScore")]
-    pub partial_score: f32,
+        Ok(json!(JsonFormat {
+            member: MemberForSemesterJsonFormat {
+                member: &self.member,
+                enrollment: self.active_semester.as_ref().map(|a_s| &a_s.enrollment),
+                section: self
+                    .active_semester
+                    .as_ref()
+                    .and_then(|a_s| a_s.section.as_ref()),
+            },
+            positions: self.member.positions(conn)?,
+            permissions: self.member.permissions(conn)?,
+        }))
+    }
+
+    pub fn to_json_with_grades(&self, conn: &MysqlConnection) -> GreaseResult<Value> {
+        #[derive(Serialize)]
+        struct JsonFormat<'m> {
+            #[serde(flatten)]
+            member: MemberForSemesterJsonFormat<'m>,
+            grades: Option<Grades>,
+            permissions: Vec<MemberPermission>,
+            positions: Vec<String>,
+        }
+        Ok(json!(JsonFormat {
+            member: MemberForSemesterJsonFormat {
+                member: &self.member,
+                enrollment: self.active_semester.as_ref().map(|a_s| &a_s.enrollment),
+                section: self
+                    .active_semester
+                    .as_ref()
+                    .and_then(|a_s| a_s.section.as_ref()),
+            },
+            grades: if let Some(ref active_semester) = self.active_semester {
+                Some(Grades::for_member(&self.member, &active_semester, conn)?)
+            } else {
+                None
+            },
+            positions: self.member.positions(conn)?,
+            permissions: self.member.permissions(conn)?,
+        }))
+    }
 }
 
 impl ActiveSemester {

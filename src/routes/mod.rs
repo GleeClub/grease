@@ -149,18 +149,18 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
         (POST) [/members/(email: String)] =>
             |email| update_member_as_officer(email, parse_body!(), load_user()?),
 
-        (POST) [/members/(email: String)/login_as] =>
+        (GET) [/members/(email: String)/login_as] =>
             |email| login_as_member(email, load_user()?),
 
         (DELETE) [/members/(email: String)?(confirm: bool)] =>
             |email, confirm| delete_member(email, confirm, load_user()?),
 
         // events
-        (GET) [/events/(id: i32)?(full: bool)] =>
-            |id, full| get_event(id, full, load_user()?),
+        (GET) [/events/(id: i32)?(attendance: bool)] =>
+            |id, attendance| get_event(id, attendance, load_user()?),
 
-        (GET) [/events?(full: bool)?(event_types: String)] =>
-            |full, event_types| get_events(full, event_types, load_user()?),
+        (GET) [/events?(full: bool)?(attendance: bool)] =>
+            |full, attendance| get_events(full, attendance, load_user()?),
 
         (POST) [/events] =>
             || new_event(parse_body!(), load_user()?),
@@ -186,6 +186,9 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
 
         (POST) [/events/(id: i32)/rsvp/(attending: bool)] =>
             |id, attending| rsvp_for_event(id, attending, load_user()?),
+
+        (POST) [/events/(id: i32)/confirm] =>
+            |id| confirm_for_event(id, load_user()?),
 
         (POST) [/events/(id: i32)/attendance/excuse_unconfirmed] =>
             |id| excuse_unconfirmed_for_event(id, load_user()?),
@@ -416,14 +419,26 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
         (POST) [/fees/(name: String)/(new_amount: i32)] =>
             |name, amount| update_fee_amount(name, amount, load_user()?),
 
-        (POST) [/fees/(name: String)/apply] =>
-            |name| apply_fee_for_all_active_members(name, load_user()?),
+        (POST) [/fees/charge_dues] =>
+            || charge_dues(load_user()?),
+
+        (POST) [/fees/charge_late_dues] =>
+            || charge_late_dues(load_user()?),
+
+        (POST) [/fees/create_batch] =>
+            || batch_transactions(parse_body!(), load_user()?),
+
+        (GET) [/transactions] =>
+            || get_transactions(load_user()?),
 
         (GET) [/transactions/(member: String)] =>
             |member| get_member_transactions(member, load_user()?),
 
         (POST) [/transactions] =>
             || add_transactions(parse_body!(), load_user()?),
+
+        (POST) [/transactions/(id: i32)/resolve/(resolved: bool)] =>
+            |id, resolved| resolve_transaction(id, resolved, load_user()?),
 
         // static data
         (GET) [/static] =>
@@ -447,29 +462,6 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
         (GET) [/transaction_types] =>
             || get_transaction_types(load_user()?),
 
-        // extra
-        // (GET) [/run_migrations] =>
-        //     || {
-        //         let migration_args = std::fs::read_to_string("../httpsdocs/dev/smores/migration_command.txt")
-        //             .map_err(|err| {
-        //                 GreaseError::ServerError(format!(
-        //                     "Couldn't retrieve passwords for the old and new databases: {:?}",
-        //                     err
-        //                 ))
-        //             })?;
-
-        //         match std::process::Command::new("../httpsdocs/dev/smores/migration_script")
-        //             .args(migration_args.trim().split_whitespace().skip(1))
-        //             .spawn()
-        //         {
-        //             Ok(_) => Ok(basic_success()),
-        //             Err(err) => Err(GreaseError::ServerError(format!(
-        //                 "Couldn't spawn the migration script as a child process: {:?}",
-        //                 err
-        //             ))),
-        //         }
-        //     },
-
         (POST) [/upload_frontend] =>
             || {
                 load_user()?;
@@ -490,6 +482,52 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
                             .lines()
                             .collect::<Vec<_>>(),
                     }))
+            },
+
+        (GET) [/constraints] =>
+            || {
+                use diesel::RunQueryDsl;
+                use diesel::sql_types::{Nullable, Varchar};
+
+                #[derive(diesel::QueryableByName, serde::Serialize)]
+                struct Info {
+                    #[sql_type = "Nullable<Varchar>"]
+                    column_name: Option<String>,
+                    #[sql_type = "Nullable<Varchar>"]
+                    constraint_name: Option<String>,
+                    #[sql_type = "Nullable<Varchar>"]
+                    referenced_column_name: Option<String>,
+                    #[sql_type = "Nullable<Varchar>"]
+                    referenced_table_name: Option<String>,
+                }
+
+                let user = load_user()?;
+                match diesel::sql_query("
+                select column_name, constraint_name, referenced_column_name, referenced_table_name
+                from information_schema.KEY_COLUMN_USAGE
+                where TABLE_NAME = 'gig_request';
+                ").load::<Info>(&user.conn) {
+                    Ok(rows) => Ok(json!(rows)),
+                    Err(error) => Err(GreaseError::DbError(error)),
+                }
+            },
+
+        (GET) [/update_constraint] =>
+            || {
+                use diesel::RunQueryDsl;
+
+                let user = load_user()?;
+                diesel::sql_query("
+                ALTER TABLE `gig_request` 
+                DROP FOREIGN KEY `gig_request_ibfk_1`;
+                ").execute(&user.conn)?;
+                diesel::sql_query("
+                ALTER TABLE `gig_request`  
+                ADD CONSTRAINT `gig_request_ibfk_1` 
+                    FOREIGN KEY (`event`) REFERENCES `event` (`id`) ON UPDATE CASCADE ON DELETE SET NULL; 
+                ").execute(&user.conn)?;
+
+                Ok(basic_success())
             },
     )
 }

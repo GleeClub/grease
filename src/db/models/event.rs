@@ -1,5 +1,5 @@
 use chrono::{Datelike, Duration, Local, NaiveDate, NaiveDateTime};
-use db::models::member::GradeChange;
+use db::models::grades::GradeChange;
 use db::models::member::MemberForSemester;
 use db::schema::{
     attendance, event::dsl::*, gig, gig_request, AbsenceRequestState, GigRequestStatus,
@@ -14,6 +14,17 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 impl Event {
+    pub const REHEARSAL: &'static str = "Rehearsal";
+    pub const SECTIONAL: &'static str = "Sectional";
+    pub const VOLUNTEER_GIG: &'static str = "Volunteer Gig";
+    pub const TUTTI_GIG: &'static str = "Tutti Gig";
+    pub const OMBUDS: &'static str = "Ombuds";
+    pub const OTHER: &'static str = "Other";
+
+    pub fn is_gig(&self) -> bool {
+        self.type_ == Self::VOLUNTEER_GIG || self.type_ == Self::TUTTI_GIG
+    }
+
     pub fn load(event_id: i32, conn: &MysqlConnection) -> GreaseResult<EventWithGig> {
         use db::schema::event::dsl::*;
 
@@ -73,8 +84,8 @@ impl Event {
 
     pub fn went_to_event_type_during_week_of(
         &self,
-        semester_events_with_attendance: &Vec<(Event, Attendance)>,
-        semester_absence_requests: &Vec<AbsenceRequest>,
+        events_with_attendance: &Vec<(EventWithGig, Attendance)>,
+        absence_requests: &Vec<AbsenceRequest>,
         event_type: &str,
     ) -> Option<bool> {
         let days_since_sunday = self.call_time.date().weekday().num_days_from_sunday() as i64;
@@ -82,28 +93,36 @@ impl Event {
         let next_sunday = last_sunday + Duration::days(7);
         let now = Local::now().naive_local();
 
-        let event_type_attendance_for_week = semester_events_with_attendance
+        let event_type_attendance_for_week = events_with_attendance
             .iter()
             .filter(|(given_event, _attendance)| {
-                given_event.id != self.id
-                    && given_event.semester == self.semester
-                    && given_event.call_time > last_sunday
-                    && given_event.release_time.unwrap_or(given_event.call_time)
-                        < std::cmp::min(next_sunday, now)
-                    && given_event.type_ == event_type
+                let event_end_time = given_event
+                    .event
+                    .release_time
+                    .unwrap_or(given_event.event.call_time);
+                given_event.event.id != self.id
+                    && given_event.event.semester == self.semester
+                    && given_event.event.call_time > last_sunday
+                    && event_end_time < std::cmp::min(next_sunday, now)
+                    && given_event.event.type_ == event_type
             })
-            .map(|(given_event, attendance)| (given_event.id, attendance.did_attend))
-            .collect::<Vec<(i32, bool)>>();
+            .map(|(given_event, attendance)| (given_event.event.id, attendance))
+            .collect::<Vec<(i32, &Attendance)>>();
 
-        if event_type_attendance_for_week.len() == 0 {
+        let number_of_events_to_ignore = event_type_attendance_for_week
+            .iter()
+            .filter(|(_event_id, attendance)| !attendance.should_attend && !attendance.did_attend)
+            .count();
+
+        if event_type_attendance_for_week.len() == number_of_events_to_ignore {
             None
         } else {
             Some(
                 event_type_attendance_for_week
                     .into_iter()
-                    .any(|(event_id, did_attend)| {
-                        did_attend
-                            || semester_absence_requests.iter().any(|absence_request| {
+                    .any(|(event_id, attendance)| {
+                        attendance.did_attend
+                            || absence_requests.iter().any(|absence_request| {
                                 absence_request.event == event_id
                                     && absence_request.state == AbsenceRequestState::Approved
                             })
@@ -341,12 +360,40 @@ impl Event {
                     .and(attendance::member.eq(&member.member.email)),
             ),
         )
-        .set(attendance::confirmed.eq(attending))
+        .set((
+            attendance::should_attend.eq(attending),
+            attendance::confirmed.eq(true),
+        ))
         .execute(conn)?;
-        // format!(
-        //     "No attendance exists for member {} at event with id {}.",
-        //     &member.member.email, event_id
-        // ),
+
+        Ok(())
+    }
+
+    pub fn confirm(
+        event_id: i32,
+        member: &MemberForSemester,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<()> {
+        let _found_event = Event::load(event_id, conn)?;
+        let _attendance = Attendance::load(&member.member.email, event_id, conn)?.ok_or(
+            GreaseError::ServerError(format!(
+                "No attendance exists for member {} at event with id {}.",
+                &member.member.email, event_id,
+            )),
+        )?;
+
+        diesel::update(
+            attendance::table.filter(
+                attendance::event
+                    .eq(event_id)
+                    .and(attendance::member.eq(&member.member.email)),
+            ),
+        )
+        .set((
+            attendance::should_attend.eq(true),
+            attendance::confirmed.eq(true),
+        ))
+        .execute(conn)?;
 
         Ok(())
     }
@@ -433,92 +480,55 @@ impl EventWithGig {
     /// Render this event and gig's data to JSON, including some additional data.
     ///
     /// On top of what is included for [to_json](#method.to_json), two other fields are included:
-    ///   * uniform: if the event has a gig, the gig's [Uniform](../struct.Uniform.html) is included
-    ///       in place of the uniform's id. It is null otherwise.
     ///   * attendance: The current member's [Attendance](../struct.Attendance.html) for the gig is
     ///       included if they were ever active during the semester of the event. It is null otherwise.
-    pub fn to_json_full(
-        &self,
-        attendance: Option<&Attendance>,
+    pub fn to_json_with_grade_change<'e>(
+        &'e self,
+        grade_change: Option<&GradeChange>,
         is_active: bool,
-        conn: &MysqlConnection,
-    ) -> GreaseResult<Value> {
-        let mut json_val = json!(self);
+    ) -> Value {
+        #[derive(Serialize)]
+        struct JsonFormat<'e> {
+            #[serde(flatten)]
+            event: &'e EventWithGig,
+            #[serde(rename = "gradeChange")]
+            grade_change: Option<GradeChangeFormat<'e>>,
+            attendance: Option<&'e Attendance>,
+            #[serde(rename = "absenceRequest")]
+            absence_request: Option<&'e AbsenceRequest>,
+            #[serde(rename = "rsvpIssue")]
+            rsvp_issue: Option<String>,
+        }
 
-        let uniform = if let Some(uniform) = self.gig.as_ref().map(|gig| gig.uniform) {
-            Some(Uniform::load(uniform, conn)?)
+        #[derive(Serialize)]
+        struct GradeChangeFormat<'g> {
+            pub reason: &'g str,
+            pub change: f32,
+            #[serde(rename = "partialScore")]
+            pub partial_score: f32,
+        }
+
+        if let Some(ref change) = grade_change {
+            json!(JsonFormat {
+                event: self,
+                attendance: Some(&change.attendance),
+                absence_request: change.absence_request.as_ref(),
+                grade_change: Some(GradeChangeFormat {
+                    reason: &change.reason,
+                    change: change.change,
+                    partial_score: change.partial_score,
+                }),
+                rsvp_issue: Event::rsvp_issue(&self.event, &change.attendance, is_active),
+            })
         } else {
-            None
-        };
-        json_val["uniform"] = json!(uniform);
-        json_val["shouldAttend"] = json!(attendance.map(|attendance| attendance.should_attend));
-        json_val["didAttend"] = json!(attendance.map(|attendance| attendance.did_attend));
-        json_val["confirmed"] = json!(attendance.map(|attendance| attendance.confirmed));
-        json_val["minutesLate"] = json!(attendance.map(|attendance| attendance.minutes_late));
-        let rsvp_issue = if let Some(attendance) = attendance {
-            Event::rsvp_issue(&self.event, &attendance, is_active)
-        } else {
-            Some("Inactive members cannot RSVP for events.".to_owned())
-        };
-        json_val["rsvpIssue"] = json!(rsvp_issue);
-
-        Ok(json_val)
-    }
-
-    /// Render this event and gig's data to JSON, including some additional data.
-    ///
-    /// On top of what is included for [to_json](#method.to_json), two other fields are included:
-    ///   * uniform: if the event has a gig, the gig's [Uniform](../struct.Uniform.html) is included
-    ///       in place of the uniform's id. It is null otherwise.
-    ///   * attendance: The current member's [Attendance](../struct.Attendance.html) for the gig is
-    ///       included if they were ever active during the semester of the event. It is null otherwise.
-    pub fn to_json_with_grade_change(
-        &self,
-        email: &str,
-        grade_change: Option<GradeChange>,
-        is_active: bool,
-        conn: &MysqlConnection,
-    ) -> GreaseResult<Value> {
-        let mut json_val = json!(self);
-
-        let uniform = if let Some(uniform) = self.gig.as_ref().map(|gig| gig.uniform) {
-            Some(Uniform::load(uniform, conn)?)
-        } else {
-            None
-        };
-
-        let member_attendance = if grade_change.is_some() {
-            grade_change
-                .as_ref()
-                .map(|grade_change| grade_change.attendance.clone())
-        } else {
-            Attendance::load(email, self.event.id, conn)?
-        };
-
-        json_val["uniform"] = json!(uniform);
-        json_val["shouldAttend"] = json!(&member_attendance
-            .as_ref()
-            .map(|attendance| &attendance.should_attend));
-        json_val["didAttend"] = json!(&member_attendance
-            .as_ref()
-            .map(|attendance| &attendance.did_attend));
-        json_val["confirmed"] = json!(&member_attendance
-            .as_ref()
-            .map(|attendance| &attendance.confirmed));
-        json_val["minutesLate"] = json!(&member_attendance
-            .as_ref()
-            .map(|attendance| attendance.minutes_late));
-        json_val["gradeChange"] = json!(grade_change.as_ref().map(|change| change.change));
-        json_val["gradeChangeReason"] = json!(grade_change.as_ref().map(|change| &change.reason));
-        json_val["partialScore"] = json!(grade_change.as_ref().map(|change| &change.partial_score));
-        let rsvp_issue = if let Some(attendance) = member_attendance {
-            Event::rsvp_issue(&self.event, &attendance, is_active)
-        } else {
-            Some("Inactive members cannot RSVP for events.".to_owned())
-        };
-        json_val["rsvpIssue"] = json!(rsvp_issue);
-
-        Ok(json_val)
+            json!(JsonFormat {
+                event: self,
+                attendance: None,
+                absence_request: None,
+                grade_change: None,
+                rsvp_issue: Some("Inactive members cannot RSVP for events.".to_owned()),
+            })
+        }
     }
 }
 

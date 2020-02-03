@@ -87,16 +87,19 @@ impl FileUpload {
             let _extension = given_path.extension().ok_or(GreaseError::BadRequest(
                 "file must have an extension".to_owned(),
             ))?;
-            let mut base_path = PathBuf::from("./music/");
+            let mut base_path = PathBuf::from("../httpsdocs/music/");
             base_path.push(file_name);
 
             base_path
         };
         let mut file = OpenOptions::new()
-            .create_new(true)
+            .create(true)
             .write(true)
             .open(path)
             .map_err(|err| GreaseError::ServerError(format!("error opening file: {}", err)))?;
+        file.set_len(0).map_err(|err| {
+            GreaseError::ServerError(format!("unable to clear file for link: {}", err))
+        })?;
         file.write_all(&content)
             .map_err(|err| GreaseError::ServerError(format!("error writing to file: {}", err)))?;
 
@@ -118,7 +121,7 @@ pub fn check_for_music_file(path: &str) -> GreaseResult<String> {
         "file must have an extension".to_owned(),
     ))?;
 
-    let mut existing_path = PathBuf::from("./music/");
+    let mut existing_path = PathBuf::from("../httpsdocs/music/");
     existing_path.push(&file_name);
 
     if std::fs::metadata(existing_path).is_ok() {

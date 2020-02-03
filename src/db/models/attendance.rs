@@ -1,11 +1,26 @@
 use chrono::Local;
+use db::models::event::EventWithGig;
 use db::models::member::MemberForSemester;
 use db::schema::attendance::dsl::*;
-use db::schema::{active_semester, event, member as member_dsl};
-use db::{ActiveSemester, Attendance, AttendanceForm, Event, Member, NewAttendance};
+use db::schema::{
+    absence_request, active_semester, event, gig, member as member_dsl, AbsenceRequestState,
+};
+use db::{
+    AbsenceRequest, ActiveSemester, Attendance, AttendanceForm, Event, Gig, Member, NewAttendance,
+};
 use diesel::prelude::*;
 use error::*;
+use serde::Serialize;
 use std::collections::HashMap;
+
+#[derive(Serialize)]
+pub struct MemberAttendance {
+    #[serde(flatten)]
+    pub event: EventWithGig,
+    pub attendance: Attendance,
+    #[serde(rename = "absenceRequest")]
+    pub absence_request: Option<AbsenceRequest>,
+}
 
 impl Attendance {
     pub fn load(
@@ -93,16 +108,27 @@ impl Attendance {
         given_member: &str,
         given_semester: &str,
         conn: &MysqlConnection,
-    ) -> GreaseResult<Vec<(Event, Attendance)>> {
+    ) -> GreaseResult<Vec<MemberAttendance>> {
         event::table
+            .left_outer_join(gig::table)
             .inner_join(attendance)
+            .left_outer_join(absence_request::table.on(absence_request::event.eq(event::id)))
             .filter(
                 member
                     .eq(given_member)
                     .and(event::semester.eq(given_semester)),
             )
             .order_by(event::call_time.asc())
-            .load(conn)
+            .load::<(Event, Option<Gig>, Attendance, Option<AbsenceRequest>)>(conn)
+            .map(|rows| {
+                rows.into_iter()
+                    .map(|(e, g, a, r)| MemberAttendance {
+                        event: EventWithGig { event: e, gig: g },
+                        attendance: a,
+                        absence_request: r,
+                    })
+                    .collect()
+            })
             .map_err(GreaseError::DbError)
     }
 
@@ -171,5 +197,17 @@ impl Attendance {
             .execute(conn)?;
 
         Ok(())
+    }
+}
+
+impl MemberAttendance {
+    pub fn deny_credit(&self) -> bool {
+        self.attendance.should_attend
+            && !self.attendance.did_attend
+            && self
+                .absence_request
+                .as_ref()
+                .map(|request| request.state != AbsenceRequestState::Approved)
+                .unwrap_or(true)
     }
 }

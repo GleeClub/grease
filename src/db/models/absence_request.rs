@@ -32,6 +32,27 @@ impl AbsenceRequest {
             .map_err(GreaseError::DbError)
     }
 
+    pub fn all_for_member_for_semester(
+        email: &str,
+        semester_name: &str,
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Vec<AbsenceRequest>> {
+        use db::schema::absence_request;
+
+        absence_request::table
+            .filter(
+                absence_request::member.eq(email).and(
+                    absence_request::event.eq_any(
+                        event::table
+                            .select(event::id)
+                            .filter(event::semester.eq(semester_name)),
+                    ),
+                ),
+            )
+            .load(conn)
+            .map_err(GreaseError::DbError)
+    }
+
     pub fn excused_for_event(
         given_member: &str,
         event_id: i32,

@@ -2,6 +2,7 @@ pub mod absence_request;
 pub mod attendance;
 pub mod carpool;
 pub mod event;
+pub mod grades;
 pub mod member;
 pub mod minutes;
 pub mod misc;

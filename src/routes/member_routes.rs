@@ -91,33 +91,37 @@ pub fn reset_password(token: Option<String>, reset_form: PasswordReset) -> Greas
 /// if `grades = true`, then the format from
 /// [to_json_with_grades](crate::db::models::Member::to_json_with_grades())
 /// is used. Otherwise, the simple format from
-/// [to_json](crate::db::models::Member::to_json())
+/// [to_json](crate::db::models::member::MemberForSemester::to_json())
 /// is used.
 pub fn get_member(
     email: String,
     grades: Option<bool>,
     details: Option<bool>,
-    mut user: User,
+    user: User,
 ) -> GreaseResult<Value> {
+    let grades = grades.unwrap_or(false);
+    let details = details.unwrap_or(false);
+
     if &email != &user.member.member.email {
         check_for_permission!(user => "view-users");
-        if *details.as_ref().unwrap_or(&false) {
+        if details || grades {
             check_for_permission!(user => "view-user-private-details");
         }
     }
 
-    let current_semester = Semester::load_current(&mut user.conn)?;
-    Member::load(&email, &mut user.conn).and_then(|member| {
-        if details.unwrap_or(false) {
-            member.to_json_full_for_all_semesters(&mut user.conn)
-        } else if grades.unwrap_or(false) {
-            ActiveSemester::load(&member.email, &current_semester.name, &mut user.conn).and_then(
-                |active_semester| member.to_json_with_grades(active_semester, &mut user.conn),
-            )
+    if details {
+        let member = Member::load(&email, &user.conn)?;
+        member.to_json_full_for_all_semesters(&user.conn)
+    } else {
+        let current_semester = Semester::load_current(&user.conn)?;
+        let member = MemberForSemester::load(&email, &current_semester.name, &user.conn)?;
+
+        if grades {
+            member.to_json_with_grades(&user.conn)
         } else {
-            Ok(json!(member))
+            Ok(member.to_json())
         }
-    })
+    }
 }
 
 /// Get the member associated with the current user.
@@ -130,10 +134,7 @@ pub fn get_member(
 /// null is returned.
 pub fn get_current_user(user: GreaseResult<User>) -> GreaseResult<Value> {
     match user {
-        Ok(mut user) => user
-            .member
-            .member
-            .to_json_with_grades(user.member.active_semester, &mut user.conn),
+        Ok(user) => user.member.to_json_full(&user.conn),
         Err(GreaseError::Unauthorized) => Ok(json!(null)),
         Err(other) => Err(other),
     }
@@ -157,9 +158,9 @@ pub fn get_current_user(user: GreaseResult<User>) -> GreaseResult<Value> {
 pub fn get_members(
     grades: Option<bool>,
     include: Option<String>,
-    mut user: User,
+    user: User,
 ) -> GreaseResult<Value> {
-    let current_semester = Semester::load_current(&mut user.conn)?;
+    let current_semester = Semester::load_current(&user.conn)?;
     let (include_class, include_club, include_inactive) = if let Some(include) = include {
         let mut included = include.split(",").collect::<HashSet<&str>>();
         included.remove("");
@@ -178,7 +179,7 @@ pub fn get_members(
         (true, true, false)
     };
 
-    MemberForSemester::load_all(&current_semester.name, &mut user.conn).and_then(|members| {
+    MemberForSemester::load_all(&current_semester.name, &user.conn).and_then(|members| {
         members
             .into_iter()
             .filter_map(|member| {
@@ -193,9 +194,7 @@ pub fn get_members(
                 }
 
                 let json_val = if grades.unwrap_or(false) {
-                    member
-                        .member
-                        .to_json_with_grades(member.active_semester, &mut user.conn)
+                    member.to_json_full(&user.conn)
                 } else {
                     Ok(member.to_json())
                 };
@@ -212,9 +211,9 @@ pub fn get_members(
 ///
 /// Expects a [NewMember](crate::db::models::NewMember).
 pub fn new_member(new_member: NewMember) -> GreaseResult<Value> {
-    let mut conn = connect_to_db()?;
+    let conn = connect_to_db()?;
 
-    Member::create(new_member, &mut conn).map(|_| basic_success())
+    Member::create(new_member, &conn).map(|_| basic_success())
 }
 
 /// Confirms that an inactive member will be active for the current semester.
@@ -226,8 +225,8 @@ pub fn new_member(new_member: NewMember) -> GreaseResult<Value> {
 /// ## Input Format:
 ///
 /// Expects a [RegisterForSemesterForm](crate::db::models::RegisterForSemesterForm).
-pub fn confirm_for_semester(form: RegisterForSemesterForm, mut user: User) -> GreaseResult<Value> {
-    Member::register_for_semester(user.member.member.email, form, &mut user.conn)
+pub fn confirm_for_semester(form: RegisterForSemesterForm, user: User) -> GreaseResult<Value> {
+    Member::register_for_semester(user.member.member.email, form, &user.conn)
         .map(|_| basic_success())
 }
 
@@ -243,10 +242,10 @@ pub fn confirm_for_semester(form: RegisterForSemesterForm, mut user: User) -> Gr
 pub fn mark_member_inactive_for_semester(
     member: String,
     semester: String,
-    mut user: User,
+    user: User,
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-user");
-    Member::mark_inactive_for_semester(&member, &semester, &mut user.conn).map(|_| basic_success())
+    Member::mark_inactive_for_semester(&member, &semester, &user.conn).map(|_| basic_success())
 }
 
 /// Update a member's activity for a semester.
@@ -266,10 +265,10 @@ pub fn update_member_semester(
     member: String,
     semester: String,
     update: ActiveSemesterUpdate,
-    mut user: User,
+    user: User,
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-user");
-    ActiveSemester::update(&member, &semester, update, &mut user.conn).map(|_| basic_success())
+    ActiveSemester::update(&member, &semester, update, &user.conn).map(|_| basic_success())
 }
 
 /// Update a member's account from their profile.
@@ -281,8 +280,8 @@ pub fn update_member_semester(
 /// ## Input Format:
 ///
 /// Expects a [NewMember](crate::db::models::NewMember).
-pub fn update_member_profile(update: NewMember, mut user: User) -> GreaseResult<Value> {
-    Member::update(&user.member.member.email, true, update, &mut user.conn).map(|_| basic_success())
+pub fn update_member_profile(update: NewMember, user: User) -> GreaseResult<Value> {
+    Member::update(&user.member.member.email, true, update, &user.conn).map(|_| basic_success())
 }
 
 /// Update a member's account as an officer.
@@ -300,10 +299,10 @@ pub fn update_member_profile(update: NewMember, mut user: User) -> GreaseResult<
 pub fn update_member_as_officer(
     member: String,
     update: NewMember,
-    mut user: User,
+    user: User,
 ) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-user");
-    Member::update(&member, false, update, &mut user.conn).map(|_| basic_success())
+    Member::update(&member, false, update, &user.conn).map(|_| basic_success())
 }
 
 /// Log in as another member.
@@ -324,15 +323,20 @@ pub fn update_member_as_officer(
 /// ```
 ///
 /// Returns an object with a newly generated API token for login as that member.
-pub fn login_as_member(member: String, mut user: User) -> GreaseResult<Value> {
+pub fn login_as_member(member: String, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "switch-user");
     if member == user.member.member.email {
-        Err(GreaseError::BadRequest(
+        return Err(GreaseError::BadRequest(
             "Cannot re-login as self.".to_owned(),
-        ))
-    } else {
-        Session::generate(&member, &mut user.conn).map(|new_key| json!({ "token": new_key }))
+        ));
     }
+
+    let key = match Session::load_for_email(&member, &user.conn)? {
+        Some(session) => session.key,
+        None => Session::generate(&member, &user.conn)?,
+    };
+
+    Ok(json!({ "token": key }))
 }
 
 /// Delete a member from the site permanently.
@@ -350,10 +354,10 @@ pub fn login_as_member(member: String, mut user: User) -> GreaseResult<Value> {
 /// ## Required Permissions:
 ///
 /// The user must be logged in and be able to "delete-user" generally.
-pub fn delete_member(member: String, confirm: Option<bool>, mut user: User) -> GreaseResult<Value> {
+pub fn delete_member(member: String, confirm: Option<bool>, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "delete-user");
     if confirm.unwrap_or(false) {
-        Member::delete(&member, &mut user.conn).map(|_| basic_success())
+        Member::delete(&member, &user.conn).map(|_| basic_success())
     } else {
         Err(GreaseError::BadRequest(
             "You must pass 'confirm=true' to actually delete a member.".to_owned(),
