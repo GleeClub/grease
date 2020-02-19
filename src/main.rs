@@ -239,13 +239,14 @@ extern crate base64;
 extern crate bcrypt;
 extern crate cgi;
 extern crate chrono;
-extern crate dotenv;
-extern crate glob;
-extern crate regex;
 #[macro_use]
 extern crate diesel;
 extern crate diesel_derive_enum;
+extern crate dotenv;
+extern crate glob;
+extern crate icalendar;
 extern crate itertools;
+extern crate regex;
 extern crate serde;
 extern crate serde_json;
 extern crate url;

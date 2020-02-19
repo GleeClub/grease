@@ -122,9 +122,6 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
         (GET) [/members/(email: String)?(grades: bool)?(details: bool)] =>
             |email, grades, details| get_member(email, grades, details, load_user()?),
 
-        (GET) [/members/(email: String)/attendance] =>
-            |email| get_member_attendance_for_semester(email, load_user()?),
-
         (GET) [/members?(grades: bool)?(include: String)] =>
             |grades, include| get_members(grades, include, load_user()?),
 
@@ -156,11 +153,11 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |email, confirm| delete_member(email, confirm, load_user()?),
 
         // events
-        (GET) [/events/(id: i32)?(attendance: bool)] =>
-            |id, attendance| get_event(id, attendance, load_user()?),
+        (GET) [/events/(id: i32)] =>
+            |id| get_event(id, load_user()?),
 
-        (GET) [/events?(full: bool)?(attendance: bool)] =>
-            |full, attendance| get_events(full, attendance, load_user()?),
+        (GET) [/events?(full: bool)] =>
+            |full| get_events(full, load_user()?),
 
         (POST) [/events] =>
             || new_event(parse_body!(), load_user()?),
@@ -170,6 +167,12 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
 
         (DELETE) [/events/(id: i32)] =>
             |id| delete_event(id, load_user()?),
+
+        (GET) [/public_events] =>
+            || get_public_events(),
+
+        (GET) [/week_of_events] =>
+            || get_weeks_events(),
 
         // event details
         (GET) [/events/(id: i32)/attendance] =>
@@ -334,6 +337,9 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
         (GET) [/repertoire] =>
             || get_songs(load_user()?),
 
+        (GET) [/public_songs] =>
+            || get_public_songs(),
+
         (POST) [/repertoire] =>
             || new_song(parse_body!(), load_user()?),
 
@@ -467,67 +473,6 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
                 load_user()?;
                 crate::util::write_zip_to_directory(request.body(), "../httpsdocs/glubhub/")
                     .map(|_| basic_success())
-            },
-
-        (GET) [/show_files] =>
-            || {
-                std::process::Command::new("find")
-                    .args(&["../httpsdocs", "-print"])
-                    .output()
-                    .map_err(|err| GreaseError::ServerError(
-                        format!("Couldn't find all files in directory: {}", err),
-                    ))
-                    .map(|output| json!({
-                        "files": String::from_utf8_lossy(&output.stdout)
-                            .lines()
-                            .collect::<Vec<_>>(),
-                    }))
-            },
-
-        (GET) [/constraints] =>
-            || {
-                use diesel::RunQueryDsl;
-                use diesel::sql_types::{Nullable, Varchar};
-
-                #[derive(diesel::QueryableByName, serde::Serialize)]
-                struct Info {
-                    #[sql_type = "Nullable<Varchar>"]
-                    column_name: Option<String>,
-                    #[sql_type = "Nullable<Varchar>"]
-                    constraint_name: Option<String>,
-                    #[sql_type = "Nullable<Varchar>"]
-                    referenced_column_name: Option<String>,
-                    #[sql_type = "Nullable<Varchar>"]
-                    referenced_table_name: Option<String>,
-                }
-
-                let user = load_user()?;
-                match diesel::sql_query("
-                select column_name, constraint_name, referenced_column_name, referenced_table_name
-                from information_schema.KEY_COLUMN_USAGE
-                where TABLE_NAME = 'gig_request';
-                ").load::<Info>(&user.conn) {
-                    Ok(rows) => Ok(json!(rows)),
-                    Err(error) => Err(GreaseError::DbError(error)),
-                }
-            },
-
-        (GET) [/update_constraint] =>
-            || {
-                use diesel::RunQueryDsl;
-
-                let user = load_user()?;
-                diesel::sql_query("
-                ALTER TABLE `gig_request` 
-                DROP FOREIGN KEY `gig_request_ibfk_1`;
-                ").execute(&user.conn)?;
-                diesel::sql_query("
-                ALTER TABLE `gig_request`  
-                ADD CONSTRAINT `gig_request_ibfk_1` 
-                    FOREIGN KEY (`event`) REFERENCES `event` (`id`) ON UPDATE CASCADE ON DELETE SET NULL; 
-                ").execute(&user.conn)?;
-
-                Ok(basic_success())
             },
     )
 }

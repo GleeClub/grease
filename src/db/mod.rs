@@ -12,7 +12,7 @@ use self::schema::{
     transaction_type, uniform, variable, AbsenceRequestState, Enrollment, GigRequestStatus,
     PermissionType, Pitch, SongMode, StorageType,
 };
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{Local, NaiveDate, NaiveDateTime, TimeZone};
 use diesel::{Connection, MysqlConnection};
 use error::{GreaseError, GreaseResult};
 use serde::{de::Error as _, de::Unexpected, Deserialize, Deserializer, Serialize};
@@ -200,11 +200,11 @@ pub struct NewMember {
     pub pass_hash: Option<String>,
     #[serde(rename = "phoneNumber")]
     pub phone_number: String,
-    #[serde(default, deserialize_with = "deser_opt_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub picture: Option<String>,
     pub passengers: i32,
     pub location: String,
-    #[serde(default, rename = "onCampus")]
+    #[serde(rename = "onCampus")]
     pub on_campus: Option<bool>,
     #[serde(default, deserialize_with = "deser_opt_string")]
     pub about: Option<String>,
@@ -226,9 +226,8 @@ pub struct NewMember {
         deserialize_with = "deser_opt_string"
     )]
     pub dietary_restrictions: Option<String>,
-    #[serde(default)]
     pub enrollment: Option<Enrollment>,
-    #[serde(default, deserialize_with = "deser_opt_string")]
+    #[serde(deserialize_with = "deser_opt_string")]
     pub section: Option<String>,
 }
 
@@ -534,7 +533,7 @@ pub struct NewEvent {
     pub fields: NewEventFields,
     #[serde(flatten)]
     pub gig: Option<NewGig>,
-    pub repeat: String,
+    pub repeat: Period,
     #[serde(rename = "repeatUntil", with = "optional_naivedate_posix")]
     pub repeat_until: Option<NaiveDate>,
 }
@@ -559,6 +558,16 @@ pub struct NewEventFields {
     pub gig_count: Option<bool>,
     #[serde(rename = "defaultAttend")]
     pub default_attend: bool,
+}
+
+#[derive(Deserialize, PartialEq)]
+pub enum Period {
+    No,
+    Daily,
+    Weekly,
+    Biweekly,
+    Monthly,
+    Yearly,
 }
 
 /// The required format for updating events.
@@ -1359,6 +1368,7 @@ pub struct NewSong {
 #[table_name = "song"]
 pub struct SongUpdate {
     pub title: String,
+    pub current: bool,
     #[serde(deserialize_with = "deser_opt_string")]
     pub info: Option<String>,
     pub key: Option<Pitch>,
@@ -2008,14 +2018,14 @@ pub mod naivedatetime_posix {
     where
         S: Serializer,
     {
-        serializer.serialize_i64(dt.timestamp() * 1000)
+        serializer.serialize_i64(super::datetime_to_timestamp(dt))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
     where
         D: Deserializer<'de>,
     {
-        i64::deserialize(deserializer).map(|posix| NaiveDateTime::from_timestamp(posix / 1000, 0))
+        i64::deserialize(deserializer).map(super::timestamp_to_datetime)
     }
 }
 
@@ -2028,7 +2038,7 @@ pub mod optional_naivedatetime_posix {
         S: Serializer,
     {
         match dt {
-            Some(dt) => serializer.serialize_i64(dt.timestamp() * 1000),
+            Some(dt) => serializer.serialize_i64(super::datetime_to_timestamp(&dt)),
             None => serializer.serialize_none(),
         }
     }
@@ -2038,32 +2048,31 @@ pub mod optional_naivedatetime_posix {
         D: Deserializer<'de>,
     {
         Option::<i64>::deserialize(deserializer)
-            .map(|posix| posix.map(|p| NaiveDateTime::from_timestamp(p / 1000, 0)))
+            .map(|posix| posix.map(super::timestamp_to_datetime))
     }
 }
 
 pub mod naivedate_posix {
-    use chrono::{NaiveDate, NaiveDateTime};
+    use chrono::NaiveDate;
     use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S>(dt: &NaiveDate, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_i64(dt.and_hms(0, 0, 0).timestamp() * 1000)
+        serializer.serialize_i64(super::datetime_to_timestamp(&dt.and_hms(0, 0, 0)))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<NaiveDate, D::Error>
     where
         D: Deserializer<'de>,
     {
-        i64::deserialize(deserializer)
-            .map(|posix| NaiveDateTime::from_timestamp(posix / 1000, 0).date())
+        i64::deserialize(deserializer).map(|posix| super::timestamp_to_datetime(posix).date())
     }
 }
 
 pub mod optional_naivedate_posix {
-    use chrono::{NaiveDate, NaiveDateTime};
+    use chrono::NaiveDate;
     use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S>(dt: &Option<NaiveDate>, serializer: S) -> Result<S::Ok, S::Error>
@@ -2071,7 +2080,9 @@ pub mod optional_naivedate_posix {
         S: Serializer,
     {
         match dt {
-            Some(dt) => serializer.serialize_i64(dt.and_hms(0, 0, 0).timestamp() * 1000),
+            Some(dt) => {
+                serializer.serialize_i64(super::datetime_to_timestamp(&dt.and_hms(0, 0, 0)))
+            }
             None => serializer.serialize_none(),
         }
     }
@@ -2081,6 +2092,16 @@ pub mod optional_naivedate_posix {
         D: Deserializer<'de>,
     {
         Option::<i64>::deserialize(deserializer)
-            .map(|posix| posix.map(|p| NaiveDateTime::from_timestamp(p / 1000, 0).date()))
+            .map(|posix| posix.map(|p| super::timestamp_to_datetime(p).date()))
     }
+}
+
+pub fn timestamp_to_datetime(timestamp: i64) -> NaiveDateTime {
+    Local
+        .from_utc_datetime(&NaiveDateTime::from_timestamp(timestamp / 1000, 0))
+        .naive_local()
+}
+
+pub fn datetime_to_timestamp(datetime: &NaiveDateTime) -> i64 {
+    Local.from_local_datetime(&datetime).unwrap().timestamp() * 1000
 }

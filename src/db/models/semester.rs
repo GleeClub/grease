@@ -65,6 +65,8 @@ impl Semester {
     }
 
     pub fn set_current(given_name: &str, conn: &MysqlConnection) -> GreaseResult<()> {
+        Semester::load(given_name, conn)?;
+
         conn.transaction(|| {
             diesel::update(semester)
                 .set(current.eq(false))

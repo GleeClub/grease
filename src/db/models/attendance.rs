@@ -11,15 +11,16 @@ use db::{
 use diesel::prelude::*;
 use error::*;
 use serde::Serialize;
-use std::collections::HashMap;
 
 #[derive(Serialize)]
 pub struct MemberAttendance {
     #[serde(flatten)]
     pub event: EventWithGig,
-    pub attendance: Attendance,
+    pub attendance: Option<Attendance>,
     #[serde(rename = "absenceRequest")]
     pub absence_request: Option<AbsenceRequest>,
+    #[serde(rename = "rsvpIssue")]
+    pub rsvp_issue: Option<String>,
 }
 
 impl Attendance {
@@ -57,79 +58,101 @@ impl Attendance {
         use db::schema::member::dsl::{first_name, last_name};
 
         Event::load(event_id, conn)?;
-
-        attendance
+        let mut rows = attendance
             .inner_join(member_dsl::table.inner_join(active_semester::table))
             .filter(event.eq(event_id))
             .order_by((last_name, first_name))
-            .load::<(Attendance, (Member, ActiveSemester))>(conn)
-            .map(|mut rows| {
-                rows.dedup_by_key(|(attends, (_member, _semester))| {
-                    (attends.event, attends.member.clone())
-                });
-                rows.into_iter()
-                    .map(|(attends, (given_member, given_active_semester))| {
-                        (
-                            attends,
-                            MemberForSemester {
-                                member: given_member,
-                                active_semester: Some(given_active_semester),
-                            },
-                        )
-                    })
-                    .collect::<Vec<_>>()
+            .load::<(Attendance, (Member, ActiveSemester))>(conn)?;
+        rows.dedup_by_key(|(attends, _)| (attends.event, attends.member.clone()));
+
+        Ok(rows
+            .into_iter()
+            .map(|(attends, (given_member, given_active_semester))| {
+                (
+                    attends,
+                    MemberForSemester {
+                        member: given_member,
+                        active_semester: Some(given_active_semester),
+                    },
+                )
             })
-            .map_err(GreaseError::DbError)
+            .collect::<Vec<_>>())
     }
 
-    pub fn load_for_event_separate_by_section(
-        given_event_id: i32,
+    pub fn load_for_member_at_event(
+        given_member: &Member,
+        is_active: bool,
+        event_id: i32,
         conn: &MysqlConnection,
-    ) -> GreaseResult<HashMap<String, Vec<(Attendance, MemberForSemester)>>> {
-        let attendance_pairs = Attendance::load_for_event(given_event_id, conn)?;
-        let mut section_attendance: HashMap<String, Vec<(_, _)>> = HashMap::new();
+    ) -> GreaseResult<MemberAttendance> {
+        let (e, g, a, r) = event::table
+            .left_outer_join(gig::table)
+            .left_outer_join(attendance)
+            .left_outer_join(
+                absence_request::table.on(absence_request::event
+                    .eq(event::id)
+                    .and(absence_request::member.eq(&given_member.email))),
+            )
+            .filter(event::id.eq(event_id).and(member.eq(&given_member.email)))
+            .first::<(
+                Event,
+                Option<Gig>,
+                Option<Attendance>,
+                Option<AbsenceRequest>,
+            )>(conn)
+            .optional()?
+            .ok_or(GreaseError::BadRequest(format!(
+                "No event exists with id {}.",
+                event_id
+            )))?;
 
-        for (member_attendance, member_for_semester) in attendance_pairs {
-            let member_section = member_for_semester
-                .active_semester
-                .as_ref()
-                .and_then(|active_semester| active_semester.section.clone())
-                .unwrap_or("Unsorted".to_owned());
-            section_attendance
-                .entry(member_section)
-                .or_default()
-                .push((member_attendance, member_for_semester));
-        }
-
-        Ok(section_attendance)
+        let rsvp_issue = e.rsvp_issue(a.as_ref(), is_active);
+        Ok(MemberAttendance {
+            event: EventWithGig { event: e, gig: g },
+            attendance: a,
+            absence_request: r,
+            rsvp_issue,
+        })
     }
-
     pub fn load_for_member_at_all_events(
-        given_member: &str,
+        given_member: &Member,
+        is_active: bool,
         given_semester: &str,
         conn: &MysqlConnection,
     ) -> GreaseResult<Vec<MemberAttendance>> {
-        event::table
+        let rows = event::table
             .left_outer_join(gig::table)
-            .inner_join(attendance)
-            .left_outer_join(absence_request::table.on(absence_request::event.eq(event::id)))
+            .left_outer_join(attendance)
+            .left_outer_join(
+                absence_request::table.on(absence_request::event
+                    .eq(event::id)
+                    .and(absence_request::member.eq(&given_member.email))),
+            )
             .filter(
                 member
-                    .eq(given_member)
+                    .eq(&given_member.email)
                     .and(event::semester.eq(given_semester)),
             )
             .order_by(event::call_time.asc())
-            .load::<(Event, Option<Gig>, Attendance, Option<AbsenceRequest>)>(conn)
-            .map(|rows| {
-                rows.into_iter()
-                    .map(|(e, g, a, r)| MemberAttendance {
-                        event: EventWithGig { event: e, gig: g },
-                        attendance: a,
-                        absence_request: r,
-                    })
-                    .collect()
+            .load::<(
+                Event,
+                Option<Gig>,
+                Option<Attendance>,
+                Option<AbsenceRequest>,
+            )>(conn)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|(e, g, a, r)| {
+                let rsvp_issue = e.rsvp_issue(a.as_ref(), is_active);
+                MemberAttendance {
+                    event: EventWithGig { event: e, gig: g },
+                    attendance: a,
+                    absence_request: r,
+                    rsvp_issue,
+                }
             })
-            .map_err(GreaseError::DbError)
+            .collect())
     }
 
     pub fn create_for_new_member(given_member: &str, conn: &MysqlConnection) -> GreaseResult<()> {
@@ -183,7 +206,6 @@ impl Attendance {
         Ok(())
     }
 
-    // TODO: don't allow updates for inactive members (NO RSVP'ing)
     pub fn update(
         event_id: i32,
         given_member: &str,
@@ -202,12 +224,41 @@ impl Attendance {
 
 impl MemberAttendance {
     pub fn deny_credit(&self) -> bool {
-        self.attendance.should_attend
-            && !self.attendance.did_attend
-            && self
-                .absence_request
-                .as_ref()
-                .map(|request| request.state != AbsenceRequestState::Approved)
-                .unwrap_or(true)
+        self.should_attend() && !self.did_attend() && !self.approved_absence()
+    }
+
+    pub fn approved_absence(&self) -> bool {
+        self.absence_request
+            .as_ref()
+            .map(|request| request.state == AbsenceRequestState::Approved)
+            .unwrap_or(false)
+    }
+
+    pub fn should_attend(&self) -> bool {
+        self.attendance
+            .as_ref()
+            .map(|a| a.should_attend)
+            .unwrap_or(false)
+    }
+
+    pub fn did_attend(&self) -> bool {
+        self.attendance
+            .as_ref()
+            .map(|a| a.did_attend)
+            .unwrap_or(false)
+    }
+
+    pub fn confirmed(&self) -> bool {
+        self.attendance
+            .as_ref()
+            .map(|a| a.confirmed)
+            .unwrap_or(false)
+    }
+
+    pub fn minutes_late(&self) -> i32 {
+        self.attendance
+            .as_ref()
+            .map(|a| a.minutes_late)
+            .unwrap_or(0)
     }
 }

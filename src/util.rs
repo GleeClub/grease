@@ -121,8 +121,11 @@ pub fn check_for_music_file(path: &str) -> GreaseResult<String> {
         "file must have an extension".to_owned(),
     ))?;
 
-    let mut existing_path = PathBuf::from("../httpsdocs/music/");
-    existing_path.push(&file_name);
+    let existing_path = {
+        let mut path = PathBuf::from("../httpsdocs/music/");
+        path.push(&file_name);
+        path
+    };
 
     if std::fs::metadata(existing_path).is_ok() {
         Ok(file_name)

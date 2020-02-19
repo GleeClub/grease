@@ -1,17 +1,15 @@
-use chrono::{Datelike, Duration, Local, NaiveDate, NaiveDateTime};
-use db::models::grades::GradeChange;
+use chrono::{Datelike, Duration, Local, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use db::models::member::MemberForSemester;
-use db::schema::{
-    attendance, event::dsl::*, gig, gig_request, AbsenceRequestState, GigRequestStatus,
-};
+use db::schema::{attendance, event, gig, gig_request, AbsenceRequestState, GigRequestStatus};
 use db::{
     AbsenceRequest, Attendance, Event, EventUpdate, Gig, GigRequest, NewEvent, NewEventFields,
-    NewGig, Semester, Uniform,
+    NewGig, Period, Semester, Uniform,
 };
 use diesel::prelude::*;
 use error::*;
+use icalendar::{Calendar, Component, Event as CalEvent, Property};
 use serde::Serialize;
-use serde_json::{json, Value};
+use std::iter::FromIterator;
 
 impl Event {
     pub const REHEARSAL: &'static str = "Rehearsal";
@@ -26,11 +24,9 @@ impl Event {
     }
 
     pub fn load(event_id: i32, conn: &MysqlConnection) -> GreaseResult<EventWithGig> {
-        use db::schema::event::dsl::*;
-
-        event
+        event::table
             .left_outer_join(gig::table)
-            .filter(id.eq(event_id))
+            .filter(event::id.eq(event_id))
             .first::<(Event, Option<Gig>)>(conn)
             .optional()
             .map_err(GreaseError::DbError)?
@@ -44,42 +40,59 @@ impl Event {
     pub fn load_all_for_current_semester(
         conn: &MysqlConnection,
     ) -> GreaseResult<Vec<EventWithGig>> {
-        use db::schema::event::dsl::*;
-
         let current_semester = Semester::load_current(conn)?;
 
-        event
+        let rows = event::table
             .left_outer_join(gig::table)
-            .filter(semester.eq(current_semester.name))
-            .order_by(call_time.asc())
-            .load::<(Event, Option<Gig>)>(conn)
-            .map(|rows| {
-                rows.into_iter()
-                    .map(|(e, g)| EventWithGig { event: e, gig: g })
-                    .collect()
-            })
-            .map_err(GreaseError::DbError)
+            .filter(event::semester.eq(current_semester.name))
+            .order_by(event::call_time.asc())
+            .load::<(Event, Option<Gig>)>(conn)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|(e, g)| EventWithGig { event: e, gig: g })
+            .collect())
     }
 
     pub fn load_all_of_type_for_current_semester(
         event_type: &str,
         conn: &MysqlConnection,
     ) -> GreaseResult<Vec<EventWithGig>> {
-        use db::schema::event::dsl::*;
-
         let current_semester = Semester::load_current(conn)?;
 
-        event
+        let rows = event::table
             .left_outer_join(gig::table)
-            .filter(semester.eq(current_semester.name).and(type_.eq(event_type)))
-            .order_by(call_time.asc())
-            .load::<(Event, Option<Gig>)>(conn)
-            .map(|rows| {
-                rows.into_iter()
-                    .map(|(e, g)| EventWithGig { event: e, gig: g })
-                    .collect()
-            })
-            .map_err(GreaseError::DbError)
+            .filter(
+                event::semester
+                    .eq(current_semester.name)
+                    .and(event::type_.eq(event_type)),
+            )
+            .order_by(event::call_time.asc())
+            .load::<(Event, Option<Gig>)>(conn)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|(e, g)| EventWithGig { event: e, gig: g })
+            .collect())
+    }
+
+    pub fn load_all_public_events_for_current_semester(
+        conn: &MysqlConnection,
+    ) -> GreaseResult<Vec<PublicEvent>> {
+        let current_semester = Semester::load_current(conn)?;
+        let rows = event::table
+            .inner_join(gig::table)
+            .filter(
+                event::semester
+                    .eq(&current_semester.name)
+                    .and(gig::public.eq(true)),
+            )
+            .order_by(gig::performance_time)
+            .load::<(Event, Gig)>(conn)?;
+
+        rows.into_iter()
+            .map(|(e, g)| EventWithGig::to_public(e, g))
+            .collect()
     }
 
     pub fn went_to_event_type_during_week_of(
@@ -176,8 +189,7 @@ impl Event {
             ));
         }
 
-        let period = new_event.repeat.parse::<Period>()?;
-        let until = if period == Period::No {
+        let until = if new_event.repeat == Period::No {
             new_event.fields.call_time.date()
         } else {
             new_event.repeat_until.ok_or(GreaseError::BadRequest(
@@ -187,7 +199,7 @@ impl Event {
         let call_and_release_time_pairs = Event::repeat_event_times(
             &new_event.fields.call_time,
             &new_event.fields.release_time,
-            period,
+            new_event.repeat,
             until,
         );
 
@@ -272,7 +284,7 @@ impl Event {
                     Period::No => return None,
                     Period::Daily => Duration::days(1),
                     Period::Weekly => Duration::weeks(1),
-                    Period::BiWeekly => Duration::weeks(2),
+                    Period::Biweekly => Duration::weeks(2),
                     Period::Yearly => Duration::days(365),
                     Period::Monthly => {
                         let days = match given_call_time.month() {
@@ -317,7 +329,7 @@ impl Event {
         }
 
         conn.transaction(|| {
-            diesel::update(event.filter(id.eq(event_id)))
+            diesel::update(event::table.filter(event::id.eq(event_id)))
                 .set(&event_update.fields)
                 .execute(conn)?;
 
@@ -399,7 +411,7 @@ impl Event {
     }
 
     pub fn delete(event_id: i32, conn: &MysqlConnection) -> GreaseResult<()> {
-        diesel::delete(event.filter(id.eq(event_id))).execute(conn)?;
+        diesel::delete(event::table.filter(event::id.eq(event_id))).execute(conn)?;
 
         Ok(())
         // format!("No event with id {}.", event_id),
@@ -410,26 +422,26 @@ impl Event {
         given_attendance: &Attendance,
         is_active: bool,
     ) -> GreaseResult<()> {
-        match Self::rsvp_issue(given_event, given_attendance, is_active) {
+        match Self::rsvp_issue(given_event, Some(given_attendance), is_active) {
             Some(issue) => Err(GreaseError::BadRequest(issue)),
             None => Ok(()),
         }
     }
 
     pub fn rsvp_issue(
-        given_event: &Event,
-        given_attendance: &Attendance,
+        &self,
+        given_attendance: Option<&Attendance>,
         is_active: bool,
     ) -> Option<String> {
         if !is_active {
             Some("Member must be active to RSVP to events.".to_owned())
-        } else if !given_attendance.should_attend {
+        } else if !given_attendance.map(|a| a.should_attend).unwrap_or(true) {
             None
-        } else if Local::now().naive_local() + Duration::days(1) > given_event.call_time {
+        } else if Local::now().naive_local() + Duration::days(1) > self.call_time {
             Some("Responses are closed for this event.".to_owned())
         } else if let Some(bad_type) = ["Tutti Gig", "Sectional", "Rehearsal"]
             .iter()
-            .find(|given_event_type| given_event_type == &&given_event.type_)
+            .find(|t| t == &&self.type_)
         {
             Some(format!("You cannot RSVP for {} events.", bad_type))
         } else {
@@ -438,34 +450,15 @@ impl Event {
     }
 }
 
-#[derive(PartialEq)]
-pub enum Period {
-    No,
-    Daily,
-    Weekly,
-    BiWeekly,
-    Monthly,
-    Yearly,
-}
-
-impl std::str::FromStr for Period {
-    type Err = GreaseError;
-
-    fn from_str(period: &str) -> GreaseResult<Period> {
-        match period {
-            "no" => Ok(Period::No),
-            "daily" => Ok(Period::Daily),
-            "weekly" => Ok(Period::Weekly),
-            "biweekly" => Ok(Period::BiWeekly),
-            "monthly" => Ok(Period::Monthly),
-            "yearly" => Ok(Period::Yearly),
-            other => Err(GreaseError::BadRequest(format!(
-                "The repeat value {} is not allowed. The only allowed values \
-                 are 'no', 'daily', 'weekly', 'biweekly', 'monthly', or 'yearly'.",
-                other
-            ))),
-        }
-    }
+#[derive(Serialize)]
+pub struct PublicEvent {
+    pub id: i32,
+    pub name: String,
+    pub time: i64,
+    pub location: String,
+    pub summary: String,
+    pub description: String,
+    pub invite: String,
 }
 
 #[derive(Serialize)]
@@ -477,58 +470,52 @@ pub struct EventWithGig {
 }
 
 impl EventWithGig {
-    /// Render this event and gig's data to JSON, including some additional data.
-    ///
-    /// On top of what is included for [to_json](#method.to_json), two other fields are included:
-    ///   * attendance: The current member's [Attendance](../struct.Attendance.html) for the gig is
-    ///       included if they were ever active during the semester of the event. It is null otherwise.
-    pub fn to_json_with_grade_change<'e>(
-        &'e self,
-        grade_change: Option<&GradeChange>,
-        is_active: bool,
-    ) -> Value {
-        #[derive(Serialize)]
-        struct JsonFormat<'e> {
-            #[serde(flatten)]
-            event: &'e EventWithGig,
-            #[serde(rename = "gradeChange")]
-            grade_change: Option<GradeChangeFormat<'e>>,
-            attendance: Option<&'e Attendance>,
-            #[serde(rename = "absenceRequest")]
-            absence_request: Option<&'e AbsenceRequest>,
-            #[serde(rename = "rsvpIssue")]
-            rsvp_issue: Option<String>,
+    fn build_calendar_event(event: &Event, gig: &Gig) -> CalEvent {
+        let end_time = event
+            .release_time
+            .unwrap_or(gig.performance_time + Duration::hours(1));
+        let location = event.location.clone().unwrap_or_default();
+
+        CalEvent::new()
+            .summary(&event.name)
+            .description(&gig.summary.clone().unwrap_or_default())
+            .starts(Utc.from_local_datetime(&gig.performance_time).unwrap())
+            .ends(Utc.from_local_datetime(&end_time).unwrap())
+            .append_property(Property::new("LOCATION", &location).done())
+            .done()
+    }
+
+    fn build_calendar(event: &Event, gig: &Gig) -> Calendar {
+        let calendar_event = Self::build_calendar_event(event, gig);
+
+        Calendar::from_iter(vec![calendar_event])
+    }
+
+    fn build_calendar_url(event: &Event, gig: &Gig) -> String {
+        let calendar = Self::build_calendar(event, gig);
+        let encoded_calendar = base64::encode_config(&calendar.to_string(), base64::URL_SAFE);
+
+        format!("data:text/calendar;base64,{}", encoded_calendar)
+    }
+
+    pub fn to_public(event: Event, gig: Gig) -> GreaseResult<PublicEvent> {
+        if !gig.public {
+            return Err(GreaseError::BadRequest(format!(
+                "Event with id {} is not a public event.",
+                event.id
+            )));
         }
 
-        #[derive(Serialize)]
-        struct GradeChangeFormat<'g> {
-            pub reason: &'g str,
-            pub change: f32,
-            #[serde(rename = "partialScore")]
-            pub partial_score: f32,
-        }
-
-        if let Some(ref change) = grade_change {
-            json!(JsonFormat {
-                event: self,
-                attendance: Some(&change.attendance),
-                absence_request: change.absence_request.as_ref(),
-                grade_change: Some(GradeChangeFormat {
-                    reason: &change.reason,
-                    change: change.change,
-                    partial_score: change.partial_score,
-                }),
-                rsvp_issue: Event::rsvp_issue(&self.event, &change.attendance, is_active),
-            })
-        } else {
-            json!(JsonFormat {
-                event: self,
-                attendance: None,
-                absence_request: None,
-                grade_change: None,
-                rsvp_issue: Some("Inactive members cannot RSVP for events.".to_owned()),
-            })
-        }
+        let calendar_url = Self::build_calendar_url(&event, &gig);
+        Ok(PublicEvent {
+            id: event.id,
+            name: event.name,
+            time: gig.performance_time.timestamp() * 1000,
+            location: event.location.unwrap_or_default(),
+            summary: gig.summary.unwrap_or_default(),
+            description: gig.description.unwrap_or_default(),
+            invite: calendar_url,
+        })
     }
 }
 

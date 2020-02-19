@@ -117,7 +117,7 @@ pub fn get_member(
         let member = MemberForSemester::load(&email, &current_semester.name, &user.conn)?;
 
         if grades {
-            member.to_json_with_grades(&user.conn)
+            member.to_json_with_grades(&current_semester, &user.conn)
         } else {
             Ok(member.to_json())
         }

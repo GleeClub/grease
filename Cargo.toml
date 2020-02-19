@@ -11,6 +11,7 @@ chrono = { version = "0.4", features = ["serde"] }
 dotenv = "0.14.1"
 glob = "0.3"
 itertools = "0.8.2"
+icalendar = "0.8"
 regex = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }

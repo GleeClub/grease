@@ -15,36 +15,24 @@ use serde_json::{json, Value};
 /// ## Path Parameters:
 ///   * id: integer (*required*) - The ID of the event
 ///
-/// ## Query Parameters:
-///   * full: boolean (*optional*) - Whether to include uniform and attendance.
-///
 /// ## Required Permissions:
 ///
 /// The user must be logged in.
 ///
 /// ## Return Format:
 ///
-/// If `full = true`, then the format from
-/// [to_json_full](crate::db::models::event::EventWithGig::to_json_full)
-/// will be returned. Otherwise, the format from
-/// [to_json](crate::db::models::event::EventWithGig::to_json)
+/// The format from
+/// [to_json](crate::db::models::event::EventWithGig::to_json_with_attendance)
 /// will be returned.
-pub fn get_event(event_id: i32, attendance: Option<bool>, user: User) -> GreaseResult<Value> {
-    Event::load(event_id, &user.conn).and_then(|event_with_gig| {
-        if attendance.unwrap_or(false) {
-            Ok(json!({
-                "event": event_with_gig,
-                "attendance": Attendance::load(&user.member.member.email, event_id, &user.conn)?,
-                "absenceRequest": AbsenceRequest::load(
-                    &user.member.member.email,
-                    event_id,
-                    &user.conn
-                )?,
-            }))
-        } else {
-            Ok(json!(event_with_gig))
-        }
-    })
+pub fn get_event(event_id: i32, user: User) -> GreaseResult<Value> {
+    let event = Attendance::load_for_member_at_event(
+        &user.member.member,
+        user.member.active_semester.is_some(),
+        event_id,
+        &user.conn,
+    )?;
+
+    Ok(json!(event))
 }
 
 /// Get all events for the semester.
@@ -64,70 +52,56 @@ pub fn get_event(event_id: i32, attendance: Option<bool>, user: User) -> GreaseR
 /// Returns a list of [Event](crate::db::models::Event)s, ordered by
 /// [callTime](crate::db::models::Event#structfield.call_time).
 /// See [get_event](crate::routes::event_routes::get_event) for the format of each individual event.
-pub fn get_events(full: Option<bool>, attendance: Option<bool>, user: User) -> GreaseResult<Value> {
-    let just_events =
-        || Event::load_all_for_current_semester(&user.conn).map(|events| json!(events));
-    let events_with_attendance = |active_semester: &ActiveSemester| {
-        Attendance::load_for_member_at_all_events(
-            &user.member.member.email,
-            &active_semester.semester,
-            &user.conn,
-        )
-        .map(|events| {
-            events
-                .into_iter()
-                .map(|member_attendance| {
-                    let mut json_val = json!(member_attendance);
-                    json_val["rsvpIssue"] = json!(Event::rsvp_issue(
-                        &member_attendance.event.event,
-                        &member_attendance.attendance,
-                        user.member.active_semester.is_some()
-                    ));
-                    json_val
-                })
-                .collect::<Vec<_>>()
-        })
-        .map(|events| json!(events))
-    };
-    let full_events = || {
-        let json_events: Vec<Value> = if let Some(active_semester) = &user.member.active_semester {
-            let grade_changes =
-                Grades::for_member(&user.member.member, &active_semester, &user.conn)?.changes;
-
-            grade_changes
-                .into_iter()
-                .map(|change| {
-                    change.event.to_json_with_grade_change(
-                        Some(&change),
-                        user.member.active_semester.is_some(),
-                    )
-                })
-                .collect()
-        } else {
-            let events = Event::load_all_for_current_semester(&user.conn)?;
-
-            events
-                .into_iter()
-                .map(|event| {
-                    event.to_json_with_grade_change(None, user.member.active_semester.is_some())
-                })
-                .collect()
-        };
-
-        Ok(json!(json_events))
-    };
+pub fn get_events(full: Option<bool>, user: User) -> GreaseResult<Value> {
+    let current_semester = Semester::load_current(&user.conn)?;
 
     if full.unwrap_or(false) {
-        full_events()
-    } else if attendance.unwrap_or(false) {
-        if let Some(ref active_semester) = &user.member.active_semester {
-            events_with_attendance(active_semester)
-        } else {
-            just_events()
-        }
+        let grades = Grades::for_member(
+            &user.member.member,
+            user.member.active_semester.as_ref(),
+            &current_semester,
+            &user.conn,
+        )?;
+
+        Ok(json!(grades.events_with_changes))
     } else {
-        just_events()
+        let events_with_attendance = Attendance::load_for_member_at_all_events(
+            &user.member.member,
+            user.member.active_semester.is_some(),
+            &current_semester.name,
+            &user.conn,
+        )?;
+
+        Ok(json!(events_with_attendance))
     }
+}
+
+pub fn get_public_events() -> GreaseResult<Value> {
+    let conn = connect_to_db()?;
+    let events = Event::load_all_public_events_for_current_semester(&conn)?;
+
+    Ok(json!(events))
+}
+
+pub fn get_weeks_events() -> GreaseResult<Value> {
+    use chrono::{Datelike, Duration, Local};
+
+    let now = Local::now().naive_utc();
+    let beginning_of_day = now.date().and_hms(0, 0, 0);
+    let days_since_monday = beginning_of_day.weekday().num_days_from_monday() as i64;
+    let beginning_of_week = beginning_of_day - Duration::days(days_since_monday);
+    let end_of_week = beginning_of_week + Duration::weeks(1);
+
+    let conn = connect_to_db()?;
+    let all_events = Event::load_all_for_current_semester(&conn)?;
+    let week_of_events = all_events
+        .into_iter()
+        .filter(|event| {
+            event.event.call_time > beginning_of_week && event.event.call_time < end_of_week
+        })
+        .collect::<Vec<_>>();
+
+    Ok(json!(week_of_events))
 }
 
 /// Create a new event or events.
@@ -254,55 +228,33 @@ pub fn delete_event(id: i32, user: User) -> GreaseResult<Value> {
 /// See the [Attendance](crate::db::models::Attendance) and the
 /// [Member](crate::db::models::Member) models for how they will be
 /// returned.
-pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
-    let event = Event::load(id, &mut user.conn)?;
-    let member_section = user
-        .member
-        .active_semester
-        .as_ref()
-        .and_then(|active_semester| {
-            active_semester
-                .section
-                .as_ref()
-                .map(|section| section.as_str())
-        });
+pub fn get_attendance(id: i32, user: User) -> GreaseResult<Value> {
+    let event = Event::load(id, &user.conn)?;
+    let member_section = user.member.section();
 
-    let mut all_attendance = Attendance::load_for_event_separate_by_section(id, &mut user.conn)?;
+    let all_attendance = Attendance::load_for_event(id, &user.conn)?;
     if user.has_permission("view-attendance", None) {
-        let mut attendance_json = json!({});
-        for (section, section_attendance) in all_attendance.into_iter() {
-            attendance_json[section] = section_attendance
-                .into_iter()
-                .map(|(attendance, member_for_semester)| {
-                    json!({
-                        "attendance": attendance,
-                        "member": member_for_semester.member
-                    })
-                })
-                .collect::<Vec<_>>()
-                .into();
-        }
-        Ok(attendance_json)
+        Ok(json!(all_attendance
+            .into_iter()
+            .map(|(attendance, member)| json!({
+                "attendance": attendance,
+                "member": member.to_json(),
+            }))
+            .collect::<Vec<_>>()))
     } else if member_section.is_some()
         && user.has_permission(
             "view-attendance-own-section",
             Some(event.event.type_.as_str()),
         )
     {
-        let member_section = member_section.unwrap_or("Unsorted");
-        let member_attendance = all_attendance
-            .remove(member_section)
-            .unwrap_or(Vec::new())
+        Ok(json!(all_attendance
             .into_iter()
-            .map(|(attendance, member_for_semester)| {
-                json!({
-                    "attendance": attendance,
-                    "member": member_for_semester.member,
-                })
-            })
-            .collect::<Vec<_>>();
-
-        Ok(json!({ member_section: member_attendance }))
+            .filter(|(_, member)| member.section() == member_section)
+            .map(|(attendance, member)| json!({
+                "attendance": attendance,
+                "member": member.to_json(),
+            }))
+            .collect::<Vec<_>>()))
     } else {
         Err(GreaseError::Forbidden(Some("view-attendance".to_owned())))
     }
@@ -322,13 +274,13 @@ pub fn get_attendance(id: i32, mut user: User) -> GreaseResult<Value> {
 /// ## Return Format:
 ///
 /// Returns an [Attendance](crate::db::models::Attendance).
-pub fn get_member_attendance(event_id: i32, member: String, mut user: User) -> GreaseResult<Value> {
+pub fn get_member_attendance(event_id: i32, member: String, user: User) -> GreaseResult<Value> {
     if &member != &user.member.member.email {
-        let event = Event::load(event_id, &mut user.conn)?;
+        let event = Event::load(event_id, &user.conn)?;
         check_for_permission!(user => "view-attendance", &event.event.type_);
     }
 
-    Attendance::load(&member, event_id, &mut user.conn).map(|attendance| json!(attendance))
+    Attendance::load(&member, event_id, &user.conn).map(|attendance| json!(attendance))
 }
 
 // TODO: fix these docs
@@ -356,57 +308,19 @@ pub fn get_member_attendance(event_id: i32, member: String, mut user: User) -> G
 ///
 /// Returns a list of JSON objects with [Attendance](crate::db::models::Attendance)s
 /// and [MemberForSemester](crate::db::models::member::MemberForSemester)s.
-pub fn see_whos_attending(event_id: i32, mut user: User) -> GreaseResult<Value> {
-    Attendance::load_for_event(event_id, &mut user.conn).map(|attendance| {
+pub fn see_whos_attending(event_id: i32, user: User) -> GreaseResult<Value> {
+    Attendance::load_for_event(event_id, &user.conn).map(|attendance| {
         attendance
             .into_iter()
             .map(|(attendance, member_for_semester)| {
-                let mut member = member_for_semester.to_json();
-                member["shouldAttend"] = json!(attendance.should_attend);
-                member["didAttend"] = json!(attendance.did_attend);
-                member["confirmed"] = json!(attendance.confirmed);
-                member["minutesLate"] = json!(attendance.minutes_late);
-                member
+                json!({
+                    "member": member_for_semester.to_json(),
+                    "attendance": attendance,
+                })
             })
             .collect::<Vec<Value>>()
             .into()
     })
-}
-
-/// Get the attendance for a member for all events of the current semester.
-///
-/// ## Path Parameters:
-///   * member: string (*required*) - The email of the requested member
-///
-/// ## Required Permissions:
-///
-/// The user must be logged in. To view another member's attendance,
-/// the user must be able to "view-attendance" generally.
-///
-/// ## Return Format:
-///
-/// ```json
-/// [
-///     {
-///         "event": Event,
-///         "attendance": Attendance
-///     },
-///     ...
-/// ]
-/// ```
-///
-/// Returns a list of event/attendance pairs, ordered by
-/// [callTime](crate::db::models::Event#structfield.call_time).
-/// See [Attendance](crate::db::models::Attendance#json-format) for the
-/// JSON format for the fields.
-pub fn get_member_attendance_for_semester(member: String, mut user: User) -> GreaseResult<Value> {
-    if &member != &user.member.member.email {
-        check_for_permission!(user => "view-attendance");
-    }
-
-    let current_semester = Semester::load_current(&mut user.conn)?;
-    Attendance::load_for_member_at_all_events(&member, &current_semester.name, &mut user.conn)
-        .map(|attendance| json!(attendance))
 }
 
 /// Update the attendance for a member at an event.

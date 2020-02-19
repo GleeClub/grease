@@ -1,8 +1,6 @@
 use chrono::{Datelike, Duration, Local, NaiveDateTime};
 use db::models::attendance::MemberAttendance;
-use db::models::event::EventWithGig;
-use db::schema::AbsenceRequestState;
-use db::{AbsenceRequest, ActiveSemester, Attendance, Event, Member, Semester};
+use db::{ActiveSemester, Attendance, Event, Member, Semester};
 use diesel::prelude::*;
 use error::*;
 use serde::Serialize;
@@ -10,17 +8,21 @@ use serde::Serialize;
 #[derive(Serialize)]
 pub struct Grades {
     pub grade: f32,
-    pub changes: Vec<GradeChange>,
+    #[serde(rename = "eventsWithChanges")]
+    pub events_with_changes: Vec<EventWithGradeChange>,
     #[serde(rename = "volunteerGigsAttended")]
     pub volunteer_gigs_attended: usize,
 }
 
 #[derive(Serialize)]
+pub struct EventWithGradeChange {
+    #[serde(flatten)]
+    pub event: MemberAttendance,
+    pub change: GradeChange,
+}
+
+#[derive(Serialize)]
 pub struct GradeChange {
-    pub event: EventWithGig,
-    pub attendance: Attendance,
-    #[serde(rename = "absenceRequest")]
-    pub absence_request: Option<AbsenceRequest>,
     pub reason: String,
     pub change: f32,
     #[serde(rename = "partialScore")]
@@ -30,42 +32,38 @@ pub struct GradeChange {
 impl Grades {
     pub fn for_member(
         member: &Member,
-        active_semester: &ActiveSemester,
+        active_semester: Option<&ActiveSemester>,
+        semester: &Semester,
         conn: &MysqlConnection,
     ) -> GreaseResult<Grades> {
-        let given_semester = Semester::load(&active_semester.semester, conn)?;
         let semester_attendance = Attendance::load_for_member_at_all_events(
-            &member.email,
-            &active_semester.semester,
+            &member,
+            active_semester.is_some(),
+            &semester.name,
             conn,
         )?;
 
         let initial_grades = Grades {
             grade: 100.0,
             volunteer_gigs_attended: 0,
-            changes: vec![],
+            events_with_changes: vec![],
         };
-        let weeks = Self::organize_into_weeks(&given_semester, semester_attendance);
+        let weeks = Self::organize_into_weeks(&semester, semester_attendance);
         let grades = weeks.fold(initial_grades, |weeks_grades, week| {
             let context = WeeklyAttendanceContext::for_week(&week);
 
             week.into_iter()
                 .fold(weeks_grades, |mut grades, member_attendance| {
-                    let (point_change, reason) =
+                    let change =
                         Self::calculate_grade_change(&member_attendance, &context, grades.grade);
-                    let new_grade = (grades.grade + point_change).max(0.0).min(100.0);
                     let attended_volunteer_gig =
                         Self::attended_volunteer_gig(&member_attendance, &context);
 
-                    grades.grade = new_grade;
+                    grades.grade = change.partial_score;
                     grades.volunteer_gigs_attended += if attended_volunteer_gig { 1 } else { 0 };
-                    grades.changes.push(GradeChange {
-                        event: member_attendance.event,
-                        attendance: member_attendance.attendance,
-                        absence_request: member_attendance.absence_request,
-                        change: point_change,
-                        partial_score: new_grade,
-                        reason,
+                    grades.events_with_changes.push(EventWithGradeChange {
+                        event: member_attendance,
+                        change,
                     });
 
                     grades
@@ -119,28 +117,32 @@ impl Grades {
         member_attendance: &MemberAttendance,
         context: &WeeklyAttendanceContext,
         grade: f32,
-    ) -> (f32, String) {
+    ) -> GradeChange {
         let event = &member_attendance.event.event;
-        let attendance = &member_attendance.attendance;
-        let absence_request = &member_attendance.absence_request;
         let is_bonus_event = Self::is_bonus_event(&member_attendance, &context);
 
-        if event.call_time > Local::now().naive_utc() {
+        let (change, reason) = if event.call_time > Local::now().naive_utc() {
             Self::event_hasnt_happened_yet()
-        } else if attendance.did_attend {
+        } else if member_attendance.did_attend() {
             if context.missed_rehearsal && event.is_gig() {
                 Self::missed_rehearsal(&event)
-            } else if attendance.minutes_late > 0 && event.type_ != Event::OMBUDS {
+            } else if member_attendance.minutes_late() > 0 && event.type_ != Event::OMBUDS {
                 Self::late_for_event(&member_attendance, grade, is_bonus_event)
             } else if is_bonus_event {
                 Self::attended_bonus_event(&event, grade)
             } else {
                 Self::attended_normal_event()
             }
-        } else if attendance.should_attend {
-            Self::should_have_attended(&event, &absence_request, &context)
+        } else if member_attendance.should_attend() {
+            Self::should_have_attended(&member_attendance, &context)
         } else {
             Self::didnt_need_to_attend()
+        };
+
+        GradeChange {
+            reason,
+            change,
+            partial_score: (grade + change).max(0.0).min(100.0),
         }
     }
 
@@ -149,10 +151,9 @@ impl Grades {
         context: &WeeklyAttendanceContext,
     ) -> bool {
         let event = &member_attendance.event.event;
-        let attendance = &member_attendance.attendance;
 
         ([Event::VOLUNTEER_GIG, Event::OMBUDS].contains(&event.type_.as_str()))
-            || (event.type_ == Event::OTHER && !attendance.should_attend)
+            || (event.type_ == Event::OTHER && !member_attendance.should_attend())
             || (event.type_ == Event::SECTIONAL && context.missed_sectional.is_none())
     }
 
@@ -161,9 +162,8 @@ impl Grades {
         context: &WeeklyAttendanceContext,
     ) -> bool {
         let event = &member_attendance.event.event;
-        let attendance = &member_attendance.attendance;
 
-        attendance.did_attend
+        member_attendance.did_attend()
             && !context.missed_rehearsal
             && event.type_ == Event::VOLUNTEER_GIG
             && event.gig_count
@@ -190,9 +190,8 @@ impl Grades {
         bonus_event: bool,
     ) -> (f32, String) {
         let event = &member_attendance.event.event;
-        let attendance = &member_attendance.attendance;
         let points_lost_for_lateness =
-            Self::points_lost_for_lateness(event, attendance.minutes_late);
+            Self::points_lost_for_lateness(event, member_attendance.minutes_late());
 
         if bonus_event {
             if grade + event.points as f32 - points_lost_for_lateness > 100.0 {
@@ -214,7 +213,7 @@ impl Grades {
                     ),
                 )
             }
-        } else if attendance.should_attend {
+        } else if member_attendance.should_attend() {
             (
                 -points_lost_for_lateness,
                 format!(
@@ -283,10 +282,11 @@ impl Grades {
     }
 
     fn should_have_attended(
-        event: &Event,
-        absence_request: &Option<AbsenceRequest>,
+        member_attendance: &MemberAttendance,
         context: &WeeklyAttendanceContext,
     ) -> (f32, String) {
+        let event = &member_attendance.event.event;
+
         // Lose the full point value if did not attend
         if event.type_ == Event::OMBUDS {
             (
@@ -323,11 +323,7 @@ impl Grades {
                 0.0,
                 "No deduction because not all sectionals occurred yet".to_owned(),
             )
-        } else if absence_request
-            .as_ref()
-            .map(|request| request.state == AbsenceRequestState::Approved)
-            .unwrap_or(false)
-        {
+        } else if member_attendance.approved_absence() {
             (
                 0.0,
                 "No deduction because an absence request was submitted and approved".to_owned(),
@@ -384,7 +380,7 @@ impl WeeklyAttendanceContext {
         week.iter()
             .filter(|member_attendance| {
                 member_attendance.event.event.type_ == Event::SECTIONAL
-                    && member_attendance.attendance.did_attend
+                    && member_attendance.did_attend()
             })
             .map(|MemberAttendance { event, .. }| (event.event.id, &event.event.call_time))
             .next()

@@ -11,6 +11,19 @@ use std::str::FromStr;
 use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
 use util::check_for_music_file;
 
+#[derive(Serialize)]
+pub struct PublicSong {
+    title: String,
+    current: bool,
+    videos: Vec<PublicVideo>,
+}
+
+#[derive(Serialize)]
+pub struct PublicVideo {
+    title: String,
+    url: String,
+}
+
 impl Song {
     pub fn load(song_id: i32, conn: &MysqlConnection) -> GreaseResult<Song> {
         use db::schema::song::dsl::*;
@@ -71,6 +84,34 @@ impl Song {
                 links,
             })
         }
+    }
+
+    pub fn load_all_public(conn: &MysqlConnection) -> GreaseResult<Vec<PublicSong>> {
+        let all_songs = Song::load_all(conn)?;
+        let mut all_links = SongLink::load_all_with_types(conn)?;
+
+        let public_songs = all_songs
+            .into_iter()
+            .map(|song| {
+                let videos = all_links
+                    .drain_filter(|(link, type_)| {
+                        type_.name == SongLink::PERFORMANCES && link.song == song.id
+                    })
+                    .map(|(link, _)| PublicVideo {
+                        title: link.name,
+                        url: link.target,
+                    })
+                    .collect();
+
+                PublicSong {
+                    title: song.title,
+                    current: song.current,
+                    videos,
+                }
+            })
+            .collect();
+
+        Ok(public_songs)
     }
 
     pub fn load_all(conn: &MysqlConnection) -> GreaseResult<Vec<Song>> {
@@ -134,6 +175,8 @@ impl Song {
 }
 
 impl SongLink {
+    pub const PERFORMANCES: &'static str = "Performances";
+
     pub fn load(link_id: i32, conn: &MysqlConnection) -> GreaseResult<SongLink> {
         use db::schema::song_link::dsl::*;
 

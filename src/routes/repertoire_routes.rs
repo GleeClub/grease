@@ -46,8 +46,15 @@ pub fn get_song(id: i32, details: Option<bool>, mut user: User) -> GreaseResult<
 ///
 /// Returns a list of [Song](crate::db::models::Song)s ordered alphabetically
 /// by title.
-pub fn get_songs(mut user: User) -> GreaseResult<Value> {
-    Song::load_all(&mut user.conn).map(|songs| json!(songs))
+pub fn get_songs(user: User) -> GreaseResult<Value> {
+    Song::load_all(&user.conn).map(|songs| json!(songs))
+}
+
+pub fn get_public_songs() -> GreaseResult<Value> {
+    let conn = connect_to_db()?;
+    let songs = Song::load_all_public(&conn)?;
+
+    Ok(json!(songs))
 }
 
 /// Create a new song.
