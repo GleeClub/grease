@@ -8,6 +8,7 @@ use db::*;
 use diesel::prelude::*;
 use error::*;
 use serde_json::{json, Value};
+use typed_html::{html, text};
 
 /// Get a single announcement.
 ///
@@ -291,24 +292,25 @@ pub fn send_minutes_as_email(minutes_id: i32, user: User) -> GreaseResult<Value>
     let minutes = MeetingMinutes::load(minutes_id, &user.conn)?;
     let date = minutes.date.format("%B %_d, %Y");
     let subject = format!("Notes from the Officer Meeting on {}", date);
-    let content = format!(
-        "Notes from the meeting \"{}\" on \"{}\":\n\n{}\n",
-        minutes.name, date,
-        minutes.private.or(minutes.public).ok_or(GreaseError::BadRequest(format!(
-            "Both the private and public versions of the meeting with id {} are empty, so no email was sent.", minutes_id)))?,
-    );
+    let content = minutes.private.or(minutes.public).ok_or(GreaseError::BadRequest(format!(
+            "Both the private and public versions of the meeting with id {} are empty, so no email was sent.", minutes_id)))?;
     let officer_email = Variable::load("admin_list", &user.conn)?
         .ok_or(GreaseError::ServerError(
-            "The officer's email list was not set under to `admin_list` variable.".to_owned(),
+            "The officer's email list was not set under the `admin_list` variable.".to_owned(),
         ))?
         .value;
+
     let email = crate::util::Email {
-        from_name: "Glee Club Officers",
-        from_address: &officer_email,
-        to_name: "Glee Club Officers",
-        to_address: &officer_email,
-        subject: &subject,
-        content: &content,
+        subject,
+        to_address: officer_email,
+        content: html! {
+            <div>
+                <p>{ text!("Notes from the meeting \"{}\" on \"{}\":", minutes.name, date) }</p>
+                <br/>
+                <br/>
+                <p>{ text!("{}", content) }</p>
+            </div>
+        },
     };
 
     email.send().map(|_| basic_success())

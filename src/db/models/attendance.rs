@@ -1,3 +1,4 @@
+use crate::db::Semester;
 use chrono::Local;
 use db::models::event::EventWithGig;
 use db::models::member::MemberForSemester;
@@ -57,13 +58,18 @@ impl Attendance {
     ) -> GreaseResult<Vec<(Attendance, MemberForSemester)>> {
         use db::schema::member::dsl::{first_name, last_name};
 
+        let current_semester = Semester::load_current(conn)?;
+
         Event::load(event_id, conn)?;
-        let mut rows = attendance
+        let rows = attendance
             .inner_join(member_dsl::table.inner_join(active_semester::table))
-            .filter(event.eq(event_id))
+            .filter(
+                event
+                    .eq(event_id)
+                    .and(active_semester::semester.eq(&current_semester.name)),
+            )
             .order_by((last_name, first_name))
             .load::<(Attendance, (Member, ActiveSemester))>(conn)?;
-        rows.dedup_by_key(|(attends, _)| (attends.event, attends.member.clone()));
 
         Ok(rows
             .into_iter()

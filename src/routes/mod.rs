@@ -10,12 +10,15 @@ pub mod repertoire_routes;
 #[macro_use]
 pub mod router;
 
+use crate::auth::User;
 use cgi::http::{
     self,
     header::{CONTENT_LENGTH, CONTENT_TYPE},
     response,
 };
+use chrono::{Local, NaiveDateTime, TimeZone};
 use error::*;
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::panic::{self, AssertUnwindSafe};
 
@@ -82,6 +85,10 @@ pub fn options_response() -> http::Response<Vec<u8>> {
         .unwrap()
 }
 
+fn parse_body<'de, T: Deserialize<'de>>(body: &'de [u8]) -> GreaseResult<T> {
+    serde_json::from_slice(body).map_err(|err| GreaseError::BadRequest(err.to_string()))
+}
+
 /// Handles routing of incoming requests.
 ///
 /// See the root of the crate for the API layout and
@@ -94,17 +101,11 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
     use routes::repertoire_routes::*;
 
     let load_user = || crate::auth::User::from_request(request);
-    macro_rules! parse_body {
-        () => {
-            serde_json::from_slice(request.body())
-                .map_err(|err| GreaseError::BadRequest(err.to_string()))?
-        };
-    }
 
     router!(request,
         // authorization
         (POST) [/login] =>
-            || login(parse_body!()),
+            || login(parse_body(&request.body())?),
 
         (GET) [/logout] =>
             || logout(load_user()?),
@@ -113,7 +114,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |email| forgot_password(email),
 
         (POST) [/reset_password?(token: String)] =>
-            |token| reset_password(token, parse_body!()),
+            |token| reset_password(token, parse_body(&request.body())?),
 
         // members
         (GET) [/user] =>
@@ -126,25 +127,25 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |grades, include| get_members(grades, include, load_user()?),
 
         (POST) [/members] =>
-            || new_member(parse_body!()),
+            || new_member(parse_body(&request.body())?),
 
         (POST) [/members/confirm] =>
-            || confirm_for_semester(parse_body!(), load_user()?),
+            || confirm_for_semester(parse_body(&request.body())?, load_user()?),
 
         (POST) [/members/(email: String)/(semester: String)] =>
-            |email, semester| update_member_semester(email, semester, parse_body!(), load_user()?),
+            |email, semester| update_member_semester(email, semester, parse_body(&request.body())?, load_user()?),
 
         (DELETE) [/members/(email: String)/(semester: String)] =>
             |email, semester| mark_member_inactive_for_semester(email, semester, load_user()?),
 
         (POST) [/members] =>
-            || new_member(parse_body!()),
+            || new_member(parse_body(&request.body())?),
 
         (POST) [/members/profile] =>
-            || update_member_profile(parse_body!(), load_user()?),
+            || update_member_profile(parse_body(&request.body())?, load_user()?),
 
         (POST) [/members/(email: String)] =>
-            |email| update_member_as_officer(email, parse_body!(), load_user()?),
+            |email| update_member_as_officer(email, parse_body(&request.body())?, load_user()?),
 
         (GET) [/members/(email: String)/login_as] =>
             |email| login_as_member(email, load_user()?),
@@ -160,10 +161,10 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |full| get_events(full, load_user()?),
 
         (POST) [/events] =>
-            || new_event(parse_body!(), load_user()?),
+            || new_event(parse_body(&request.body())?, load_user()?),
 
         (POST) [/events/(id: i32)] =>
-            |id| update_event(id, parse_body!(), load_user()?),
+            |id| update_event(id, parse_body(&request.body())?, load_user()?),
 
         (DELETE) [/events/(id: i32)] =>
             |id| delete_event(id, load_user()?),
@@ -185,7 +186,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |id, email| get_member_attendance(id, email, load_user()?),
 
         (POST) [/events/(id: i32)/attendance/(member: String)] =>
-            |id, member| update_attendance(id, member, parse_body!(), load_user()?),
+            |id, member| update_attendance(id, member, parse_body(&request.body())?, load_user()?),
 
         (POST) [/events/(id: i32)/rsvp/(attending: bool)] =>
             |id, attending| rsvp_for_event(id, attending, load_user()?),
@@ -200,13 +201,13 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |id| get_carpools(id, load_user()?),
 
         (POST) [/events/(id: i32)/carpools] =>
-            |id| update_carpools(id, parse_body!(), load_user()?),
+            |id| update_carpools(id, parse_body(&request.body())?, load_user()?),
 
         (GET) [/events/(id: i32)/setlist] =>
             |id| get_setlist(id, load_user()?),
 
         (POST) [/events/(id: i32)/setlist] =>
-            |id| edit_setlist(id, parse_body!(), load_user()?),
+            |id| edit_setlist(id, parse_body(&request.body())?, load_user()?),
 
         // absence requests
         (GET) [/absence_requests] =>
@@ -225,7 +226,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |id, member| deny_absence_request(id, member, load_user()?),
 
         (POST) [/absence_requests/(event_id: i32)] =>
-            |id| submit_absence_request(id, parse_body!(), load_user()?),
+            |id| submit_absence_request(id, parse_body(&request.body())?, load_user()?),
 
         // gig requests
         (GET) [/gig_requests/(id: i32)] =>
@@ -235,7 +236,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |all| get_gig_requests(all, load_user()?),
 
         (POST) [/gig_requests] =>
-            || new_gig_request(parse_body!()),
+            || new_gig_request(parse_body(&request.body())?),
 
         (POST) [/gig_requests/(id: i32)/dismiss] =>
             |id| dismiss_gig_request(id, load_user()?),
@@ -244,14 +245,14 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |id| reopen_gig_request(id, load_user()?),
 
         (POST) [/gig_requests/(id: i32)/create_event] =>
-            |id| create_event_from_gig_request(id, parse_body!(), load_user()?),
+            |id| create_event_from_gig_request(id, parse_body(&request.body())?, load_user()?),
 
         // variables
         (GET) [/variables/(key: String)] =>
             |key| get_variable(key, load_user()?),
 
         (POST) [/variables/(key: String)] =>
-            |key| set_variable(key, parse_body!(), load_user()?),
+            |key| set_variable(key, parse_body(&request.body())?, load_user()?),
 
         (DELETE) [/variables/(key: String)] =>
             |key| unset_variable(key, load_user()?),
@@ -264,7 +265,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |all| get_announcements(all, load_user()?),
 
         (POST) [/announcements] =>
-            || make_new_announcement(parse_body!(), load_user()?),
+            || make_new_announcement(parse_body(&request.body())?, load_user()?),
 
         (POST) [/announcements/(id: i32)/archive] =>
             |id| archive_announcement(id, load_user()?),
@@ -277,10 +278,10 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             || get_google_docs(load_user()?),
 
         (POST) [/google_docs] =>
-            || new_google_doc(parse_body!(), load_user()?),
+            || new_google_doc(parse_body(&request.body())?, load_user()?),
 
         (POST) [/google_docs/(name: String)] =>
-            |name| modify_google_doc(name, parse_body!(), load_user()?),
+            |name| modify_google_doc(name, parse_body(&request.body())?, load_user()?),
 
         (DELETE) [/google_docs/(name: String)] =>
             |name| delete_google_doc(name, load_user()?),
@@ -293,10 +294,10 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             || get_all_meeting_minutes(load_user()?),
 
         (POST) [/meeting_minutes] =>
-            || new_meeting_minutes(parse_body!(), load_user()?),
+            || new_meeting_minutes(parse_body(&request.body())?, load_user()?),
 
         (POST) [/meeting_minutes/(id: i32)] =>
-            |id| modify_meeting_minutes(id, parse_body!(), load_user()?),
+            |id| modify_meeting_minutes(id, parse_body(&request.body())?, load_user()?),
 
         (GET) [/meeting_minutes/(id: i32)/email] =>
             |id| send_minutes_as_email(id, load_user()?),
@@ -312,10 +313,10 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             || get_uniforms(load_user()?),
 
         (POST) [/uniforms] =>
-            || new_uniform(parse_body!(), load_user()?),
+            || new_uniform(parse_body(&request.body())?, load_user()?),
 
         (POST) [/uniforms/(id: i32)] =>
-            |id| modify_uniform(id, parse_body!(), load_user()?),
+            |id| modify_uniform(id, parse_body(&request.body())?, load_user()?),
 
         (DELETE) [/uniforms/(id: i32)] =>
             |id| delete_uniform(id, load_user()?),
@@ -325,7 +326,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             || get_todos(load_user()?),
 
         (POST) [/todos] =>
-            || add_todo_for_members(parse_body!(), load_user()?),
+            || add_todo_for_members(parse_body(&request.body())?, load_user()?),
 
         (POST) [/todos/(id: i32)] =>
             |id| mark_todo_as_complete(id, load_user()?),
@@ -341,10 +342,10 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             || get_public_songs(),
 
         (POST) [/repertoire] =>
-            || new_song(parse_body!(), load_user()?),
+            || new_song(parse_body(&request.body())?, load_user()?),
 
         (POST) [/repertoire/(id: i32)] =>
-            |id| update_song(id, parse_body!(), load_user()?),
+            |id| update_song(id, parse_body(&request.body())?, load_user()?),
 
         (POST) [/repertoire/(id: i32)/current] =>
             |id| set_song_as_current(id, load_user()?),
@@ -357,7 +358,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
 
         // song links
         (POST) [/repertoire/(id: i32)/links] =>
-            |id| new_song_link(id, parse_body!(), load_user()?),
+            |id| new_song_link(id, parse_body(&request.body())?, load_user()?),
 
         (GET) [/repertoire/links/(id: i32)] =>
             |id| get_song_link(id, load_user()?),
@@ -366,10 +367,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |id| remove_song_link(id, load_user()?),
 
         (POST) [/repertoire/links/(id: i32)] =>
-            |id| update_song_link(id, parse_body!(), load_user()?),
-
-        (POST) [/repertoire/upload] =>
-            || upload_file(parse_body!(), load_user()?),
+            |id| update_song_link(id, parse_body(&request.body())?, load_user()?),
 
         (GET) [/repertoire/cleanup_files?(confirm: bool)] =>
             |confirm| cleanup_song_files(confirm, load_user()?),
@@ -385,10 +383,10 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |name| get_semester(name, load_user()?),
 
         (POST) [/semesters] =>
-            || new_semester(parse_body!(), load_user()?),
+            || new_semester(parse_body(&request.body())?, load_user()?),
 
         (POST) [/semesters/(name: String)] =>
-            |name| edit_semester(name, parse_body!(), load_user()?),
+            |name| edit_semester(name, parse_body(&request.body())?, load_user()?),
 
         (POST) [/semesters/(name: String)/set_current] =>
             |name| set_current_semester(name, load_user()?),
@@ -407,16 +405,16 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |member| member_permissions(member, load_user()?),
 
         (POST) [/permissions/(position: String)/enable] =>
-            |position| add_permission_for_role(position, parse_body!(), load_user()?),
+            |position| add_permission_for_role(position, parse_body(&request.body())?, load_user()?),
 
         (POST) [/permissions/(position: String)/disable] =>
-            |position| remove_permission_for_role(position, parse_body!(), load_user()?),
+            |position| remove_permission_for_role(position, parse_body(&request.body())?, load_user()?),
 
         (POST) [/roles/add] =>
-            || add_officership(parse_body!(), load_user()?),
+            || add_officership(parse_body(&request.body())?, load_user()?),
 
         (POST) [/roles/remove] =>
-            || remove_officership(parse_body!(), load_user()?),
+            || remove_officership(parse_body(&request.body())?, load_user()?),
 
         // fees and transactions
         (GET) [/fees] =>
@@ -432,7 +430,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             || charge_late_dues(load_user()?),
 
         (POST) [/fees/create_batch] =>
-            || batch_transactions(parse_body!(), load_user()?),
+            || batch_transactions(parse_body(&request.body())?, load_user()?),
 
         (GET) [/transactions] =>
             || get_transactions(load_user()?),
@@ -441,7 +439,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
             |member| get_member_transactions(member, load_user()?),
 
         (POST) [/transactions] =>
-            || add_transactions(parse_body!(), load_user()?),
+            || add_transactions(parse_body(&request.body())?, load_user()?),
 
         (POST) [/transactions/(id: i32)/resolve/(resolved: bool)] =>
             |id, resolved| resolve_transaction(id, resolved, load_user()?),
@@ -474,7 +472,25 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
                 crate::util::write_zip_to_directory(request.body(), "../httpsdocs/glubhub/")
                     .map(|_| basic_success())
             },
+
+        (POST) [/send_emails] =>
+            || send_emails(parse_body(&request.body())?, load_user()?),
     )
+}
+
+#[derive(Deserialize)]
+struct Since {
+    pub timestamp: i64,
+}
+
+fn send_emails(since: Since, _user: User) -> GreaseResult<Value> {
+    let since_time = Local
+        .from_utc_datetime(&NaiveDateTime::from_timestamp(since.timestamp / 1000, 0))
+        .naive_local();
+
+    crate::cron::send_event_emails(Some(since_time))?;
+
+    Ok(basic_success())
 }
 
 /// Returns a basic success message.
@@ -487,4 +503,16 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
 /// ```
 pub fn basic_success() -> Value {
     json!({ "message": "success!" })
+}
+
+/// Returns an id for new resources.
+///
+/// Returns the following with a 200 status code:
+/// ```json
+/// {
+///     "id": int
+/// }
+/// ```
+pub fn id_json(id: i32) -> Value {
+    json!({ "id": id })
 }

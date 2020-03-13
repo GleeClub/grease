@@ -20,6 +20,7 @@ uuid = { version = "0.7", features = ["v4"] }
 diesel = { version = "1.4.3", features = [ "mysql", "chrono", "serde_json" ] }
 diesel-derive-enum = { version = "0.4.4", features = [ "mysql" ] }
 zip = "0.5"
+typed-html = "0.2"
 
 [profile.release]
 panic = "unwind"

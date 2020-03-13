@@ -5,6 +5,7 @@ use db::{
 };
 use diesel::prelude::*;
 use error::*;
+use typed_html::html;
 use uuid::Uuid;
 
 impl GoogleDoc {
@@ -325,7 +326,7 @@ impl Session {
         use db::schema::session::dsl::*;
         use util::Email;
 
-        let given_member = Member::load(&email, &conn)?;
+        let _given_member = Member::load(&email, &conn)?;
 
         conn.transaction(|| {
             diesel::delete(session.filter(member.eq(&email))).execute(conn)?;
@@ -341,20 +342,24 @@ impl Session {
                 .values((member.eq(&email), key.eq(&new_token)))
                 .execute(conn)?;
 
-            let email_content = format!(
-                "
-                You have requested a password reset on your Glee Club account. \
-                Please click this link to reset your password:
-                https://gleeclub.gatech.edu/glubhub/#/reset-password/{}",
+            let reset_url = format!(
+                "https://gleeclub.gatech.edu/glubhub/#/reset-password/{}",
                 new_token
             );
+
             Email {
-                from_name: Email::DEFAULT_NAME,
-                from_address: Email::DEFAULT_ADDRESS,
-                to_name: &given_member.full_name(),
-                to_address: &email,
-                subject: "Reset Your Password",
-                content: &email_content,
+                to_address: email,
+                subject: "Reset Your Password".to_owned(),
+                content: html! {
+                    <p>
+                        "You have requested a password reset on your Glee Club account. \
+                        Please click "
+                        <a href=&reset_url>
+                            "here"
+                        </a>
+                        " to reset your password."
+                    </p>
+                },
             }
             .send()?;
 

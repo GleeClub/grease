@@ -12,6 +12,7 @@ use self::schema::{
     transaction_type, uniform, variable, AbsenceRequestState, Enrollment, GigRequestStatus,
     PermissionType, Pitch, SongMode, StorageType,
 };
+use crate::util::FileUpload;
 use chrono::{Local, NaiveDate, NaiveDateTime, TimeZone};
 use diesel::{Connection, MysqlConnection};
 use error::{GreaseError, GreaseResult};
@@ -531,7 +532,6 @@ pub struct Event {
 pub struct NewEvent {
     #[serde(flatten)]
     pub fields: NewEventFields,
-    #[serde(flatten)]
     pub gig: Option<NewGig>,
     pub repeat: Period,
     #[serde(rename = "repeatUntil", with = "optional_naivedate_posix")]
@@ -602,7 +602,6 @@ pub struct EventUpdate {
     #[serde(flatten)]
     pub fields: NewEventFields,
     // gig fields
-    #[serde(flatten)]
     pub gig: Option<NewGig>,
 }
 
@@ -1256,34 +1255,6 @@ pub struct NewGigRequest {
     pub comments: Option<String>,
 }
 
-/// The required format for the creation of new events with gigs
-/// from gig requests.
-///
-/// ## Expected Format:
-///
-/// |      Field      |   Type   | Required? |           Comments            |
-/// |-----------------|----------|:---------:|-------------------------------|
-/// | name            | string   |     ✓     |                               |
-/// | semester        | string   |     ✓     |                               |
-/// | type            | string   |     ✓     | event type                    |
-/// | callTime        | datetime |     ✓     |                               |
-/// | releaseTime     | datetime |           |                               |
-/// | points          | integer  |     ✓     |                               |
-/// | comments        | string   |           |                               |
-/// | location        | string   |           |                               |
-/// | defaultAttend   | boolean  |     ✓     | assume members should go      |
-/// | repeat          | string   |     ✓     | see [Period](event/enum.Period.html) |
-/// | repeatUntil     | datetime |           | needed if `repeat` isn't "no" |
-/// | performanceTime | datetime |     ✓     |                               |
-/// | uniform         | integer  |     ✓     |                               |
-/// | contactName     | string   |           |                               |
-/// | contactEmail    | string   |           |                               |
-/// | contactPhone    | string   |           |                               |
-/// | price           | integer  |           |                               |
-/// | public          | boolean  |     ✓     |                               |
-/// | summary         | string   |           |                               |
-/// | description     | string   |           |                               |
-
 /// The model for songs from our repertoire.
 ///
 /// ## Database Format:
@@ -1352,8 +1323,7 @@ pub struct NewSong {
     pub info: Option<String>,
 }
 
-/// The required format for the creation of new events with gigs
-/// from gig requests.
+/// The required format for the creation or updating of songs.
 ///
 /// ## Expected Format:
 ///
@@ -1701,7 +1671,13 @@ pub struct NewSongLink {
     #[serde(rename = "type")]
     pub type_: String,
     pub name: String,
-    pub target: String,
+    pub target: NewLinkTarget,
+}
+
+#[derive(Deserialize)]
+pub enum NewLinkTarget {
+    Url(String),
+    File(FileUpload),
 }
 
 /// The required format for updating a song link.
@@ -2103,5 +2079,8 @@ pub fn timestamp_to_datetime(timestamp: i64) -> NaiveDateTime {
 }
 
 pub fn datetime_to_timestamp(datetime: &NaiveDateTime) -> i64 {
-    Local.from_local_datetime(&datetime).unwrap().timestamp() * 1000
+    Local
+        .from_local_datetime(&datetime)
+        .unwrap()
+        .timestamp_millis()
 }

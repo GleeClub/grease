@@ -465,7 +465,6 @@ pub struct PublicEvent {
 pub struct EventWithGig {
     #[serde(flatten)]
     pub event: Event,
-    #[serde(flatten)]
     pub gig: Option<Gig>,
 }
 

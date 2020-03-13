@@ -232,7 +232,7 @@
 //! **GET**    | /transaction_types | [get_transaction_types](crate::routes::officer_routes::get_transaction_types)
 //! **GET**    | /static_data       | [static_data](crate::routes::misc_routes::static_data)
 
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 #![feature(drain_filter)]
 
 extern crate base64;
@@ -249,11 +249,13 @@ extern crate itertools;
 extern crate regex;
 extern crate serde;
 extern crate serde_json;
+extern crate typed_html;
 extern crate url;
 extern crate uuid;
 extern crate zip;
 
 mod auth;
+mod cron;
 mod db;
 mod error;
 pub mod routes;
@@ -261,5 +263,10 @@ mod util;
 
 fn main() {
     dotenv::dotenv().ok();
-    cgi::handle(routes::handle_request);
+
+    if std::env::var("REQUEST_METHOD").is_ok() {
+        cgi::handle(routes::handle_request);
+    } else {
+        cron::send_event_emails(None).ok();
+    }
 }

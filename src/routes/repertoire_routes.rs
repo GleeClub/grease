@@ -1,6 +1,6 @@
 //! All repertoire-focused routes.
 
-use super::basic_success;
+use super::{basic_success, id_json};
 use crate::check_for_permission;
 use crate::util::FileUpload;
 use auth::User;
@@ -66,9 +66,9 @@ pub fn get_public_songs() -> GreaseResult<Value> {
 /// ## Input Format:
 ///
 /// Expects a [NewSong](crate::db::models::NewSong).
-pub fn new_song(new_song: NewSong, mut user: User) -> GreaseResult<Value> {
+pub fn new_song(new_song: NewSong, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
-    Song::create(&new_song, &mut user.conn).map(|new_id| json!({ "id": new_id }))
+    Song::create(&new_song, &user.conn).map(id_json)
 }
 
 /// Update a song from the repertoire.
@@ -83,9 +83,9 @@ pub fn new_song(new_song: NewSong, mut user: User) -> GreaseResult<Value> {
 /// ## Input Format:
 ///
 /// Expects a [SongUpdate](crate::db::models::SongUpdate).
-pub fn update_song(song_id: i32, updated_song: SongUpdate, mut user: User) -> GreaseResult<Value> {
+pub fn update_song(song_id: i32, updated_song: SongUpdate, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
-    Song::update(song_id, &updated_song, &mut user.conn).map(|_| basic_success())
+    Song::update(song_id, &updated_song, &user.conn).map(|_| basic_success())
 }
 
 /// Delete a song from the repertoire.
@@ -96,9 +96,9 @@ pub fn update_song(song_id: i32, updated_song: SongUpdate, mut user: User) -> Gr
 /// ## Required Permissions:
 ///
 /// The user must be logged in and be able to "edit-repertoire" generally.
-pub fn delete_song(song_id: i32, mut user: User) -> GreaseResult<Value> {
+pub fn delete_song(song_id: i32, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
-    Song::delete(song_id, &mut user.conn).map(|_| basic_success())
+    Song::delete(song_id, &user.conn).map(|_| basic_success())
 }
 
 /// Add a song to the current semester's repertoire.
@@ -109,9 +109,9 @@ pub fn delete_song(song_id: i32, mut user: User) -> GreaseResult<Value> {
 /// ## Required Permissions:
 ///
 /// The user must be logged in and be able to "edit-repertoire" generally.
-pub fn set_song_as_current(song_id: i32, mut user: User) -> GreaseResult<Value> {
+pub fn set_song_as_current(song_id: i32, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
-    Song::set_current_status(song_id, true, &mut user.conn).map(|_| basic_success())
+    Song::set_current_status(song_id, true, &user.conn).map(|_| basic_success())
 }
 
 /// Remove a song from the current semester's repertoire.
@@ -122,9 +122,9 @@ pub fn set_song_as_current(song_id: i32, mut user: User) -> GreaseResult<Value> 
 /// ## Required Permissions:
 ///
 /// The user must be logged in and be able to "edit-repertoire" generally.
-pub fn set_song_as_not_current(song_id: i32, mut user: User) -> GreaseResult<Value> {
+pub fn set_song_as_not_current(song_id: i32, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
-    Song::set_current_status(song_id, false, &mut user.conn).map(|_| basic_success())
+    Song::set_current_status(song_id, false, &user.conn).map(|_| basic_success())
 }
 
 /// Get all of the media types available.
@@ -177,20 +177,6 @@ pub fn update_song_link(
     SongLink::update(link_id, updated_link, &mut user.conn).map(|_| basic_success())
 }
 
-/// Upload a file for a song link to refer to.
-///
-/// ## Required Permissions:
-///
-/// The user must be logged in and be able to "edit-repertoire" generally.
-///
-/// ## Input Format:
-///
-/// Expects a [FileUpload](crate::util::FileUpload).
-pub fn upload_file(file: FileUpload, user: User) -> GreaseResult<Value> {
-    check_for_permission!(user => "edit-repertoire");
-    file.upload().map(|_| basic_success())
-}
-
 /// Create a new link belonging to a song.
 ///
 /// ## Path Parameters:
@@ -203,9 +189,9 @@ pub fn upload_file(file: FileUpload, user: User) -> GreaseResult<Value> {
 /// ## Input Format:
 ///
 /// Expects a [NewSongLink](crate::db::models::NewSongLink).
-pub fn new_song_link(song_id: i32, new_link: NewSongLink, mut user: User) -> GreaseResult<Value> {
+pub fn new_song_link(song_id: i32, new_link: NewSongLink, user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
-    SongLink::create(song_id, new_link, &mut user.conn).map(|new_id| json!({ "id": new_id }))
+    SongLink::create(song_id, new_link, &user.conn).map(id_json)
 }
 
 /// Remove a song link belonging to a song.

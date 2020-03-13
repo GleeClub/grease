@@ -1,4 +1,4 @@
-use crate::error::*;
+use crate::{db::NewLinkTarget, error::*};
 use db::{
     schema::StorageType, MediaType, NewSong, NewSongLink, Song, SongLink, SongLinkUpdate,
     SongUpdate,
@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
-use util::check_for_music_file;
 
 #[derive(Serialize)]
 pub struct PublicSong {
@@ -209,16 +208,15 @@ impl SongLink {
     ) -> GreaseResult<i32> {
         use db::schema::song_link::dsl::*;
 
-        let media_type = MediaType::load(&new_link.type_, conn)?;
-        let encoded_target = if media_type.storage == StorageType::Local {
-            check_for_music_file(
-                &utf8_percent_encode(&new_link.target, DEFAULT_ENCODE_SET).to_string(),
-            )?
-        } else {
-            new_link.target.clone()
+        let encoded_target = match &new_link.target {
+            NewLinkTarget::Url(url) => url.clone(),
+            NewLinkTarget::File(file) => {
+                file.upload()?;
+                utf8_percent_encode(&file.path, DEFAULT_ENCODE_SET).to_string()
+            }
         };
 
-        conn.transaction(|| {
+        conn.transaction(move || {
             diesel::insert_into(song_link)
                 .values((
                     song.eq(song_id),

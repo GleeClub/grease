@@ -11,23 +11,21 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::str::FromStr;
+use typed_html::dom::DOMTree;
 
-pub struct Email<'e> {
-    pub from_name: &'e str,
-    pub from_address: &'e str,
-    pub to_name: &'e str,
-    pub to_address: &'e str,
-    pub subject: &'e str,
-    pub content: &'e str,
+pub struct Email {
+    pub to_address: String,
+    pub subject: String,
+    pub content: DOMTree<String>,
 }
 
-impl<'e> Email<'e> {
+impl Email {
     pub const DEFAULT_NAME: &'static str = "Glee Club Officers";
     pub const DEFAULT_ADDRESS: &'static str = "gleeclub_officers@lists.gatech.edu";
 
     pub fn send(&self) -> GreaseResult<()> {
         let mut mail = Command::new("mail")
-            .args(&["-s", self.subject, self.to_address])
+            .args(&["-s", &self.subject, &self.to_address])
             .stdin(Stdio::piped())
             .spawn()
             .map_err(|err| {
@@ -38,7 +36,7 @@ impl<'e> Email<'e> {
             .ok_or(GreaseError::ServerError(
                 "No stdin was available for mail.".to_owned(),
             ))?
-            .write_all(self.content.as_bytes())
+            .write_all(self.content.to_string().as_bytes())
             .map_err(|err| {
                 GreaseError::ServerError(format!("Couldn't send an email with mail: {}", err))
             })?;
