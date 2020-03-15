@@ -1675,6 +1675,7 @@ pub struct NewSongLink {
 }
 
 #[derive(Deserialize)]
+#[serde(untagged)]
 pub enum NewLinkTarget {
     Url(String),
     File(FileUpload),
