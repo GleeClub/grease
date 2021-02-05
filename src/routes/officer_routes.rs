@@ -8,7 +8,6 @@ use db::*;
 use diesel::prelude::*;
 use error::*;
 use serde_json::{json, Value};
-use typed_html::{html, text};
 
 /// Get a single announcement.
 ///
@@ -303,14 +302,17 @@ pub fn send_minutes_as_email(minutes_id: i32, user: User) -> GreaseResult<Value>
     let email = crate::util::Email {
         subject,
         to_address: officer_email,
-        content: html! {
-            <div>
-                <p>{ text!("Notes from the meeting \"{}\" on \"{}\":", minutes.name, date) }</p>
-                <br/>
-                <br/>
-                <p>{ text!("{}", content) }</p>
-            </div>
-        },
+        content: format!(
+            "\
+            <div>\
+                <p>Notes from the meeting \"{}\" on \"{}\":</p>\
+                <br/>\
+                <br/>\
+                <p>{}</p>\
+            </div>\
+        ",
+            minutes.name, date, content
+        ),
     };
 
     email.send().map(|_| basic_success())

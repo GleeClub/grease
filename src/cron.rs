@@ -18,7 +18,6 @@ mod two_days_out {
     use crate::{error::GreaseResult, util::Email};
     use chrono::{Duration, Local, NaiveDateTime};
     use diesel::MysqlConnection;
-    use typed_html::{dom::DOMTree, html, text};
 
     pub fn send_emails(
         all_events: &Vec<EventWithGig>,
@@ -55,84 +54,85 @@ mod two_days_out {
         format!("{} is in 48 Hours", event.event.name)
     }
 
-    fn email_body(event: &EventWithGig, conn: &MysqlConnection) -> GreaseResult<DOMTree<String>> {
-        let url = format!(
-            "https://gleeclub.gatech.edu/glubhub/#/events/{}",
-            event.event.id
-        );
-        let format_time = |time: &NaiveDateTime| time.format("").to_string();
-        let uniform = if let Some(uniform) = event.gig.as_ref().map(|gig| &gig.uniform) {
-            Some(Uniform::load(*uniform, conn)?)
-        } else {
-            None
-        };
+    fn email_body(event: &EventWithGig, conn: &MysqlConnection) -> GreaseResult<String> {
+        Ok(String::new())
+        // let url = format!(
+        //     "https://gleeclub.gatech.edu/glubhub/#/events/{}",
+        //     event.event.id
+        // );
+        // let format_time = |time: &NaiveDateTime| time.format("").to_string();
+        // let uniform = if let Some(uniform) = event.gig.as_ref().map(|gig| &gig.uniform) {
+        //     Some(Uniform::load(*uniform, conn)?)
+        // } else {
+        //     None
+        // };
 
-        Ok(html! {
-            <div>
-                <h2>
-                    <a href=url target="_blank">
-                        { text!("{}", event.event.name) }
-                    </a>
-                </h2>
-                <p>
-                    <b>{ text!("{}", event.event.type_) }</b>
-                    ", "
-                    {
-                        if let Some(release_time) = &event.event.release_time {
-                            html! {
-                                <span>
-                                    "from"
-                                    <b> { text!("{}", format_time(&event.event.call_time)) } </b>
-                                    "to"
-                                    <b> { text!("{}", format_time(release_time)) } </b>
-                                </span>
-                            }
-                        } else {
-                            html! {
-                                <span>
-                                    <b> { text!("{}", format_time(&event.event.call_time)) } </b>
-                                </span>
-                            }
-                        }
-                    }
-                    {
-                        if let Some(location) = &event.event.location {
-                            html! {
-                                <span>
-                                    "at"
-                                    <b>{ text!("{}", location) }</b>
-                                </span>
-                            }
-                        } else {
-                            html! {
-                                <span></span>
-                            }
-                        }
-                    }
-                </p>
-                {
-                    if let Some(uniform) = uniform {
-                        html! {
-                            <p> { text!("Uniform: {}", uniform.name) } </p>
-                        }
-                    } else {
-                        html! {
-                            <p></p>
-                        }
-                    }
-                }
-                {
-                    if let Some(comments) = &event.event.comments {
-                        html! {
-                            <p> { text!("{}", comments) } </p>
-                        }
-                    } else {
-                        html! {
-                            <p></p>
-                        }
-                    }
-                }
-            </div>
-        })
+        // Ok(html! {
+        //     <div>
+        //         <h2>
+        //             <a href=url target="_blank">
+        //                 { text!("{}", event.event.name) }
+        //             </a>
+        //         </h2>
+        //         <p>
+        //             <b>{ text!("{}", event.event.type_) }</b>
+        //             ", "
+        //             {
+        //                 if let Some(release_time) = &event.event.release_time {
+        //                     html! {
+        //                         <span>
+        //                             "from"
+        //                             <b> { text!("{}", format_time(&event.event.call_time)) } </b>
+        //                             "to"
+        //                             <b> { text!("{}", format_time(release_time)) } </b>
+        //                         </span>
+        //                     }
+        //                 } else {
+        //                     html! {
+        //                         <span>
+        //                             <b> { text!("{}", format_time(&event.event.call_time)) } </b>
+        //                         </span>
+        //                     }
+        //                 }
+        //             }
+        //             {
+        //                 if let Some(location) = &event.event.location {
+        //                     html! {
+        //                         <span>
+        //                             "at"
+        //                             <b>{ text!("{}", location) }</b>
+        //                         </span>
+        //                     }
+        //                 } else {
+        //                     html! {
+        //                         <span></span>
+        //                     }
+        //                 }
+        //             }
+        //         </p>
+        //         {
+        //             if let Some(uniform) = uniform {
+        //                 html! {
+        //                     <p> { text!("Uniform: {}", uniform.name) } </p>
+        //                 }
+        //             } else {
+        //                 html! {
+        //                     <p></p>
+        //                 }
+        //             }
+        //         }
+        //         {
+        //             if let Some(comments) = &event.event.comments {
+        //                 html! {
+        //                     <p> { text!("{}", comments) } </p>
+        //                 }
+        //             } else {
+        //                 html! {
+        //                     <p></p>
+        //                 }
+        //             }
+        //         }
+        //     </div>
+        // })
     }
 }
