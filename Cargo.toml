@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Sam Mohr <sammohr97@gmail.com>"]
 
 [dependencies]
+backtrace = "0.3"
 base64 = "0.10"
 bcrypt = "0.4"
 cgi = "0.2"
@@ -20,10 +21,9 @@ uuid = { version = "0.7", features = ["v4"] }
 diesel = { version = "1.4.3", features = [ "mysql", "chrono", "serde_json" ] }
 diesel-derive-enum = { version = "0.4.4", features = [ "mysql" ] }
 zip = "0.5"
-typed-html = "0.2"
 
-[profile.release]
-panic = "unwind"
+# [profile.release]
+# panic = "unwind"
 
 [patch.crates-io]
 mysqlclient-sys = { git = "https://github.com/pzmarzly/mysqlclient-sys", rev = "acd1b2b" }
