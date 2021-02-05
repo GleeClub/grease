@@ -233,8 +233,9 @@
 //! **GET**    | /static_data       | [static_data](crate::routes::misc_routes::static_data)
 
 #![recursion_limit = "512"]
-#![feature(drain_filter)]
+#![feature(drain_filter, backtrace)]
 
+extern crate backtrace;
 extern crate base64;
 extern crate bcrypt;
 extern crate cgi;
@@ -249,7 +250,6 @@ extern crate itertools;
 extern crate regex;
 extern crate serde;
 extern crate serde_json;
-extern crate typed_html;
 extern crate url;
 extern crate uuid;
 extern crate zip;
