@@ -573,7 +573,6 @@ pub struct NewEventFields {
 }
 
 #[derive(Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
 pub enum Period {
     No,
     Daily,
@@ -1724,7 +1723,6 @@ pub struct NewSongLink {
 
 #[derive(Deserialize)]
 #[serde(untagged)]
-#[serde(rename_all = "camelCase")]
 pub enum NewLinkTarget {
     Url(String),
     File(FileUpload),
