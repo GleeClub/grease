@@ -483,7 +483,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
         (POST) [/upload_frontend] =>
             || {
                 load_user()?;
-                crate::util::write_zip_to_directory(request.body(), "../httpsdocs/glubhub/")
+                crate::util::write_zip_to_directory(request.body(), "../httpdocs/glubhub/")
                     .map(|_| basic_success())
             },
 

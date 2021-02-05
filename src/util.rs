@@ -84,7 +84,7 @@ impl FileUpload {
             let _extension = given_path.extension().ok_or(GreaseError::BadRequest(
                 "file must have an extension".to_owned(),
             ))?;
-            let mut base_path = PathBuf::from("../httpsdocs/music/");
+            let mut base_path = PathBuf::from("../httpdocs/music/");
             base_path.push(file_name);
 
             base_path
@@ -119,7 +119,7 @@ pub fn check_for_music_file(path: &str) -> GreaseResult<String> {
     ))?;
 
     let existing_path = {
-        let mut path = PathBuf::from("../httpsdocs/music/");
+        let mut path = PathBuf::from("../httpdocs/music/");
         path.push(&file_name);
         path
     };

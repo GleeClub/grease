@@ -82,7 +82,7 @@ mod actions {
     }
 
     pub fn run_migration() -> Result<(), String> {
-        let migration_args = std::fs::read_to_string("/httpsdocs/dev/smores/migration_command.txt")
+        let migration_args = std::fs::read_to_string("/httpdocs/dev/smores/migration_command.txt")
             .map_err(|err| {
                 format!(
                     "Couldn't retrieve passwords for the old and new databases: {:?}",
@@ -90,7 +90,7 @@ mod actions {
                 )
             })?;
 
-        match Command::new("/httpsdocs/dev/smores/migration_script")
+        match Command::new("/httpdocs/dev/smores/migration_script")
             .args(migration_args.trim().split_whitespace().skip(1))
             .spawn()
         {
