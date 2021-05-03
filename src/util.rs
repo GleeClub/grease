@@ -11,12 +11,11 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::str::FromStr;
-use typed_html::dom::DOMTree;
 
 pub struct Email {
     pub to_address: String,
     pub subject: String,
-    pub content: DOMTree<String>,
+    pub content: String,
 }
 
 impl Email {
@@ -36,7 +35,7 @@ impl Email {
             .ok_or(GreaseError::ServerError(
                 "No stdin was available for mail.".to_owned(),
             ))?
-            .write_all(self.content.to_string().as_bytes())
+            .write_all(self.content.as_bytes())
             .map_err(|err| {
                 GreaseError::ServerError(format!("Couldn't send an email with mail: {}", err))
             })?;

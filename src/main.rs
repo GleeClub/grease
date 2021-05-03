@@ -249,7 +249,6 @@ extern crate itertools;
 extern crate regex;
 extern crate serde;
 extern crate serde_json;
-extern crate typed_html;
 extern crate url;
 extern crate uuid;
 extern crate zip;
