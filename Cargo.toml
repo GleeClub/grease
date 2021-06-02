@@ -1,9 +1,12 @@
 [package]
-name = "grease_api"
+name = "grease"
 version = "0.1.0"
-authors = ["Sam Mohr <sammohr97@gmail.com>"]
+authors = ["Sam Mohr <sam@mohr.codes>"]
+edition = "2018"
 
 [dependencies]
+async-graphql = { version = "2.8.3", features = ["chrono", "dataloader"] }
+async-trait = "0.1"
 base64 = "0.10"
 bcrypt = "0.4"
 cgi = "0.2"
@@ -15,14 +18,8 @@ icalendar = "0.8"
 regex = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
+sqlx = { version = "0.4.1", features = ["runtime-tokio-rustls", "mysql", "chrono", "offline"] }
+tokio = { version = "1.5.0", features = ["full"] }
 url = "1.7.2"
 uuid = { version = "0.7", features = ["v4"] }
-diesel = { version = "1.4.3", features = [ "mysql", "chrono", "serde_json" ] }
-diesel-derive-enum = { version = "0.4.4", features = [ "mysql" ] }
 zip = "0.5"
-
-[profile.release]
-panic = "unwind"
-
-[patch.crates-io]
-mysqlclient-sys = { git = "https://github.com/pzmarzly/mysqlclient-sys", rev = "acd1b2b" }
