@@ -349,17 +349,15 @@ impl Session {
             Email {
                 to_address: email,
                 subject: "Reset Your Password".to_owned(),
-                content: "".to_owned(),
-                // content: html! {
-                //     <p>
-                //         "You have requested a password reset on your Glee Club account. \
-                //         Please click "
-                //         <a href=&reset_url>
-                //             "here"
-                //         </a>
-                //         " to reset your password."
-                //     </p>
-                // },
+                content: format!(
+                    "\
+                    <p>\
+                        You have requested a password reset on your Glee Club account.\
+                        Please click <a href=\"{}\">here</a> to reset your password.\
+                    </p>\
+                ",
+                    reset_url
+                ),
             }
             .send()?;
 

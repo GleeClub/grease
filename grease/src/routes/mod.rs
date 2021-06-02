@@ -11,6 +11,7 @@ pub mod repertoire_routes;
 pub mod router;
 
 use crate::auth::User;
+use backtrace::Backtrace;
 use cgi::http::{
     self,
     header::{CONTENT_LENGTH, CONTENT_TYPE},
@@ -21,6 +22,7 @@ use error::*;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::panic::{self, AssertUnwindSafe};
+use std::sync::{Arc, Mutex};
 
 /// The main entry-point for the whole crate.
 ///
@@ -39,36 +41,48 @@ use std::panic::{self, AssertUnwindSafe};
 /// return a JSON object with some debug information.
 pub fn handle_request(request: cgi::Request) -> cgi::Response {
     let mut response = None;
+    let bt = Arc::new(Mutex::new(None));
 
-    let result = {
-        panic::catch_unwind(AssertUnwindSafe(|| {
-            if request.method() == "OPTIONS" {
-                response = Some(options_response());
-                return;
-            }
+    let bt2 = bt.clone();
+    std::panic::set_hook(Box::new(move |_| {
+        *bt2.lock().unwrap() = Some(Backtrace::new());
+    }));
 
-            let (status_code, value) = match route_request(&request) {
-                Ok(resp) => (200, resp),
-                Err(error) => error.as_response(),
-            };
+    panic::catch_unwind(AssertUnwindSafe(|| {
+        if request.method() == "OPTIONS" {
+            response = Some(options_response());
+            return;
+        }
 
-            let body = serde_json::to_string(&value).unwrap().into_bytes();
-            response = Some(
-                response::Builder::new()
-                    .status(status_code)
-                    .header(CONTENT_TYPE, "application/json")
-                    .header("Access-Control-Allow-Origin", "*")
-                    .header(CONTENT_LENGTH, body.len().to_string().as_str())
-                    .body(body)
-                    .unwrap(),
-            );
-        }))
-    };
+        let (status_code, value) = match route_request(&request) {
+            Ok(resp) => (200, resp),
+            Err(error) => error.as_response(),
+        };
 
-    match result {
-        Ok(()) => response.unwrap(),
-        Err(error) => crate::util::log_panic(&request, format!("{:?}", error)),
-    }
+        let body = serde_json::to_string(&value)
+            .unwrap_or_default()
+            .into_bytes();
+        response = Some(
+            response::Builder::new()
+                .status(status_code)
+                .header(CONTENT_TYPE, "application/json")
+                .header("Access-Control-Allow-Origin", "*")
+                .header(CONTENT_LENGTH, body.len().to_string().as_str())
+                .body(body)
+                .unwrap(),
+        );
+    }))
+    .ok();
+
+    response.unwrap_or_else(move || {
+        let error = bt
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|bt| format!("{:?}", bt))
+            .unwrap_or_default();
+        crate::util::log_panic(&request, error)
+    })
 }
 
 pub fn options_response() -> http::Response<Vec<u8>> {
@@ -469,7 +483,7 @@ pub fn route_request(request: &cgi::Request) -> GreaseResult<Value> {
         (POST) [/upload_frontend] =>
             || {
                 load_user()?;
-                crate::util::write_zip_to_directory(request.body(), "../httpsdocs/glubhub/")
+                crate::util::write_zip_to_directory(request.body(), "../httpdocs/glubhub/")
                     .map(|_| basic_success())
             },
 

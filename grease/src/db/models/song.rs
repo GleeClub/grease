@@ -242,7 +242,7 @@ impl SongLink {
             .map_err(GreaseError::DbError)?;
 
         if media_type.storage == StorageType::Local {
-            let file_name = PathBuf::from_str(&format!("../httpsdocs/music/{}", &link.target))
+            let file_name = PathBuf::from_str(&format!("../httpdocs/music/{}", &link.target))
                 .map_err(|_err| {
                     GreaseError::ServerError(format!(
                         "invalid file name for link with id {}: {}",
@@ -284,11 +284,11 @@ impl SongLink {
 
             if old_link.target != new_target && &media_type.storage == &StorageType::Local {
                 let old_path =
-                    PathBuf::from_str(&format!("../httpsdocs/music/{}", old_link.target)).map_err(|_err| {
+                    PathBuf::from_str(&format!("../httpdocs/music/{}", old_link.target)).map_err(|_err| {
                         GreaseError::ServerError(format!("invalid file name: {}", old_link.target))
                     })?;
                 let new_path =
-                    PathBuf::from_str(&format!("../httpsdocs/music/{}", new_target)).map_err(|_err| {
+                    PathBuf::from_str(&format!("../httpdocs/music/{}", new_target)).map_err(|_err| {
                         GreaseError::ServerError(format!("invalid file name: {}", new_target))
                     })?;
                 if std::fs::metadata(&old_path).is_ok() {

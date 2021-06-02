@@ -55,18 +55,17 @@ mod two_days_out {
     }
 
     fn email_body(event: &EventWithGig, conn: &MysqlConnection) -> GreaseResult<String> {
-        let url = format!(
-            "https://gleeclub.gatech.edu/glubhub/#/events/{}",
-            event.event.id
-        );
-        let format_time = |time: &NaiveDateTime| time.format("").to_string();
-        let uniform = if let Some(uniform) = event.gig.as_ref().map(|gig| &gig.uniform) {
-            Some(Uniform::load(*uniform, conn)?)
-        } else {
-            None
-        };
-
-        Ok("".to_owned())
+        Ok(String::new())
+        // let url = format!(
+        //     "https://gleeclub.gatech.edu/glubhub/#/events/{}",
+        //     event.event.id
+        // );
+        // let format_time = |time: &NaiveDateTime| time.format("").to_string();
+        // let uniform = if let Some(uniform) = event.gig.as_ref().map(|gig| &gig.uniform) {
+        //     Some(Uniform::load(*uniform, conn)?)
+        // } else {
+        //     None
+        // };
 
         // Ok(html! {
         //     <div>

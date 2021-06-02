@@ -94,12 +94,12 @@ pub fn parse_url(
     let path = request
         .headers()
         .get("x-cgi-path-info")
-        .map(|uri| uri.to_str().unwrap())
+        .and_then(|uri| uri.to_str().ok())
         .unwrap_or("/");
     let param_str = request
         .headers()
         .get("x-cgi-query-string")
-        .map(|uri| uri.to_str().unwrap())
+        .and_then(|uri| uri.to_str().ok())
         .unwrap_or("");
 
     let given_url = format!(

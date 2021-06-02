@@ -79,6 +79,7 @@ pub fn connect_to_db() -> GreaseResult<MysqlConnection> {
 #[derive(Identifiable, Insertable, Queryable, Serialize, Deserialize, PartialEq, Clone, Debug)]
 #[table_name = "member"]
 #[primary_key(email)]
+#[serde(rename_all = "camelCase")]
 pub struct Member {
     /// The member's email, which must be unique
     pub email: String,
@@ -185,6 +186,7 @@ pub struct Member {
 ///
 /// [Enrollment]: enum.Enrollment.html
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewMember {
     pub email: String,
     #[serde(rename = "firstName")]
@@ -247,6 +249,7 @@ pub struct NewMember {
 ///
 /// [Enrollment]: enum.Enrollment.html
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RegisterForSemesterForm {
     pub location: String,
     #[serde(default, rename = "onCampus")]
@@ -287,6 +290,7 @@ pub struct RegisterForSemesterForm {
 #[derive(Identifiable, Insertable, Queryable, Serialize, Deserialize)]
 #[table_name = "semester"]
 #[primary_key(name)]
+#[serde(rename_all = "camelCase")]
 pub struct Semester {
     /// The name of the semester
     pub name: String,
@@ -315,6 +319,7 @@ pub struct Semester {
 /// | gigRequirement | integer  |     ✓     |                           |
 #[derive(Deserialize, AsChangeset, Insertable)]
 #[table_name = "semester"]
+#[serde(rename_all = "camelCase")]
 pub struct NewSemester {
     pub name: String,
     #[serde(rename = "startDate", with = "naivedatetime_posix")]
@@ -349,6 +354,7 @@ pub struct NewSemester {
 #[derive(Identifiable, Queryable, Serialize, Deserialize)]
 #[table_name = "role"]
 #[primary_key(name)]
+#[serde(rename_all = "camelCase")]
 pub struct Role {
     /// The name of the role
     pub name: String,
@@ -385,6 +391,7 @@ pub struct Role {
 /// ```
 #[derive(Serialize, Queryable, Deserialize, Insertable)]
 #[table_name = "member_role"]
+#[serde(rename_all = "camelCase")]
 pub struct MemberRole {
     /// The email of the member holding the role
     pub member: String,
@@ -410,6 +417,7 @@ pub struct MemberRole {
 /// }
 /// ```
 #[derive(Queryable, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct SectionType {
     /// The name of the section type
     pub name: String,
@@ -437,6 +445,7 @@ pub struct SectionType {
 #[derive(Identifiable, Queryable, Serialize, Deserialize, PartialEq)]
 #[table_name = "event_type"]
 #[primary_key(name)]
+#[serde(rename_all = "camelCase")]
 pub struct EventType {
     /// The name of the type of event
     pub name: String,
@@ -474,6 +483,7 @@ pub struct EventType {
 /// `Event`s are not directly serialized, see [to_json](event/struct.EventWithGig.html#method.to_json)
 /// for how `Event`s get serialized with `Gig`s.
 #[derive(Queryable, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Event {
     /// The ID of the event
     pub id: i32,
@@ -529,6 +539,7 @@ pub struct Event {
 /// | repeat        | string   |     ✓     | see [Period](event/enum.Period.html) |
 /// | repeatUntil   | datetime |           | needed if `repeat` isn't "no" |
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewEvent {
     #[serde(flatten)]
     pub fields: NewEventFields,
@@ -540,6 +551,7 @@ pub struct NewEvent {
 
 #[derive(Insertable, AsChangeset, Deserialize, Clone, Debug)]
 #[table_name = "event"]
+#[serde(rename_all = "camelCase")]
 pub struct NewEventFields {
     pub name: String,
     pub semester: String,
@@ -597,6 +609,7 @@ pub enum Period {
 /// | summary          | string         |                      | public event summary  |
 /// | description      | string         |                      | public event summary  |
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct EventUpdate {
     // event fields
     #[serde(flatten)]
@@ -637,6 +650,7 @@ pub struct EventUpdate {
 #[derive(Identifiable, Queryable, Serialize, Clone)]
 #[table_name = "absence_request"]
 #[primary_key(member, event)]
+#[serde(rename_all = "camelCase")]
 pub struct AbsenceRequest {
     /// The email of the member that requested an absence
     pub member: String,
@@ -658,6 +672,7 @@ pub struct AbsenceRequest {
 /// | reason | string |     ✓     |          |
 #[derive(Deserialize, Insertable)]
 #[table_name = "absence_request"]
+#[serde(rename_all = "camelCase")]
 pub struct NewAbsenceRequest {
     pub reason: String,
 }
@@ -693,6 +708,7 @@ pub struct NewAbsenceRequest {
 #[derive(Identifiable, Queryable, Serialize, Deserialize, Insertable, PartialEq, Debug)]
 #[table_name = "active_semester"]
 #[primary_key(member, semester)]
+#[serde(rename_all = "camelCase")]
 pub struct ActiveSemester {
     /// The email of the active member
     pub member: String,
@@ -715,6 +731,7 @@ pub struct ActiveSemester {
 /// | section    | string |           |          |
 #[derive(Deserialize, AsChangeset)]
 #[table_name = "active_semester"]
+#[serde(rename_all = "camelCase")]
 pub struct ActiveSemesterUpdate {
     #[serde(deserialize_with = "deser_enrollment")]
     pub enrollment: Option<Enrollment>,
@@ -754,6 +771,7 @@ pub struct ActiveSemesterUpdate {
 /// ```
 #[derive(Identifiable, Queryable, Serialize, Deserialize)]
 #[table_name = "announcement"]
+#[serde(rename_all = "camelCase")]
 pub struct Announcement {
     /// The ID of the announcement
     pub id: i32,
@@ -779,6 +797,7 @@ pub struct Announcement {
 /// |---------|--------|:---------:|----------|
 /// | content | string |     ✓     |          |
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewAnnouncement {
     pub content: String,
 }
@@ -815,6 +834,7 @@ pub struct NewAnnouncement {
 #[derive(Identifiable, Queryable, Serialize, Deserialize, PartialEq, Clone)]
 #[table_name = "attendance"]
 #[primary_key(member, event)]
+#[serde(rename_all = "camelCase")]
 pub struct Attendance {
     /// The email of the member this attendance belongs to
     pub member: String,
@@ -845,6 +865,7 @@ pub struct Attendance {
 /// | confirmed    | boolean |     ✓     |          |
 #[derive(Deserialize, AsChangeset)]
 #[table_name = "attendance"]
+#[serde(rename_all = "camelCase")]
 pub struct AttendanceForm {
     #[serde(rename = "shouldAttend")]
     pub should_attend: bool,
@@ -857,6 +878,7 @@ pub struct AttendanceForm {
 
 #[derive(Insertable, Deserialize)]
 #[table_name = "attendance"]
+#[serde(rename_all = "camelCase")]
 pub struct NewAttendance {
     pub event: i32,
     #[serde(rename = "shouldAttend")]
@@ -890,6 +912,7 @@ pub struct NewAttendance {
 /// ```
 #[derive(Identifiable, Queryable, Serialize)]
 #[table_name = "carpool"]
+#[serde(rename_all = "camelCase")]
 pub struct Carpool {
     /// The ID of the carpool
     pub id: i32,
@@ -909,6 +932,7 @@ pub struct Carpool {
 /// | driver | string  |     ✓     |          |
 #[derive(Deserialize, Insertable)]
 #[table_name = "carpool"]
+#[serde(rename_all = "camelCase")]
 pub struct NewCarpool {
     pub event: i32,
     pub driver: String,
@@ -923,6 +947,7 @@ pub struct NewCarpool {
 /// | driver     | string     |     ✓     | the email of the driver                   |
 /// | passengers | \[string\] |     ✓     | the emails of the passengers              |
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdatedCarpool {
     pub driver: String,
     pub passengers: Vec<String>,
@@ -952,6 +977,7 @@ pub struct UpdatedCarpool {
 #[derive(Identifiable, Queryable, Serialize, Deserialize)]
 #[table_name = "fee"]
 #[primary_key(name)]
+#[serde(rename_all = "camelCase")]
 pub struct Fee {
     /// The short name of the fee
     pub name: String,
@@ -990,6 +1016,7 @@ pub struct Fee {
 #[derive(Identifiable, Queryable, AsChangeset, Insertable, Serialize, Deserialize)]
 #[table_name = "google_docs"]
 #[primary_key(name)]
+#[serde(rename_all = "camelCase")]
 pub struct GoogleDoc {
     /// The name of the Google Doc
     pub name: String,
@@ -1022,6 +1049,7 @@ pub struct GoogleDoc {
 /// ```
 #[derive(Identifiable, Queryable, Serialize)]
 #[table_name = "uniform"]
+#[serde(rename_all = "camelCase")]
 pub struct Uniform {
     /// The ID of the uniform
     pub id: i32,
@@ -1046,6 +1074,7 @@ pub struct Uniform {
 /// | description | string |           |                                               |
 #[derive(Insertable, AsChangeset, Deserialize)]
 #[table_name = "uniform"]
+#[serde(rename_all = "camelCase")]
 pub struct NewUniform {
     pub name: String,
     #[serde(default, deserialize_with = "deser_opt_string")]
@@ -1083,6 +1112,7 @@ pub struct NewUniform {
 #[derive(Identifiable, Insertable, Queryable, Serialize)]
 #[table_name = "gig"]
 #[primary_key(event)]
+#[serde(rename_all = "camelCase")]
 pub struct Gig {
     /// The ID of the event this gig belongs to
     pub event: i32,
@@ -1129,6 +1159,7 @@ pub struct Gig {
 /// | description     | string   |           |          |
 #[derive(Insertable, AsChangeset, Deserialize, Debug, Clone)]
 #[table_name = "gig"]
+#[serde(rename_all = "camelCase")]
 pub struct NewGig {
     #[serde(rename = "performanceTime", with = "naivedatetime_posix")]
     pub performance_time: NaiveDateTime,
@@ -1190,6 +1221,7 @@ pub struct NewGig {
 /// ```
 #[derive(Identifiable, Queryable, Serialize, Deserialize)]
 #[table_name = "gig_request"]
+#[serde(rename_all = "camelCase")]
 pub struct GigRequest {
     /// The ID of the gig request
     pub id: i32,
@@ -1239,6 +1271,7 @@ pub struct GigRequest {
 /// | comments     | string   |           |          |
 #[derive(Deserialize, Insertable)]
 #[table_name = "gig_request"]
+#[serde(rename_all = "camelCase")]
 pub struct NewGigRequest {
     pub name: String,
     pub organization: String,
@@ -1288,6 +1321,7 @@ pub struct NewGigRequest {
 /// ```
 #[derive(Queryable, Identifiable, Serialize)]
 #[table_name = "song"]
+#[serde(rename_all = "camelCase")]
 pub struct Song {
     /// The ID of the song
     pub id: i32,
@@ -1317,6 +1351,7 @@ pub struct Song {
 /// | info  | string |           |          |
 #[derive(Deserialize, Insertable)]
 #[table_name = "song"]
+#[serde(rename_all = "camelCase")]
 pub struct NewSong {
     pub title: String,
     #[serde(default, deserialize_with = "deser_opt_string")]
@@ -1336,6 +1371,7 @@ pub struct NewSong {
 /// | mode          | string |           | See [SongMode](enum.SongMode.html) |
 #[derive(Deserialize, AsChangeset)]
 #[table_name = "song"]
+#[serde(rename_all = "camelCase")]
 pub struct SongUpdate {
     pub title: String,
     pub current: bool,
@@ -1375,6 +1411,7 @@ pub struct SongUpdate {
 #[derive(Serialize, Insertable, Identifiable, Queryable)]
 #[table_name = "gig_song"]
 #[primary_key(event, song)]
+#[serde(rename_all = "camelCase")]
 pub struct GigSong {
     /// The ID of the event this setlist refers to
     pub event: i32,
@@ -1392,6 +1429,7 @@ pub struct GigSong {
 /// |-------|---------|:---------:|----------|
 /// | song  | integer |     ✓     |          |
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewGigSong {
     pub song: i32,
 }
@@ -1420,6 +1458,7 @@ pub struct NewGigSong {
 #[derive(Serialize, Identifiable, Queryable)]
 #[table_name = "media_type"]
 #[primary_key(name)]
+#[serde(rename_all = "camelCase")]
 pub struct MediaType {
     /// The name of the type of media
     pub name: String,
@@ -1456,6 +1495,7 @@ pub struct MediaType {
 /// ```
 #[derive(Serialize, Identifiable, Queryable)]
 #[table_name = "minutes"]
+#[serde(rename_all = "camelCase")]
 pub struct MeetingMinutes {
     /// The id of the meeting minutes
     pub id: i32,
@@ -1481,6 +1521,7 @@ pub struct MeetingMinutes {
 /// | name  | string |     ✓     |          |
 #[derive(Insertable, Deserialize)]
 #[table_name = "minutes"]
+#[serde(rename_all = "camelCase")]
 pub struct NewMeetingMinutes {
     pub name: String,
 }
@@ -1496,6 +1537,7 @@ pub struct NewMeetingMinutes {
 /// | public  | string |           |          |
 #[derive(AsChangeset, Deserialize)]
 #[table_name = "minutes"]
+#[serde(rename_all = "camelCase")]
 pub struct UpdatedMeetingMinutes {
     pub name: String,
     #[serde(deserialize_with = "deser_opt_string")]
@@ -1528,6 +1570,7 @@ pub struct UpdatedMeetingMinutes {
 #[derive(Identifiable, Queryable, Serialize)]
 #[table_name = "permission"]
 #[primary_key(name)]
+#[serde(rename_all = "camelCase")]
 pub struct Permission {
     /// The name of the permission
     pub name: String,
@@ -1565,6 +1608,7 @@ pub struct Permission {
 #[derive(Insertable, Serialize, Identifiable, Queryable)]
 #[table_name = "rides_in"]
 #[primary_key(member, carpool)]
+#[serde(rename_all = "camelCase")]
 pub struct RidesIn {
     /// The email of the member in the carpool
     pub member: String,
@@ -1601,6 +1645,7 @@ pub struct RidesIn {
 /// ```
 #[derive(Serialize, Identifiable, Queryable)]
 #[table_name = "role_permission"]
+#[serde(rename_all = "camelCase")]
 pub struct RolePermission {
     /// The ID of the role permission
     pub id: i32,
@@ -1643,6 +1688,7 @@ pub struct RolePermission {
 /// ```
 #[derive(Serialize, Identifiable, Queryable)]
 #[table_name = "song_link"]
+#[serde(rename_all = "camelCase")]
 pub struct SongLink {
     /// The ID of the song link
     pub id: i32,
@@ -1667,6 +1713,7 @@ pub struct SongLink {
 /// | name    | string |     ✓     |          |
 /// | target  | string |     ✓     |          |
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewSongLink {
     #[serde(rename = "type")]
     pub type_: String,
@@ -1691,6 +1738,7 @@ pub enum NewLinkTarget {
 /// | target  | string |     ✓     |          |
 #[derive(Deserialize, AsChangeset)]
 #[table_name = "song_link"]
+#[serde(rename_all = "camelCase")]
 pub struct SongLinkUpdate {
     pub name: String,
     pub target: String,
@@ -1723,6 +1771,7 @@ pub struct SongLinkUpdate {
 /// ```
 #[derive(Serialize, Identifiable, Queryable)]
 #[table_name = "todo"]
+#[serde(rename_all = "camelCase")]
 pub struct Todo {
     /// The ID of this todo
     pub id: i32,
@@ -1743,6 +1792,7 @@ pub struct Todo {
 /// | text    | string     |     ✓     | the task to do            |
 /// | members | \[string\] |     ✓     | the emails of the members |
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewTodo {
     pub text: String,
     pub members: Vec<String>,
@@ -1768,6 +1818,7 @@ pub struct NewTodo {
 #[derive(Serialize, Identifiable, Queryable)]
 #[table_name = "transaction_type"]
 #[primary_key(name)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionType {
     /// The name of the transaction type
     pub name: String,
@@ -1810,6 +1861,7 @@ pub struct TransactionType {
 /// ```
 #[derive(Serialize, Identifiable, Queryable)]
 #[table_name = "transaction"]
+#[serde(rename_all = "camelCase")]
 pub struct Transaction {
     /// The ID of the transaction
     pub id: i32,
@@ -1846,6 +1898,7 @@ pub struct Transaction {
 /// | resolved    | boolean |     ✓     |          |
 #[derive(Deserialize, Serialize, Insertable, Queryable)]
 #[table_name = "transaction"]
+#[serde(rename_all = "camelCase")]
 pub struct NewTransaction {
     pub member: String,
     pub amount: i32,
@@ -1858,6 +1911,7 @@ pub struct NewTransaction {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionBatch {
     pub members: Vec<String>,
     #[serde(rename = "type")]
@@ -1890,6 +1944,7 @@ pub struct TransactionBatch {
 #[derive(Identifiable, Queryable, Serialize, Deserialize, Insertable)]
 #[table_name = "session"]
 #[primary_key(member)]
+#[serde(rename_all = "camelCase")]
 pub struct Session {
     /// The email of the logged in member
     pub member: String,
@@ -1906,6 +1961,7 @@ pub struct Session {
 /// | email    | string |     ✓     |          |
 /// | passHash | string |     ✓     |          |
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LoginInfo {
     pub email: String,
     #[serde(rename = "passHash")]
@@ -1913,6 +1969,7 @@ pub struct LoginInfo {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PasswordReset {
     #[serde(rename = "passHash")]
     pub pass_hash: String,
@@ -1940,6 +1997,7 @@ pub struct PasswordReset {
 #[derive(Identifiable, Queryable, Serialize, Deserialize, Insertable)]
 #[table_name = "variable"]
 #[primary_key(key)]
+#[serde(rename_all = "camelCase")]
 pub struct Variable {
     /// The name of the variable
     pub key: String,
@@ -1955,6 +2013,7 @@ pub struct Variable {
 /// |-------|--------|:---------:|----------|
 /// | value | string |     ✓     |          |
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewValue {
     pub value: String,
 }

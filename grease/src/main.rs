@@ -233,7 +233,7 @@
 //! **GET**    | /static_data       | [static_data](crate::routes::misc_routes::static_data)
 
 #![recursion_limit = "512"]
-#![feature(drain_filter)]
+#![feature(drain_filter, backtrace)]
 
 mod auth;
 mod cron;

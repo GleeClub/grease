@@ -220,7 +220,7 @@ pub fn remove_song_link(link_id: i32, mut user: User) -> GreaseResult<Value> {
 /// The user must be logged in and be able to "edit-repertoire" generally.
 pub fn cleanup_song_files(confirm: Option<bool>, mut user: User) -> GreaseResult<Value> {
     check_for_permission!(user => "edit-repertoire");
-    let all_music_files = glob::glob("../httpsdocs/music/*")
+    let all_music_files = glob::glob("../httpdocs/music/*")
         .map_err(|err| {
             GreaseError::ServerError(format!(
                 "couldn't index through music file directory: {}",
@@ -254,7 +254,7 @@ pub fn cleanup_song_files(confirm: Option<bool>, mut user: User) -> GreaseResult
 
     if confirm.unwrap_or(false) {
         for file in dangling_files {
-            let path = format!("../httpsdocs/music/{}", file);
+            let path = format!("../httpdocs/music/{}", file);
             std::fs::remove_file(path).map_err(|err| {
                 GreaseError::ServerError(format!(
                     "error deleting music file named {}: {}",
