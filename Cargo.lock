@@ -938,6 +938,7 @@ dependencies = [
  "glob",
  "icalendar",
  "itertools",
+ "lazy_static",
  "regex",
  "serde",
  "serde_json",

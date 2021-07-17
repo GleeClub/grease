@@ -1,79 +1,90 @@
-use sqlx::FromRow;
+use async_graphql::{ComplexObject, Context, Object};
 use chrono::NaiveDateTime;
-use async_graphql::Result;
+use sqlx::{FromRow, MySqlPool, Result};
 
-#[derive(FromRow)]
+#[derive(FromRow, ComplexObject)]
 pub struct Minutes {
+    /// The id of the meeting minutes
     pub id: i32,
+    /// The name of the meeting
     pub name: String,
+    /// When these notes were initially created
     pub date: NaiveDateTime,
+    /// The public, redacted notes visible by all members
+    pub public: Option<String>,
+    #[graphql(skip)]
     pub private: Option<String>,
-    pub public: Option<String>
 }
 
 impl Minutes {
-    pub const TABLE_NAME: &str = "minutes";
+    // pub const TABLE_NAME: &str = "minutes";
 
-    pub async fn try_load(id: i32, conn: &mut MySqlConnection) -> Result<Option<Self>> {
-        sqlx::query_as!(Minutes, "SELECT * FROM minutes WHERE id = ?", id).fetch_optional(conn).await
+    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
+        sqlx::query_as!(Minutes, "SELECT * FROM minutes WHERE id = ?", id)
+            .fetch_optional(conn)
+            .await
     }
 
-    pub async fn load(id: i21, conn: &mut MySqlConnection) -> sqlx::Result<Self> {
+    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+        Self::with_id_opt(id, pool)
+            .await
+            .and_then(|res| res.ok_or_else(|| format!("No meeting minutes with id {}", id)))
     }
 
-    def self.with_id!(id)
-      (with_id id) || raise "No meeting minutes with id #{id}"
-    end
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM minutes ORDER BY date")
+            .query_all(pool)
+            .await
+            .into()
+    }
 
-    def self.all
-      CONN.query_all "SELECT * FROM #{@@table_name} ORDER BY date", as: Minutes
-    end
+    pub async fn create(name: &str, pool: &MySqlPool) -> Result<i32> {
+        pool.begin(|tx| {
+            sqlx::query!("INSERT INTO minutes (name) VALUES (?)", name)
+                .query(tx)
+                .await?;
+            sqlx::query!("SELECT id FROM minutes ORDER BY id DESC")
+                .query(tx)
+                .await
+                .into()
+        })
+    }
 
-    def self.create(name)
-      CONN.exec "INSERT INTO #{@@table_name} (name) VALUES (?)", name
-      CONN.query_one "SELECT id FROM #{@@table_name} ORDER BY id DESC", as: Int32
-    end
+    pub async fn update(id: i32, form: MinutesUpdate, pool: &MySqlPool) -> Result<()> {
+        sqlx::query!(
+            "UPDATE minutes SET name = ?, private = ?, public = ? WHERE ID = ?",
+            form.name,
+            form.complete,
+            form.public,
+            id
+        )
+        .query(pool)
+        .await
+        .into()
+    }
 
-    def update(form)
-      CONN.exec "UPDATE #{@@table_name} \
-        SET name = ?, private = ?, public = ? \
-        WHERE id = ?",
-        form.name, form.complete, form.public, @id
+    pub async fn delete(id: i32, pool: &MySqlPool) -> Result<()> {
+        sqlx::query!("DELETE FROM minutes WHERE id = ?", id)
+            .query(pool)
+            .await
+            .into()
+    }
 
-      @name, @complete, @public = form.name, form.complete, form.public
-    end
+    // def email
+    //   # TODO: implement
+    // end
+}
 
-    def delete
-      CONN.exec "DELETE FROM  #{@@table_name} WHERE id = ?", @id
-    end
+#[Complex]
+impl Minutes {
+    /// The private, complete officer notes
+    pub async fn private(&self, ctx: &Context<'_>) -> Option<&str> {
+        if let Some(user) = ctx.data_opt::<Member>() {
+            if user.able_to(Permission::VIEW_COMPLETE_MINUTES) {
+                return Some(self.complete);
+            }
+        }
 
-    def email
-      # TODO: implement
-    end
-
-    @[GraphQL::Field(description: "The id of the meeting minutes")]
-    def id : Int32
-      @id
-    end
-
-    @[GraphQL::Field(description: "The name of the meeting")]
-    def name : String
-      @name
-    end
-
-    @[GraphQL::Field(name: "date", description: "When these notes were initially created")]
-    def gql_date : String
-      @date.to_s
-    end
-
-    @[GraphQL::Field(description: "The private, complete officer notes")]
-    def private(context : UserContext) : String?
-      (context.able_to? Permissions::VIEW_COMPLETE_MINUTES) ? @complete : nil
-    end
-
-    @[GraphQL::Field(description: "The public, redacted notes visible by all members")]
-    def public : String?
-      @public
-    end
-  end
-end
+        None
+    }
+}

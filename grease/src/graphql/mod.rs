@@ -1,6 +1,5 @@
 use async_graphql::{Context, Guard, Result};
 use models::member::Member;
-use sqlx::MySqlConnection;
 
 mod input;
 mod models;
@@ -21,6 +20,48 @@ impl Guard for LoggedIn {
     }
 }
 
-pub fn get_conn(ctx: Context<'_>) -> Result<MysqlConnection> {
-    ctx.data_unchecked::<MysqlConnection>()
+pub fn handle_request(request: cgi::Request) -> cgi::Response {
+    let mut response = None;
+    let bt = Arc::new(Mutex::new(None));
+
+    let bt2 = bt.clone();
+    std::panic::set_hook(Box::new(move |_| {
+        *bt2.lock().unwrap() = Some(Backtrace::new());
+    }));
+
+    panic::catch_unwind(AssertUnwindSafe(|| {
+        if request.method() == "OPTIONS" {
+            response = Some(options_response());
+            return;
+        }
+
+        let (status_code, value) = match route_request(&request) {
+            Ok(resp) => (200, resp),
+            Err(error) => error.as_response(),
+        };
+
+        let body = serde_json::to_string(&value)
+            .unwrap_or_default()
+            .into_bytes();
+        response = Some(
+            response::Builder::new()
+                .status(status_code)
+                .header(CONTENT_TYPE, "application/json")
+                .header("Access-Control-Allow-Origin", "*")
+                .header(CONTENT_LENGTH, body.len().to_string().as_str())
+                .body(body)
+                .unwrap(),
+        );
+    }))
+    .ok();
+
+    response.unwrap_or_else(move || {
+        let error = bt
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|bt| format!("{:?}", bt))
+            .unwrap_or_default();
+        crate::util::log_panic(&request, error)
+    })
 }

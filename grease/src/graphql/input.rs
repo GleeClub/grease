@@ -277,66 +277,6 @@ module Input
   end
 
   @[GraphQL::InputObject]
-  class NewSong
-    include GraphQL::InputObjectType
-
-    getter title, info
-
-    @[GraphQL::Field]
-    def initialize(@title : String, @info : String?)
-    end
-  end
-
-  @[GraphQL::InputObject]
-  class SongUpdate
-    include GraphQL::InputObjectType
-
-    @key : Models::Song::Pitch?
-    @starting_pitch : Models::Song::Pitch?
-    @mode : Models::Song::Mode?
-
-    getter title, current, info, key,
-      starting_pitch, mode
-
-    @[GraphQL::Field]
-    def initialize(
-      @title : String,
-      @current : Bool,
-      @info : String?,
-      key : String?,
-      starting_pitch : String?,
-      mode : String?
-    )
-      @key = key.try { |k| Models::Song::Pitch.parse k }
-      @starting_pitch = starting_pitch.try { |sp| Models::Song::Pitch.parse sp }
-      @mode = mode.try { |m| Models::Song::Mode.parse m }
-    end
-  end
-
-  @[GraphQL::InputObject]
-  class NewSongLink
-    include GraphQL::InputObjectType
-
-    getter type, name, target, content
-
-    @[GraphQL::Field]
-    def initialize(@type : String, @name : String,
-                   @target : String, @content : String?)
-    end
-  end
-
-  @[GraphQL::InputObject]
-  class SongLinkUpdate
-    include GraphQL::InputObjectType
-
-    getter name, target
-
-    @[GraphQL::Field]
-    def initialize(@name : String, @target : String)
-    end
-  end
-
-  @[GraphQL::InputObject]
   class TransactionBatch
     include GraphQL::InputObjectType
 

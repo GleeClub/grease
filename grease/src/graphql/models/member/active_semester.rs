@@ -1,9 +1,20 @@
-require "uuid"
-require "graphql"
+use async_graphql::Enum;
 
-require "../../db"
-require "./grades"
-require "../permissions/constants"
+pub struct ActiveSemester {
+    pub member: String,
+    pub semester: String,
+    pub enrollment: Enrollment,
+    pub section: Option<String>,
+}
+
+#[derive(Enum)]
+pub enum Enrollment {
+    Class,
+    Club,
+}
+
+impl ActiveSemester {
+
 
 module Models
   @[GraphQL::Object]
@@ -11,33 +22,6 @@ module Models
     include GraphQL::ObjectType
 
     class_getter table_name = "active_semester"
-
-    @[GraphQL::Enum]
-    enum Enrollment
-      CLASS
-      CLUB
-
-      def self.mapping
-        {
-          "CLASS" => CLASS,
-          "CLUB"  => CLUB,
-        }
-      end
-
-      def to_rs
-        Enrollment.mapping.invert[self].downcase
-      end
-
-      def self.from_rs(rs)
-        val = rs.read
-        enrollment = val.as?(String).try { |v| Enrollment.mapping[v.upcase]? }
-        enrollment || raise "Invalid enrollment returned from database: #{val}"
-      end
-
-      def self.parse(val)
-        Enrollment.mapping[val]? || raise "Invalid enrollment variant provided: #{val}"
-      end
-    end
 
     DB.mapping({
       member:     String,
@@ -80,19 +64,21 @@ module Models
       end
     end
 
-    @[GraphQL::Field(description: "The grades for the member in the given semester")]
+}
+
+#[Object]
+impl ActiveSemester {
+    /// The grades for the member in the given semester
     def grades : Models::Grades
       Grades.for_member (Member.with_email! @member), (Semester.with_name! @semester)
     end
 
-    @[GraphQL::Field]
-    def semester : String
-      @semester
-    end
+    /// The name of the semester
+    pub async fn semester(&self) -> &str {
+        &self.semester
+    }
 
-    @[GraphQL::Field]
-    def enrollment : Models::ActiveSemester::Enrollment
-      @enrollment
-    end
-  end
-end
+    pub async fn enrollment(&self) -> Enrollment {
+        self.enrollment
+    }
+}

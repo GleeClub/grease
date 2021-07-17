@@ -39,7 +39,7 @@ impl Fee {
             let members_who_havent_paid = sqlx::query!(
                 "SELECT member FROM active_semester WHERE semester = ? AND email NOT IN \
                  (SELECT member FROM transaction WHERE type = ? AND description = ?)",
-                 Semester::current()?.name, DUES_NAME, DUES_DESCRIPTION)
+                 Semester::current().await?.name, DUES_NAME, DUES_DESCRIPTION)
                 .query_all(conn).await?;
 
             for email in members_who_havent_paid {
