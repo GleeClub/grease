@@ -238,10 +238,12 @@
 mod auth;
 mod cron;
 mod db;
+pub mod db_conn;
 mod error;
+mod graphql;
+pub mod models;
 pub mod routes;
 mod util;
-mod graphql;
 
 fn main() {
     dotenv::dotenv().ok();

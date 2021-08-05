@@ -1,41 +1,4 @@
-require "graphql"
-require "../models/member"
-
 module Input
-  def self.parse_datetime(str, value_name)
-    Time::Format::ISO_8601_DATE_TIME.parse str
-  rescue
-    raise "#{value_name} was not a valid datetime"
-  end
-
-  def self.parse_date(str, value_name)
-    Time::Format::ISO_8601_DATE.parse str
-  rescue
-    raise "#{value_name} was not a valid datetime"
-  end
-
-  @[GraphQL::InputObject]
-  class LoginInfo
-    include GraphQL::InputObjectType
-
-    getter email, pass_hash
-
-    @[GraphQL::Field]
-    def initialize(@email : String, @pass_hash : String)
-    end
-  end
-
-  @[GraphQL::InputObject]
-  class PasswordReset
-    include GraphQL::InputObjectType
-
-    getter pass_hash
-
-    @[GraphQL::Field]
-    def initialize(@pass_hash : String)
-    end
-  end
-
   @[GraphQL::InputObject]
   class NewMember
     include GraphQL::InputObjectType
@@ -180,15 +143,6 @@ module Input
     end
   end
 
-  @[GraphQL::Enum]
-  enum Period
-    NO
-    DAILY
-    WEEKLY
-    BIWEEKLY
-    MONTHLY
-    YEARLY
-  end
 
   @[GraphQL::InputObject]
   class AttendanceForm

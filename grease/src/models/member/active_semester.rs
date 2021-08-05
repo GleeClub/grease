@@ -1,9 +1,17 @@
-require "uuid"
-require "graphql"
+use async_graphql::Enum;
 
-require "../../db"
-require "./grades"
-require "../permissions/constants"
+pub struct ActiveSemester {
+    pub member: String,
+    pub semester: String,
+    pub enrollment: Enrollment,
+    pub section: Option<String>,
+}
+
+#[derive(Enum)]
+pub enum Enrollment {
+    Class,
+    Club,
+}
 
 module Models
   @[GraphQL::Object]

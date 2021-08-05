@@ -302,3 +302,13 @@ module Models
     end
   end
 end
+
+  @[GraphQL::Enum]
+  enum Period
+    NO
+    DAILY
+    WEEKLY
+    BIWEEKLY
+    MONTHLY
+    YEARLY
+  end

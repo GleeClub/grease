@@ -1,4 +1,4 @@
-use async_graphql::Guard;
+use async_graphql::guard::Guard;
 
 pub struct Permission {
     name: &'static str,

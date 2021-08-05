@@ -1,14 +1,16 @@
-@[GraphQL::Object]
-class Mutation
-  include GraphQL::ObjectType
-  include GraphQL::MutationType
+use async_graphql::{Object, Context};
 
-  @[GraphQL::Field(description: "Gets a login token on successful login")]
-  def login(email : String, pass_hash : String) : String
-    raise "The given email or password is invalid" unless Models::Member.valid_login? email, pass_hash
+pub struct MutationRoot;
 
-    Models::Session.get_or_generate_token email
-  end
+#[Object]
+impl MutationRoot {
+    /// Gets a login token on successful login
+    pub async fn login(ctx: Context, email: String, pass_hash: String) -> Result<String> {
+        let conn = ctx.data_unchecked::<DbConn>();
+        Member::validate_login(&email, &pass_hash, conn).await?;
+        
+        Session::get_or_generate_token(&email, conn).await.into()
+    }
 
   @[GraphQL::Field(description: "Logs the member out")]
   def logout(context : UserContext) : Bool

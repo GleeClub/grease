@@ -1,46 +1,46 @@
-require "graphql"
-require "mysql"
+use anyhow::Context;
 
-module Models
-  @[GraphQL::Object]
-  class Role
-    include GraphQL::ObjectType
+use crate::db_conn::DbConn;
+use async_graphql::{Object, Context};
 
-    class_getter table_name = "role"
+// Roles that can be held by members to grant permissions.
+pub struct Role {
+    /// The name of the role.
+    pub name: String,
+    /// Used for ordering the positions (e.g. President beforee Ombudsman).
+    pub rank: i32,
+    /// The maximum number of the position allowed to be held at once.
+    /// If it is 0 or less, no maximum is enforced.
+    pub max_quantity: i32,
+}
 
-    DB.mapping({
-      name:         String,
-      rank:         Int32,
-      max_quantity: Int32,
-    })
+impl Role {
+    pub async fn load_all(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM role ORDER BY rank").query_all(&mut *conn).await.into()
+    }
 
-    def self.all
-      CONN.query_all "SELECT * FROM #{@@table_name} ORDER BY rank", as: Role
-    end
+    pub async fn load_for_member(email: &str, conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM role WHERE name IN (SELECT rank FROM member_role WHERE member = ?) ORDER BY rank", email).query_all(&mut *conn).await.into()
+    }
+}
 
-    def self.for_member(email)
-      CONN.query_all "SELECT * FROM #{@@table_name} \
-        WHERE name IN (SELECT rank FROM #{MemberRole.table_name} WHERE member = ?)
-        ORDER BY rank", email, as: Role
-    end
+#[derive(ComplexObject)]
+pub struct MemberRole {
+    #[graphql(skip)]
+    pub member: String,
+    /// The name of the role being held.
+    pub role: String,
+}
 
-    @[GraphQL::Field(description: "The name of the role")]
-    def name : String
-      @name
-    end
+#[complex]
+impl MemberRole {
+    /// The member holding the role.
+    pub async fn member(&self, ctx: &Context) -> Result<Member> {
+        let conn = ctx.data_unchecked::<DbConn>();
+        Member::load(&self.member, conn).await
+    }
 
-    @[GraphQL::Field(description: "Used for ordering the positions (e.g. President before Ombudsman)")]
-    def rank : Int32
-      @rank
-    end
-
-    @[GraphQL::Field(description: "The maximum number of the position allowed to be held at once. If it is 0 or less, no maximum is enforced.")]
-    def max_quantity : Int32
-      @max_quantity
-    end
-  end
-
-  @[GraphQL::Object]
+    @[GraphQL::Object]
   class MemberRole
     include GraphQL::ObjectType
 
@@ -77,15 +77,6 @@ module Models
         @member, @role
     end
 
-    @[GraphQL::Field(description: "The email of the member holding the role")]
-    def member : Models::Member
-      Member.with_email! @member
-    end
-
-    @[GraphQL::Field(description: "The name of the role being held")]
-    def role : String
-      @role
-    end
   end
 
   @[GraphQL::Object]

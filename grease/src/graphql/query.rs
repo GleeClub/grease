@@ -9,51 +9,58 @@ impl Query {
         ctx.data_opt::<Member>()
     }
 
-    #[async_graphql(guard(LoggedIn))]
+    #[graphql(guard(LoggedIn))]
     pub async fn member(email: String) -> Result<Member> {
         Member::with_email(&email).await.into()
     }
 
+    #[graphql(guard(LoggedIn))]
+    pub async fn members(
+        ctx: Context,
+        #[graphql(default = true)] include_class: bool,
+        #[graphql(default = true)] include_club: bool,
+        #[graphql(default = true)] include_inactive: bool,
+    ) -> Result<Vec<Member>> {
+        let conn = ctx.data_unchecked::<DbConn>();
+        let semester = Semester::load_current(conn).await?;
 
-  @[GraphQL::Field]
-  def member(email : String, context : UserContext) : Models::Member
-    context.logged_in!
+        let mut selected_members = vec![];
+        for member in Member::load_all(conn).await? {
+            let enrollment = member.load_semester(semester.name).await?.map(|s| s.enrollment);
+            let include_member = match enrollment {
+                Some(Enrollment::Class) => include_class,
+                Some(Enrollment::Club) => include_club,
+                None => include_inactive
+            };
 
-    Models::Member.with_email! email
-  end
+            if include_member {
+                selected_members.push(member);
+            }
+        }
 
-  @[GraphQL::Field]
-  def members(context : UserContext, include_class : Bool = true, include_club : Bool = true, include_inactive : Bool = false) : Array(Models::Member)
-    context.logged_in!
+        Ok(selected_members)
+    }
 
-    Models::Member.all.select do |member|
-      enrollment = member.get_semester(Models::Semester.current.name).try &.enrollment
+    #[graphql(guard(LoggedIn))]
+    pub async fn event(ctx: &Context, id: i32) -> Result<Event> {
+        let conn = ctx.data_unchecked::<DbConn>();
+        Event::load(id, conn).await
+    }
 
-      (include_class && enrollment == Models::ActiveSemester::Enrollment::CLASS) ||
-        (include_club && enrollment == Models::ActiveSemester::Enrollment::CLUB) ||
-        (include_inactive && enrollment.nil?)
-    end
-  end
+    #[graphql(guard(LoggedIn))]
+    pub async fn events(ctx: &Context) -> Result<Vec<Event>> {
+        let conn = ctx.data_unchecked::<DbConn>();
+        let semester = Semester::load_current(conn).await?;
+        Event::load_all_for_semester(&semester.name, conn).await
+    }
 
-  @[GraphQL::Field]
-  def event(id : Int32, context : UserContext) : Models::Event
-    context.logged_in!
+    #[graphql(guard(LoggedIn))]
+    pub async fn public_events(ctx: &Context) -> Result<Vec<PublicEvent>> {
+        let conn = ctx.data_unchecked::<DbConn>();
+        PublicEvent::load_all_for_current_semester(conn).await
+    }
 
-    Models::Event.with_id! id
-  end
-
-  @[GraphQL::Field]
-  def events(context : UserContext) : Array(Models::Event)
-    context.logged_in!
-
-    Models::Event.for_semester Models::Semester.current.name
-  end
-
-  @[GraphQL::Field]
-  def public_events : Array(Models::PublicEvent)
-    Models::PublicEvent.all_for_current_semester
-  end
-
+ 
   @[GraphQL::Field]
   def absence_requests(context : UserContext) : Array(Models::AbsenceRequest)
     context.able_to! Permissions::PROCESS_ABSENCE_REQUESTS
