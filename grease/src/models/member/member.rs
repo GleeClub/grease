@@ -1,57 +1,40 @@
-require "uuid"
-require "mysql"
-require "graphql"
-require "crypto/bcrypt"
+#[derive(SimpleObject)]
+pub struct Member {
+    pub email:                String,
+    pub first_name:           String,
+    pub preferred_name:       Option<String>,
+    pub last_name:            String,
+    pub pass_hash:            String,
+    pub phone_number:         String,
+    pub picture:              Option<String>,
+    pub passengers:           i32,
+    pub location:             String,
+    pub on_campus:            Option<bool>,
+    pub about:                Option<String>,
+    pub major:                Option<String>,
+    pub minor:                Option<String>,
+    pub hometown:             Option<String>,
+    pub arrived_at_tech:      Option<Int32>,
+    pub gateway_drug:         Option<String>,
+    pub conflicts:            Option<String>,
+    pub dietary_restrictions: Option<String>,
+}
 
-require "./grades/*"
-require "../permissions/*"
-require "./session"
-require "./active_semester"
+// @semesters : Hash(String, ActiveSemester)?
 
-module Models
-  Password = Crypto::Bcrypt::Password
+impl Member {
+    pub async fn with_email_opt(email: &str, pool: &MySqlPool) -> Result<Option<Member>> {
+        sqlx::query_as!(Member, "SELECT * FROM member WHERE email = ?", email).query_optional(pool).await.into()
+    }
 
-  @[GraphQL::Object]
-  class Member
-    include GraphQL::ObjectType
+    pub async fn with_email(email: &str, pool: &MySqlPool) -> Result<Member> {
+        Self::with_email_opt(email, pool).and_then(|res| res.ok_or_else(|| format!("No member with email {}", email)))
+    }
 
-    class_getter table_name = "member"
-
-    @semesters : Hash(String, ActiveSemester)?
-
-    DB.mapping({
-      email:                String,
-      first_name:           String,
-      preferred_name:       String?,
-      last_name:            String,
-      pass_hash:            String,
-      phone_number:         String,
-      picture:              String?,
-      passengers:           {type: Int32, default: 0},
-      location:             String,
-      on_campus:            Bool?,
-      about:                String?,
-      major:                String?,
-      minor:                String?,
-      hometown:             String?,
-      arrived_at_tech:      Int32?,
-      gateway_drug:         String?,
-      conflicts:            String?,
-      dietary_restrictions: String?,
-    })
-
-    def self.with_email(email)
-      CONN.query_one? "SELECT * FROM #{@@table_name} WHERE email = ?", email, as: Member
-    end
-
-    def self.with_email!(email)
-      (with_email email) || raise "No member with email #{email}"
-    end
-
-    def self.with_token!(token)
-      session = Session.for_token! token
-      Member.with_email! session.member
-    end
+    pub async fn with_token(token: &str, pool: &MySqlPool) -> Result<Member> {
+        let session = Session::for_token(token, pool).await?;
+        Self::with_email(&session.member, pool).await
+    }
 
     def self.all
       CONN.query_all "SELECT * FROM #{@@table_name} ORDER BY last_name, first_name", as: Member
