@@ -1,39 +1,116 @@
-#[derive(SimpleObject)]
+use async_graphql::{ComplexObject, Result};
+
+#[derive(ComplexObject)]
 pub struct Member {
+    /// The member's email, which must be unique
     pub email:                String,
+    /// The member's first name
     pub first_name:           String,
+    /// The member's nick name
     pub preferred_name:       Option<String>,
+    /// The member's last name
     pub last_name:            String,
+    #[graphql(skip)]
     pub pass_hash:            String,
+    /// The member's phone number
     pub phone_number:         String,
+    /// An optional link to a profile picture for the member
     pub picture:              Option<String>,
+    /// How many people the member can drive to events (besides themself)
     pub passengers:           i32,
+    /// Where the member lives
     pub location:             String,
+    /// Whether the member lives on campus
     pub on_campus:            Option<bool>,
+    /// A short biography written by the member
     pub about:                Option<String>,
+    /// The member's academic major
     pub major:                Option<String>,
+    /// The member's academic minor
     pub minor:                Option<String>,
+    /// Where the member came from
     pub hometown:             Option<String>,
+    /// What year the member arrived at Georgia Tech
     pub arrived_at_tech:      Option<Int32>,
+    /// What got them to join Glee Club
     pub gateway_drug:         Option<String>,
+    /// What conflicts with rehearsal the member may have
     pub conflicts:            Option<String>,
+    /// Any dietary restrictions the member may have
     pub dietary_restrictions: Option<String>,
+}
+
+#[complex]
+impl Member {
+    /// The member's full name
+    pub async fn full_name(&self) -> String {
+        format!("{} {}", self.preferred_name.as_ref().unwrap_or(&self.first_name), self.last_name)
+    }
+
+    /// The name of the semester they were active during
+    // pub async fn semester(
+
+    // @[GraphQL::Field(description: "The name of the semester they were active during")]
+    // def semester : String?
+    //   get_semester(Semester.current.name).try &.semester
+    // end
+
+    // @[GraphQL::Field(description: "The name of the semester they were active during")]
+    // def semesters(context : UserContext) : Array(Models::ActiveSemester)
+    //   context.able_to! Permissions::VIEW_USER_PRIVATE_DETAILS unless @email == context.user!.email
+
+    //   (ActiveSemester.all_for_member @email).sort_by &.semester
+    // end
+
+    // @[GraphQL::Field(description: "Whether they were in the class or the club")]
+    // def enrollment : Models::ActiveSemester::Enrollment?
+    //   get_semester(Semester.current.name).try &.enrollment
+    // end
+
+    // @[GraphQL::Field(description: "Which section the member sang in")]
+    // def section : String?
+    //   get_semester(Semester.current.name).try &.section
+    // end
+
+    // @[GraphQL::Field(description: "The officer positions currently held by the member")]
+    // def positions : Array(String)
+    //   (Role.for_member @email).map &.name
+    // end
+
+    // @[GraphQL::Field(description: "The permissions held currently by the member")]
+    // def permissions : Array(Models::MemberPermission)
+    //   MemberPermission.for_member @email
+    // end
+
+    // @[GraphQL::Field(description: "The grades for the member in the given semester (default the current semester)")]
+    // def grades(context : UserContext) : Models::Grades
+    //   context.able_to! Permissions::VIEW_USER_PRIVATE_DETAILS unless @email == context.user!.email
+
+    //   Grades.for_member self, Semester.current
+    // end
+
+    // @[GraphQL::Field(description: "All of the member's transactions for their entire time in Glee Club")]
+    // def transactions(context : UserContext) : Array(Models::ClubTransaction)
+    //   context.able_to! Permissions::VIEW_USER_PRIVATE_DETAILS unless @email == context.user!.email
+
+    //   ClubTransaction.for_member_during_semester @email, Semester.current.name
+    // end
 }
 
 // @semesters : Hash(String, ActiveSemester)?
 
 impl Member {
-    pub async fn with_email_opt(email: &str, pool: &MySqlPool) -> Result<Option<Member>> {
-        sqlx::query_as!(Member, "SELECT * FROM member WHERE email = ?", email).query_optional(pool).await.into()
+    pub async fn load_opt(email: &str, conn: &DbConn) -> Result<Option<Member>> {
+        sqlx::query_as!(Member, "SELECT * FROM member WHERE email = ?", email).query_optional(&mut *conn).await.into()
     }
 
-    pub async fn with_email(email: &str, pool: &MySqlPool) -> Result<Member> {
-        Self::with_email_opt(email, pool).and_then(|res| res.ok_or_else(|| format!("No member with email {}", email)))
+    pub async fn load(email: &str, conn: &DbConn) -> Result<Member> {
+        Self::with_email_opt(email, conn).and_then(|res| res.ok_or_else(|| format!("No member with email {}", email)))
     }
 
-    pub async fn with_token(token: &str, pool: &MySqlPool) -> Result<Member> {
-        let session = Session::for_token(token, pool).await?;
-        Self::with_email(&session.member, pool).await
+    pub async fn with_token(token: &str, conn: &DbConn) -> Result<Member> {
+        let session = Session::for_token(token, conn).await?;
+        Self::with_email(&session.member, conn).await
     }
 
     def self.all
@@ -147,137 +224,6 @@ impl Member {
 
     def delete
       CONN.exec "DELETE FROM #{@@table_name} WHERE email = ?", @email
-    end
-
-    @[GraphQL::Field(description: "The member's email, which must be unique")]
-    def email : String
-      @email
-    end
-
-    @[GraphQL::Field(description: "The member's first name")]
-    def first_name : String
-      @first_name
-    end
-
-    @[GraphQL::Field(description: "The member's nick name")]
-    def preferred_name : String?
-      @preferred_name
-    end
-
-    @[GraphQL::Field(description: "The member's last name")]
-    def last_name : String
-      @last_name
-    end
-
-    @[GraphQL::Field(description: "The member's full name")]
-    def full_name : String
-      "#{@preferred_name || @first_name} #{@last_name}"
-    end
-
-    @[GraphQL::Field(description: "The member's phone number")]
-    def phone_number : String
-      @phone_number
-    end
-
-    @[GraphQL::Field(description: "An optional link to a profile picture for the member")]
-    def picture : String?
-      @picture
-    end
-
-    @[GraphQL::Field(description: "An optional link to a profile picture for the member")]
-    def passengers : Int32
-      @passengers
-    end
-
-    @[GraphQL::Field(description: "Where the member lives")]
-    def location : String
-      @location
-    end
-
-    @[GraphQL::Field(description: "Whether the member currently lives on campus (assumed false)")]
-    def on_campus : Bool?
-      @on_campus
-    end
-
-    @[GraphQL::Field(description: "The member's academic major")]
-    def major : String?
-      @major
-    end
-
-    @[GraphQL::Field(description: "The member's academic minor")]
-    def minor : String?
-      @minor
-    end
-
-    @[GraphQL::Field(description: "Where the member originally comes from")]
-    def hometown : String?
-      @hometown
-    end
-
-    @[GraphQL::Field(description: "What year the member arrived at Tech (e.g. 2012)")]
-    def arrived_at_tech : Int32?
-      @arrived_at_tech
-    end
-
-    @[GraphQL::Field(description: "What brought the member to Glee Club")]
-    def gateway_drug : String?
-      @gateway_drug
-    end
-
-    @[GraphQL::Field(description: "What conflicts during the week the member may have")]
-    def conflicts : String?
-      @conflicts
-    end
-
-    @[GraphQL::Field(description: "What dietary restrictions the member may have")]
-    def dietary_restrictions : String?
-      @dietary_restrictions
-    end
-
-    @[GraphQL::Field(description: "The name of the semester they were active during")]
-    def semester : String?
-      get_semester(Semester.current.name).try &.semester
-    end
-
-    @[GraphQL::Field(description: "The name of the semester they were active during")]
-    def semesters(context : UserContext) : Array(Models::ActiveSemester)
-      context.able_to! Permissions::VIEW_USER_PRIVATE_DETAILS unless @email == context.user!.email
-
-      (ActiveSemester.all_for_member @email).sort_by &.semester
-    end
-
-    @[GraphQL::Field(description: "Whether they were in the class or the club")]
-    def enrollment : Models::ActiveSemester::Enrollment?
-      get_semester(Semester.current.name).try &.enrollment
-    end
-
-    @[GraphQL::Field(description: "Which section the member sang in")]
-    def section : String?
-      get_semester(Semester.current.name).try &.section
-    end
-
-    @[GraphQL::Field(description: "The officer positions currently held by the member")]
-    def positions : Array(String)
-      (Role.for_member @email).map &.name
-    end
-
-    @[GraphQL::Field(description: "The permissions held currently by the member")]
-    def permissions : Array(Models::MemberPermission)
-      MemberPermission.for_member @email
-    end
-
-    @[GraphQL::Field(description: "The grades for the member in the given semester (default the current semester)")]
-    def grades(context : UserContext) : Models::Grades
-      context.able_to! Permissions::VIEW_USER_PRIVATE_DETAILS unless @email == context.user!.email
-
-      Grades.for_member self, Semester.current
-    end
-
-    @[GraphQL::Field(description: "All of the member's transactions for their entire time in Glee Club")]
-    def transactions(context : UserContext) : Array(Models::ClubTransaction)
-      context.able_to! Permissions::VIEW_USER_PRIVATE_DETAILS unless @email == context.user!.email
-
-      ClubTransaction.for_member_during_semester @email, Semester.current.name
     end
   end
 
