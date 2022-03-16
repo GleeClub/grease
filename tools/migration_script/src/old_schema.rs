@@ -1,9 +1,10 @@
 #![allow(non_snake_case)]
 
-use crate::error::{MigrateError, MigrateResult};
-use crate::migrate::Load;
 use chrono::{NaiveDate, NaiveDateTime};
 use mysql::Pool;
+
+use crate::error::{MigrateError, MigrateResult};
+use crate::migrate::Load;
 
 macro_rules! impl_load {
     ($table_name:expr, pub struct $type_name:ident { $(pub $field_names:ident: $field_types:ty,)* }) => {

@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
+use bcrypt::hash;
+use mysql::Pool;
+use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
+
 use crate::error::*;
 use crate::new_schema::*;
 use crate::old_schema::*;
-use bcrypt::hash;
-use mysql::Pool;
-use std::collections::HashMap;
-use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
 
 pub trait Load: Sized {
     fn load(old_db: &Pool) -> MigrateResult<Vec<Self>>;

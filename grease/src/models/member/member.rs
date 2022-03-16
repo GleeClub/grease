@@ -113,6 +113,8 @@ impl Member {
         Self::with_email(&session.member, conn).await
     }
 
+    pub async fn load_all(conn: &DbConn) -> Result<
+
     def self.all
       CONN.query_all "SELECT * FROM #{@@table_name} ORDER BY last_name, first_name", as: Member
     end

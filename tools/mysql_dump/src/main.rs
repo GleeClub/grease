@@ -1,23 +1,33 @@
 extern crate cgi;
+extern crate chrono;
 extern crate http;
 extern crate mysql;
 extern crate serde;
 extern crate serde_json;
 extern crate url;
-extern crate chrono;
 
+use chrono::{Local, NaiveTime, TimeZone};
 use http::{header, response};
 use mysql as my;
 use mysql::Value as SqlValue;
-use serde_json::{to_value, Value, json};
+use serde_json::{json, to_value, Value};
 use url::Url;
-use chrono::{Local, TimeZone, NaiveTime};
 
 fn main() {
     cgi::handle(|request: cgi::Request| -> cgi::Response {
-        let plain_url = match request.headers().get("x-cgi-path-info").map(|q| q.to_str().unwrap_or("")).unwrap_or("") {
+        let plain_url = match request
+            .headers()
+            .get("x-cgi-path-info")
+            .map(|q| q.to_str().unwrap_or(""))
+            .unwrap_or("")
+        {
             path if path.len() > 1 => path[1..].to_string(),
-            _short => return cgi::string_response(401, "must pass DATABASE_URL with credentials as the path"),
+            _short => {
+                return cgi::string_response(
+                    401,
+                    "must pass DATABASE_URL with credentials as the path",
+                )
+            }
         };
 
         let url = match Url::parse(&plain_url) {
@@ -25,7 +35,12 @@ fn main() {
                 url.set_path(&plain_url);
                 format!("mysql://{}", url.path()[8..].to_string())
             }
-            Err(error) => return cgi::string_response(401, format!("DATABASE_URL was malformed: {:?}", error)),
+            Err(error) => {
+                return cgi::string_response(
+                    401,
+                    format!("DATABASE_URL was malformed: {:?}", error),
+                )
+            }
         };
 
         match retrieve_members(&url) {
@@ -44,8 +59,7 @@ fn main() {
 }
 
 fn retrieve_members(url: &str) -> Result<Value, String> {
-    let pool = my::Pool::new(url)
-        .map_err(|err| format!("connection failed: {:?}", err))?;
+    let pool = my::Pool::new(url).map_err(|err| format!("connection failed: {:?}", err))?;
 
     let tables: Vec<String> = pool
         .prep_exec(
@@ -75,21 +89,52 @@ fn retrieve_members(url: &str) -> Result<Value, String> {
                         let mut row = row.map_err(|err| format!("couldn't read row: {:?}", err))?;
 
                         let mut out = json!({});
-                        for (ind, column) in row.columns().iter().enumerate()  {
-                            let val = match row.take::<SqlValue, _>(ind)
-                                   .ok_or(format!("Couldn't load data from row in table {} at index {}", table_name, ind))? {
+                        for (ind, column) in row.columns().iter().enumerate() {
+                            let val = match row.take::<SqlValue, _>(ind).ok_or(format!(
+                                "Couldn't load data from row in table {} at index {}",
+                                table_name, ind
+                            ))? {
                                 SqlValue::NULL => Value::Null,
-                                SqlValue::Bytes(bytes) => Value::String(std::str::from_utf8(&bytes).map_err(|err| format!("error deserializing into string: {:?}", err))?.to_string()),
+                                SqlValue::Bytes(bytes) => Value::String(
+                                    std::str::from_utf8(&bytes)
+                                        .map_err(|err| {
+                                            format!("error deserializing into string: {:?}", err)
+                                        })?
+                                        .to_string(),
+                                ),
                                 SqlValue::Int(int) => json!(int),
                                 SqlValue::UInt(uint) => json!(uint),
                                 SqlValue::Float(float) => json!(float),
                                 SqlValue::Date(year, month, day, hour, minutes, seconds, micro) => {
-                                    let datetime = Local.ymd(year as i32, month as u32, day as u32).and_hms_micro(hour as u32, minutes as u32, seconds as u32, micro);
+                                    let datetime = Local
+                                        .ymd(year as i32, month as u32, day as u32)
+                                        .and_hms_micro(
+                                            hour as u32,
+                                            minutes as u32,
+                                            seconds as u32,
+                                            micro,
+                                        );
                                     Value::String(format!("{}", datetime.format("%+")))
                                 }
-                                SqlValue::Time(is_negative, days, hours, minutes, seconds, micro) => {
-                                    let time = NaiveTime::from_hms_micro(24 * days + hours as u32, minutes as u32, seconds as u32, micro);
-                                    Value::String(format!("{}{}", if is_negative {"-"} else {""}, time.format("%H:%M:%S%.6f")))
+                                SqlValue::Time(
+                                    is_negative,
+                                    days,
+                                    hours,
+                                    minutes,
+                                    seconds,
+                                    micro,
+                                ) => {
+                                    let time = NaiveTime::from_hms_micro(
+                                        24 * days + hours as u32,
+                                        minutes as u32,
+                                        seconds as u32,
+                                        micro,
+                                    );
+                                    Value::String(format!(
+                                        "{}{}",
+                                        if is_negative { "-" } else { "" },
+                                        time.format("%H:%M:%S%.6f")
+                                    ))
                                 }
                             };
                             out[column.name_str().to_string()] = to_value(val)

@@ -12,6 +12,8 @@ impl MutationRoot {
         Session::get_or_generate_token(&email, conn).await.into()
     }
 
+    /// Logs the member out
+    pub async fn logout(ctx: Context, )
   @[GraphQL::Field(description: "Logs the member out")]
   def logout(context : UserContext) : Bool
     Models::Session.remove_for context.user!.email

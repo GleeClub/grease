@@ -1,2 +1,2 @@
-mod grades;
-mod week;
+pub mod grades;
+pub mod week;

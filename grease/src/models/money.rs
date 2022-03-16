@@ -1,11 +1,16 @@
-use sqlx::MySqlConnection;
-use async_graphql::Result;
+use crate::db_conn::DbConn;
+use async_graphql::{Result, SimpleObject};
 
+#[derive(SimpleObject)]
 pub struct Fee {
+    /// The short name of the fee
     pub name: String,
+    /// A longer description of what it is charging members for
     pub description: String,
+    /// The amount to charge members
     pub amount: i32,
 }
+
 
 impl Fee {
     pub const DUES: &'static str = "dues";
@@ -15,27 +20,28 @@ impl Fee {
     pub const DUES_DESCRIPTION: &'static str = "Semesterly Dues";
     pub const LATE_DUES_DESCRIPTION: &'static str = "Late Dues";
 
-    pub async fn load_all(conn: &mut MySqlConnection) -> Result<Vec<Self>> {
+    pub async fn load_all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM fee ORDER BY NAME")
             .query_all(conn).await
     }
 
-    pub async fn load_opt(name: &str, conn: &mut MySqlConnection) -> Result<Option<Self>> {
+    pub async fn load_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM fee WHERE name = ?", name)
             .query_optional(conn).await
     }
 
-    pub async fn load(name: &str, conn: &mut MySqlConnection) -> Result<Self> {
+    pub async fn load(name: &str, conn: &DbConn) -> Result<Self> {
         Self::load_opt(name, conn).await.and_then(|fee| fee.ok_or_else(|| format!("No fee named {}", name)))
     }
 
-    pub async fn set_amount(name: &str, new_amount: i32, conn: &mut MySqlConnection) -> Result<()> {
+    pub async fn set_amount(name: &str, new_amount: i32, conn: &DbConn) -> Result<()> {
         sqlx::query!("UPDATE fee SET amount = ? WHERE name = ?", new_amount, name).exec(conn).await
     }
 
-    pub async fn charge_dues_for_semester(conn: &mut MySqlConnection) -> Result<()> {
+    pub async fn charge_dues_for_semester(conn: &DbConn) -> Result<()> {
         let dues = Self::load(Self::DUES, conn).await?;
-        conn.begin(|tx| {
+        let semester = Semester::current(conn).await?;
+
             let members_who_havent_paid = sqlx::query!(
                 "SELECT member FROM active_semester WHERE semester = ? AND email NOT IN \
                  (SELECT member FROM transaction WHERE type = ? AND description = ?)",
@@ -45,167 +51,108 @@ impl Fee {
             for email in members_who_havent_paid {
                 sqlx::query!(
                     "INSERT INTO transaction (member, amount, type, description, semester)
-                     VALUES (?, ?, ?, ?, ?)", email, 
+                     VALUES (?, ?, ?, ?, ?)", email, dues.amount, DUES_NAME, DUES_DESCRIPTION,
+                     semester.name,
+                ).query().await?
 
             }
 
+            Ok(())
+    }
 
-    def self.charge_dues_for_semester
+    pub async fn charge_late_dues_for_semester(conn: &DbConn) -> Result<()> {
+        let late_dues = Self::load(Self::LATE_DUES, conn).await?;
+        let semester = Semester::current(conn).await?;
 
-          (SELECT member FROM #{ActiveSemester.table_name} WHERE semester = ?) \
-        AND email NOT IN \
-          (SELECT member FROM #{ClubTransaction.table_name} \
-            WHERE type = ? AND description = ?)",
-        Semester.current.name, DUES_NAME, DUES_DESCRIPTION, as: String
+            let members_who_havent_paid = sqlx::query!(
+                "SELECT member FROM active_semester WHERE semester = ? AND email NOT IN \
+                 (SELECT member FROM transaction WHERE type = ? AND description = ?)",
+                 Semester::current().await?.name, DUES_NAME, DUES_DESCRIPTION)
+                .query_all(conn).await?;
 
-      members_who_have_not_paid.each do |email|
-        CONN.exec "INSERT INTO #{ClubTransaction.table_name} \
-          (member, amount, type, description, semester) VALUES (?, ?, ?, ?, ?)",
-          email, dues.amount, DUES_NAME, DUES_DESCRIPTION, Semester.current.name
-      end
-    end
+            for email in members_who_havent_paid {
+                sqlx::query!(
+                    "INSERT INTO transaction (member, amount, type, description, semester)
+                     VALUES (?, ?, ?, ?, ?)", email, dues.amount, DUES_NAME, DUES_DESCRIPTION,
+                     semester.name,
+                ).query(conn).await?;
+            }
 
-    def self.charge_late_dues_for_semester
-      late_dues = with_name! LATE_DUES
+            Ok(())
+    }
+}
 
-      members_who_have_not_paid = CONN.query_all "SELECT email FROM #{Member.table_name} \
-        WHERE email IN \
-          (SELECT member FROM #{ActiveSemester.table_name} WHERE semester = ?) \
-        AND email NOT IN \
-          (SELECT member FROM #{ClubTransaction.table_name} \
-            WHERE type = ? AND description = ?)",
-        Semester.current.name, DUES_NAME, DUES_DESCRIPTION, as: String
+pub struct TransactionType {
+    pub name: String,
+}
 
-      members_who_have_not_paid.each do |email|
-        CONN.exec "INSERT INTO #{ClubTransaction.table_name} \
-          (member, amount, type, description, semester) VALUES (?, ?, ?, ?, ?)",
-          email, late_dues.amount, DUES_NAME, LATE_DUES_DESCRIPTION, Semester.current.name
-      end
-    end
+impl TransactionType {
+    pub fn all(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM transaction_type ORDER BY name").query_all(conn).await
+    }
+
+    pub async fn with_name(name: &str, conn: &DbConn) -> Result<Self> {
+        Self::with_name_opt(name, conn).await?.ok_or_else(|| anyhow::anyhow!("No transaction type named {}", name))
+    }
     
-    @[GraphQL::Field(description: "The short name of the fee")]
-    def name : String
-      @name
-    end
+    pub async fn with_name_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM transaction_type WHERE name = ?", name)
+            .query_optional(conn).await
+    }
+}
 
-    @[GraphQL::Field(description: "A longer description of what it is charging members for")]
-    def description : String
-      @description
-    end
+pub struct ClubTransaction {
+    /// The ID of the transaction
+    pub id: isize,
+    /// The member this transaction was charged to
+    pub member: String,
+    /// When this transaction was charged
+    pub time: NaiveDateTime,
+    /// How much this transaction was for
+    pub amount: isize,
+    /// A description of what the member was charged for specifically
+    pub description: String,
+    /// Optionally, the name of the semester this tranaction was made during
+    pub semester: Option<String>,
+    /// The name of the type of transaction
+    pub transaction_type: String,
+    /// Whether the member has paid the amount requested in this transaction
+    pub resolved: bool
+}
 
-    @[GraphQL::Field(description: "The amount to charge members")]
-    def amount : Int32
-      @amount
-    end
-  end
+impl ClubTransaction {
+    pub async fn with_id(id: isize, conn: &DbConn) -> Result<Self> {
+        Self::with_id_opt(id, conn).await?.ok_or_else(|| anyhow::anyhow!("No transaction with id {}", id))
+    }
+    
+    pub async fn with_id_opt(id: isize, conn: &DbConn) -> Result<Option<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM transaction WHERE id = ?", id)
+            .query_optional(conn).await
+    }
 
-  class TransactionType
-    class_getter table_name = "transaction_type"
+    pub async fn for_semester(semester: &str, conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM transaction WHERE semester = ? ORDER BY time", semester)
+            .query_all(conn).await
+    }
 
-    DB.mapping({
-      name: String,
-    })
+    pub async fn for_member_during_semester(member: &str, semester: &str, conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM transaction WHERE semester = ? AND member = ? ORDER BY time", member, semester)
+            .query_all(conn).await
+    }
 
-    def self.all
-      CONN.query_all "SELECT * FROM #{@@table_name} ORDER BY name", as: TransactionType
-    end
+    pub async fn add_batch(batch: TransactionBatch, conn: &DbConn) -> Result<()> {
+        let transaction_type = TransactionType::with_name(batch.r#type, conn).await?;
+        
+        for member in batch.members {
+            sqlx::query!("INSERT INTO tranaction (member, amount, type, description, semester) VALUES (?, ?, ?, ?, ?)", member, batch.amount, transaction_type.name, batch.description, current_semester.name)
+                .query(conn).await
+        }
 
-    def self.with_name(name)
-      CONN.query_one? "SELECT * FROM #{@@table_name} WHERE name = ?", name, as: TransactionType
-    end
+        Ok(())
+    }
 
-    def self.with_name!(name)
-      (with_name name) || raise "No transaction type named #{name}"
-    end
-  end
-
-  @[GraphQL::Object]
-  class ClubTransaction
-    include GraphQL::ObjectType
-
-    class_getter table_name = "transaction"
-
-    DB.mapping({
-      id:          Int32,
-      member:      String,
-      time:        {type: Time, default: Time.local},
-      amount:      Int32,
-      description: String,
-      semester:    String?,
-
-     CONN.query_one? "SELECT * FROM #{@@table_name} WHERE id = ?", id, as: ClubTransaction
-    end
-
-    def self.with_id!(id)
-      (with_id id) || raise "No transaction with id #{id}"
-    end
-
-    def self.for_semester(semester_name)
-      CONN.query_all "SELECT * FROM #{@@table_name} \
-        WHERE semester = ? ORDER BY time", semester_name, as: ClubTransaction
-    end
-
-    def self.for_member_during_semester(email, semester_name)
-      CONN.query_all "SELECT * FROM #{@@table_name} \
-        WHERE semester = ? AND member = ? ORDER BY time", semester_name, email, as: ClubTransaction
-    end
-
-    def self.add_batch(batch)
-      type = TransactionType.with_name! batch.type
-
-      batch.members.each do |email|
-        CONN.exec "INSERT INTO #{@@table_name} \
-          (member, amount, type, description, semester) \
-          VALUES (?, ?, ?, ?, ?)",
-          email, batch.amount, type.name, batch.description, Semester.current.name
-      end
-    end
-
-    def resolve(resolved)
-      CONN.exec "UPDATE #{@@table_name} SET resolved = ? WHERE id = ?",
-        resolved, @id
-
-      @resolved = resolved
-    end
-
-    @[GraphQL::Field(description: "The ID of the transaction")]
-    def id : Int32
-      @id
-    end
-
-    @[GraphQL::Field(description: "The email of the member this transaction was charged to")]
-    def member : Models::Member
-      Member.with_email! @member
-    end
-
-    @[GraphQL::Field(name: "time", description: "When this transaction was charged")]
-    def gql_time : String
-      @time.to_s
-    end
-
-    @[GraphQL::Field(description: "How much this transaction was for")]
-    def amount : Int32
-      @amount
-    end
-
-    @[GraphQL::Field(description: "A description of what the member was charged for specifically")]
-    def description : String
-      @description
-    end
-
-    @[GraphQL::Field(description: "Optionally, the name of the semester this transaction was made during")]
-    def semester : String?
-      @semester
-    end
-
-    @[GraphQL::Field(description: "The name of the type of transaction")]
-    def type : String
-      @type
-    end
-
-    @[GraphQL::Field(description: "Whether the member has paid the amount requested in this transaction")]
-    def resolved : Bool
-      @resolved
-    end
-  end
-end
+    pub async fn resolve(id: isize, resolved: bool, conn: &DbConn) -> Result<()> {
+        sqlx::query!("UPDATE transaction SET resolved = ? WHERE id = ?", resolved, id)
+            .query(conn).await
+    }
+}

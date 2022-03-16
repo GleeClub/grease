@@ -143,7 +143,8 @@ mod db {
 }
 
 mod response {
-    use cgi::http::{header::CONTENT_TYPE, response};
+    use cgi::http::header::CONTENT_TYPE;
+    use cgi::http::response;
 
     pub fn success() -> cgi::Response {
         cgi::empty_response(204)

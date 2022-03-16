@@ -1,9 +1,9 @@
-use anyhow::Context;
+use anyhow::Context as _;
+use serde::Deserialize;
 use async_graphql::guard::Guard;
 use async_graphql::types::EmptySubscription;
-use async_graphql::{Context, Request, Result, Schema};
+use async_graphql::{Context, Request, Schema};
 use sqlx::{Connection, MySql, MySqlConnection, Transaction};
-
 use crate::db_conn::DbConn;
 use crate::models::member::Member;
 
@@ -38,7 +38,7 @@ pub async fn handle(request: cgi::Request) -> anyhow::Result<cgi::Response> {
         serde_json::from_slice(request.body()).context("Invalid request body")?;
     let request = Request::new(body.query)
         .variables(body.variables)
-        .data(transaction);
+        .data(conn);
 
     let schema = Schema::new(QueryRoot, MutationRoot, EmptySubscription);
     let response = schema.execute(request);

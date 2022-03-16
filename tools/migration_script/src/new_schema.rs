@@ -1,7 +1,8 @@
-use crate::error::{MigrateError, MigrateResult};
-use crate::migrate::Insert;
 use chrono::{NaiveDate, NaiveDateTime};
 use mysql::{params, Pool};
+
+use crate::error::{MigrateError, MigrateResult};
+use crate::migrate::Insert;
 
 macro_rules! impl_insert {
     ($table_name:expr, pub struct $type_name:ident { $(pub $field_names:ident: $field_types:ty,)* }) => {

@@ -1,5 +1,4 @@
 use std::sync::Mutex;
-
 use anyhow::Context;
 use owning_ref::{MutexGuardRefMut, OwningRefMut};
 use sqlx::{Connection, MySql, MySqlConnection, Transaction};
@@ -34,5 +33,13 @@ impl DbConn {
                 .await
                 .context("Failed to rollback transaction")
         }
+    }
+}
+
+impl<'c> std::ops::DerefMut for DbConn {
+    type Deref = Transaction<'c, MySql>;
+
+    fn deref_mut(&mut self) -> Self::Target {
+        self.transaction.as_mut()
     }
 }

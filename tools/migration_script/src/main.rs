@@ -103,7 +103,11 @@ pub fn run_migration(passwords: &Passwords) -> MigrateResult<()> {
     let (old_event_types, _new_event_types) = NewEventType::migrate(&old_db, &new_db, &())?;
 
     println!("Migrating events...");
-    let (old_events, _new_events) = NewEvent::migrate(&old_db, &new_db, &(old_section_types.clone(), old_event_types.clone()))?;
+    let (old_events, _new_events) = NewEvent::migrate(
+        &old_db,
+        &new_db,
+        &(old_section_types.clone(), old_event_types.clone()),
+    )?;
 
     println!("Migrating uniforms...");
     let (old_uniforms, new_uniforms) = NewUniform::migrate(&old_db, &new_db, &())?;
