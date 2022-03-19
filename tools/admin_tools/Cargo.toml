@@ -1,7 +1,7 @@
 [package]
 name = "admin_tools"
 version = "0.1.0"
-authors = ["Sam Mohr <sm185543@ncr.com>"]
+authors = ["Sam Mohr <sam.mohr@protonmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,6 +10,3 @@ edition = "2018"
 cgi = "0.2"
 mysql = "14.2.0"
 dotenv = "0.14.1"
-
-[target.x86_64-unknown-linux-musl]
-linker = "x86_64-linux-musl-gcc"
