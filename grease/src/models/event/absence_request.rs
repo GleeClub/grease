@@ -1,6 +1,6 @@
-use async_graphql::>omplexObject;
+use async_graphql::{ComplexObject, SimpleObject};
 
-#[derive(ComplexObject)]
+#[derive(SimpleObject)]
 pub struct AbsenceRequest {
     /// The time this request was placed
     pub time: NaiveDateTime,
@@ -15,7 +15,7 @@ pub struct AbsenceRequest {
     pub event: isize,
 }
  
-#[complex]
+#[ComplexObject]
 impl AbsenceRequest {
     /// The event they requested absence from
     pub async fn event(&self, ctx: &Context<'_>) -> Result<Event> {
@@ -29,24 +29,27 @@ impl AbsenceRequest {
 }
 
 #[derive(Enum)]
-pub struct AbsenceRequestState {
+pub enum AbsenceRequestState {
     Pending,
-    Approved<
-    Denied
+    Approved,
+    Denied,
 }
 
 impl AbsenceRequest {
     pub async fn for_member_at_event(&self, email: &str, event_id: isize, conn: &DbConn) -> Result<Self> {
-        Self::for_member_at_event_opt(email, event_id, conn).await?.ok_or_else(|| anyhow::anyhow!("No absence request for member {} at event with id {}", email, event_id))
+        Self::for_member_at_event_opt(email, event_id, conn).await?
+
+
+            .ok_or_else(|| anyhow::anyhow!("No absence request for member {} at event with id {}", email, event_id))
     }
 
     pub async fn for_member_at_event_opt(&self, email: &str, event_id: isize, conn: &DbConn) -> Result<Option<Self>> {
-        sqlx::query_as!("SELECT * FROM absence_request WHERE member = ? AND event = ?", email, event_id)
+        sqlx::query_as!(Self, "SELECT * FROM absence_request WHERE member = ? AND event = ?", email, event_id)
             .query_optional(conn).await
     }
 
     pub async fn for_semester(&self, semester_name: &str, conn: &DbConn) -> Result<Vec<Self>> {
-        sqlx::query_as!("SELECT * FROM absence_request WHERE semester = ? ORDER BY time", semester_name)
+        sqlx::query_as!(Self, "SELECT * FROM absence_request WHERE semester = ? ORDER BY time", semester_name)
             .query_all(conn).await
     }
 
@@ -55,10 +58,10 @@ impl AbsenceRequest {
             .query(conn).await
     }
 
-    pub async fn set_state(event_id: isize, email: &str, state: AbsenceRequestState, conn: &DbConn) -> Result<()> {
-        AbsenceRequest::for_member_at_event(email, event_id, conn).await?;
+    pub async fn set_state(event_id: isize, member: &str, state: AbsenceRequestState, conn: &DbConn) -> Result<()> {
+        AbsenceRequest::for_member_at_event(member, event_id, conn).await?;
 
-        sqlx::query!("UPDATE absence_request SET state = ? WHERE event = ? AND member = ?")
+        sqlx::query!("UPDATE absence_request SET state = ? WHERE event = ? AND member = ?", state, event_id, member)
             .query(conn).await
     }
 }

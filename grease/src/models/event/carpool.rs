@@ -1,57 +1,58 @@
-require "graphql"
+use async_graphql::{ComplexObject, SimpleObject};
+use crate::db_conn::DbConn;
+use chrono::{NaiveDateTime, Local};
 
-require "../../db"
+#[derive(SimpleObject)]
+pub struct Carpool {
+    /// The ID of the carpool
+    pub id: isize,
+    /// The event it belongs to
+    pub event: isize,
 
-module Models
-  @[GraphQL::Object]
-  class Carpool
-    include GraphQL::ObjectType
+    #[graphql(skip)]
+    pub driver: String,
+}
 
-    class_getter table_name = "carpool"
+#[ComplexObject]
+impl Carpool {
+    /// The driver of the carpool
+    pub async fn driver(&self, ctx: &Context<'_>) -> Result<Member> {
+        Member::with_email(self.driver).await
+    }
 
-    DB.mapping({
-      id:     Int32,
-      event:  Int32,
-      driver: String,
-    })
+    /// The passengers of the carpool
+    pub async fn passengers(&self, ctx: &Context<'_>) -> Result<Vec<Member>> {
+        sqlx::query_as!(Member, "SELECT * FROM member WHERE email = (SELECT member FROM rides_in WHERE carpool = ?)", self.id).query_all(conn).await
+    }
+}
 
-    def self.for_event(event_id)
-      CONN.query_all "SELECT * FROM #{@@table_name} WHERE event = ?", event_id, as: Carpool
-    end
+impl Carpool {
+    pub async fn for_event(event_id: isize, conn: &DbConn) -> Result<Vec<Carpool>> {
+        sqlx::query_as!(
+            Self, "SELECT * FROM carpool WHERE event = ?", event_id).query_all(conn).await
+    }
 
-    def self.update(event_id, updated_carpools)
-      Event.with_id! event_id
+    pub async fn update(event_id: isize, updated_carpools: Vec<Carpool>) -> Result<()> {
+        Event::verify_exists(event_id).await?;
 
-      CONN.exec "DELETE FROM #{@@table_name} WHERE event = ?", event_id
+        sqlx::query!(
+            "DELETE FROM carpool WHERE event = ?", event_id
+        ).query(conn).await?;
 
-      updated_carpools.each do |carpool|
-        CONN.exec "INSERT INTO #{@@table_name} (event, driver) VALUES (?, ?)", event_id, carpool.driver
-        new_id = CONN.query_one "SELECT id FROM #{@@table_name} ORDER BY id DESC", as: Int32
+        for carpool in updated_carpools {
+            sqlx::query!("INSERT INTO carpool (event, driver) VALUES (?, ?)", event_id, carpool.driver).query(conn).await?;
+            let new_carpool_id: isize = sqlx::query!("SELECT id FROM carpool ORDER BY id DESC").query_one(conn).await?;
 
-        carpool.passengers.each do |passenger|
-          CONN.exec "INSERT INTO #{@@table_name} (member, carpool) VALUES (?, ?)", passenger, new_id
-        end
-      end
-    end
+            for passenger in carpool.passengers {
+                sqlx::query!("INSERT INTO rides_in (member, carpool) VALUES (?, ?)", passenger, new_id).query(conn).await?;
+            }
+        }
 
-    @[GraphQL::Field(name: "driver", description: "The driver of the carpool")]
-    def full_driver : Models::Member
-      Member.with_email! @driver
-    end
+        Ok(())
+    }
+}
 
-    @[GraphQL::Field(description: "The passengers of the carpool")]
-    def passengers : Array(Models::Member)
-      CONN.query_all "SELECT * FROM #{Member.table_name} WHERE email = \
-        (SELECT member FROM #{RidesIn.table_name} WHERE carpool = ?)", @id, as: Member
-    end
-  end
-
-  class RidesIn
-    class_getter table_name = "rides_in"
-
-    DB.mapping({
-      member:  String,
-      carpool: Int32,
-    })
-  end
-end
+pub struct RidesIn {
+    pub member: String,
+    pub carpool: isize,
+}

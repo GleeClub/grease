@@ -1,61 +1,55 @@
-use async_graphql::{Object, Result};
+use async_graphql::{Result, SimpleObject, ComplexObject, Context};
 use chrono::NaiveDateTime;
-use sqlx::FromRow;
-
+use crate::models::member::member::Member;
 use crate::db_conn::DbConn;
 use crate::graphql::permission::Permission;
 
-#[derive(FromRow, Object)]
+#[derive(SimpleObject)]
 pub struct Minutes {
     /// The ID of the meeting minutes
-    pub id: i32,
+    pub id: isize,
     /// The name of the meeting
     pub name: String,
     /// When these notes were initially created
     pub date: NaiveDateTime,
-    // /// The private, complete officer notes
-    #[graphql(guard(Permission::VIEW_COMPLETE_MINUTES))]
-    pub private: Option<String>,
     /// The public, redacted notes visible by all members
     pub public: Option<String>,
+
+    #[graphql(skip)]
+    pub private: Option<String>,
 }
 
 impl Minutes {
-    pub async fn with_id_opt(id: i32, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: isize, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM minutes WHERE id = ?", id)
-            .fetch_optional(&mut *conn)
+            .fetch_optional(conn)
             .await
     }
 
-    pub async fn with_id(id: i21, conn: &DbConn) -> Result<Self> {
-        Self::with_id_opt(id, &mut *conn)
+    pub async fn with_id(id: isize, conn: &DbConn) -> Result<Self> {
+        Self::with_id_opt(id, conn)
             .await
             .and_then(|res| res.ok_or_else(format!("No meeting minutes with id {}", id)))
     }
 
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM minutes ORDER BY date")
-            .query_all(&mut *conn)
+            .query_all(conn)
             .await
             .into()
     }
 
-    pub async fn create(name: &str, conn: &DbConn) -> Result<i32> {
-        &mut *conn.begin(|tx| {
-            sqlx::query!("INSERT INTO minutes (name) VALUES (?)", name)
-                .query(tx)
-                .await?;
-            let id = sqlx::query!("SELECT id FROM minutes ORDER BY id DESC")
-                .query(tx)
-                .await?;
+    pub async fn create(name: &str, conn: &DbConn) -> Result<isize> {
+        sqlx::query!("INSERT INTO minutes (name) VALUES (?)", name)
+            .query(conn)
+            .await?;
 
-            tx.commit().await?;
-
-            Ok(id)
-        })
+        sqlx::query!("SELECT id FROM minutes ORDER BY id DESC")
+            .query(conn)
+            .await
     }
 
-    pub async fn update(id: i32, update: MinutesUpdate, conn: &DbConn) -> Result<()> {
+    pub async fn update(id: isize, update: MinutesUpdate, conn: &DbConn) -> Result<()> {
         sqlx::query!(
             "UPDATE minutes SET name = ?, private = ?, public = ? WHERE id = ?",
             update.name,
@@ -63,14 +57,14 @@ impl Minutes {
             update.public,
             id
         )
-        .query(&mut *conn)
+        .query(conn)
         .await
         .into()
     }
 
-    pub async fn delete(id: i32, conn: &DbConn) -> Result<()> {
+    pub async fn delete(id: isize, conn: &DbConn) -> Result<()> {
         sqlx::query!("DELETE FROM minutes WHERE id = ?", id)
-            .query(&mut *conn)
+            .query(conn)
             .await
             .into()
     }
@@ -78,4 +72,18 @@ impl Minutes {
     // def email
     //   # TODO: implement
     // end
+}
+
+#[ComplexObject]
+impl Minutes {
+    /// The private, complete officer notes
+    pub async fn private(&self, ctx: &Context<'_>) -> Option<&str> {
+        if let Some(user) = ctx.data_opt::<Member>() {
+            if user.able_to(Permission::VIEW_COMPLETE_MINUTES) {
+                return Some(self.complete);
+            }
+        }
+
+        None
+    }
 }

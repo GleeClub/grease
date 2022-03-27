@@ -1,7 +1,8 @@
 pub mod event;
+pub mod variable;
 pub mod member;
 pub mod minutes;
-pub mod misc;
+pub mod document;
 pub mod money;
 pub mod permissions;
 pub mod semester;

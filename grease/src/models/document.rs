@@ -1,7 +1,6 @@
 use anyhow::bail;
 use async_graphql::{Object, Result};
 use sqlx::FromRow;
-
 use crate::db_conn::DbConn;
 
 /// A link to a Google Doc or other important document.
@@ -64,57 +63,6 @@ impl Document {
         Self::load(name, conn).await?;
 
         sqlx::query!("DELETE FROM google_docs WHERE name = ?", name)
-            .query(&mut *conn)
-            .await
-            .into()
-    }
-}
-
-/// Arbitrary variables for developer usage.
-#[derive(Object, FromRow)]
-pub struct Variable {
-    /// The name of the variable.
-    pub key: String,
-    /// The value of the variable.
-    pub value: String,
-}
-
-#[Object]
-impl Variable {
-    pub async fn load_opt(key: &str, conn: &DbConn) -> Result<Option<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM variable WHERE key = ?", key)
-            .query_optional(&mut *conn)
-            .await
-            .into()
-    }
-
-    pub async fn load(key: &str, conn: &DbConn) -> Result<Self> {
-        Self::load_opt(key, conn)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("No variable with key {}", key))
-            .into()
-    }
-
-    pub async fn set(key: &str, value: &str, conn: &DbConn) -> Result<()> {
-        if Self::load_opt(key, conn).await?.is_some() {
-            sqlx::query!("UPDATE variable SET value = ? WHERE key = ?", value, key)
-                .query(&mut *conn)
-                .await
-                .into()
-        } else {
-            sqlx::query!(
-                "INSERT INTO variable (key, value), VALUES (?, ?)",
-                key,
-                value
-            )
-            .query(&mut *conn)
-            .await
-            .into()
-        }
-    }
-
-    pub async fn unset(key: &str, conn: &DbConn) -> Result<()> {
-        sqlx::query!("DELETE FROM variable WHERE key = ?", key)
             .query(&mut *conn)
             .await
             .into()

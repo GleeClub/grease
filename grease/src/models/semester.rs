@@ -1,5 +1,8 @@
-use anyhow::{Context, Result};
+use async_graphql::{Result, SimpleObject};
+use chrono::NaiveDateTime;
+use crate::db_conn::DbConn;
 
+#[derive(SimpleObject)]
 pub struct Semester {
     /// The name of the semester
     pub name: String,
@@ -7,64 +10,61 @@ pub struct Semester {
     pub start_date: NaiveDateTime,
     /// When the semester ends
     pub end_date: NaiveDateTime,
-    /// How many volunteer gigs are required for the semester
-    pub gig_requirement: i32, // default = 5
-    /// Whether this is the new semester
-    pub current: bool, // default = false
+    /// How many volunteer gigs are required for the semester (default: 5)
+    pub gig_requirement: isize,
+    /// Whether this is the current semester
+    pub current: bool,
 }
 
 impl Semester {
-    pub fn current(conn: &mut MysqlConnection) -> Result<Self> {
+    pub async fn current(conn: &DbConn) -> Result<Self> {
         sqlx::query_as!(Semester, "SELECT * FROM semester WHERE current = true")
             .query_optional(conn)
             .await?
-            .ok_or_else(|| anyhow::anyhow!("No current semester set"))
+            .ok_or_else(|| "No current semester set".to_owned())
     }
 
-    pub fn with_name_opt(name: &str, conn: &mut MysqlConnection) -> Result<Self> {
+    pub async fn with_name(name: &str, conn: &DbConn) -> Result<Self> {
+        Self::with_name_opt(name, conn)
+            .await?
+            .ok_or_else(|| format!("No semester named {}", name))
+    }
+
+    pub async fn with_name_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Semester, "SELECT * FROM semester WHERE name = ?", name)
             .query_optional(conn)
             .await
-            .into()
     }
 
-    pub fn with_name(name: &str, conn: &mut MysqlConnection) -> Result<Self> {
-        Self::with_name_opt(name, conn)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("No semester named {}", name))
-    }
-
-    pub fn all(conn: &mut MysqlConnection) -> Result<Vec<Self>> {
+    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Semester, "SELECT * FROM semester ORDER BY start_date")
             .query_all(conn)
             .await
-            .into()
     }
 
-    pub fn create(new: NewSemester, conn: &mut MysqlConnection) -> Result<()> {
-        if Self::with_name_opt(&new.name, conn).await?.is_some() {
-            anyhow::bail!("A semester already exists named {}", new.name);
+    pub async fn create(new_semester: NewSemester, conn: &DbConn) -> Result<()> {
+        if Self::with_name_opt(&new_semester.name, conn).await?.is_some() {
+            return Err(format!("A semester already exists named {}", new_semester.name));
         }
 
         sqlx::query!(
             "INSERT INTO semester (name, start_date, end_date, gig_requirement)
              VALUES (?, ?, ?, ?)",
-            new.name,
-            new.start_date,
-            new.end_date,
-            new.gig_requirement
+            new_semester.name,
+            new_semester.start_date,
+            new_semester.end_date,
+            new_semester.gig_requirement
         )
         .query(conn)
         .await
-        .into()
     }
 
-    pub fn update(name: &str, update: SemesterUpdate, conn: &mut MysqlConnection) -> Result<()> {
+    pub async fn update(name: &str, update: SemesterUpdate, conn: &DbConn) -> Result<()> {
         // check that semester exists
         Self::with_name(name, conn).await?;
 
         if name != &update.name && Self::with_name_opt(&update.name, conn).await?.is_some() {
-            anyhow::bail!("Another semester is already named {}", update.name);
+            return Err(format!("Another semester is already named {}", update.name));
         }
 
         sqlx::query!(
@@ -82,25 +82,20 @@ impl Semester {
         .into()
     }
 
-    pub fn set_current(name: &str, conn: &mut MysqlConnection) -> Result<()> {
-        conn.begin(|tx| {
-            if sqlx::query!("SELECT 1 FROM semester WHERE name = ?", name)
-                .query_optional(tx)
-                .await?
-                .is_none()
-            {
-                anyhow::bail!("No semester named {}", name);
-            }
+    pub async fn set_current(name: &str, conn: &DbConn) -> Result<()> {
+        if sqlx::query!("SELECT name FROM semester WHERE name = ?", name)
+            .query_optional(conn)
+            .await?
+            .is_none()
+        {
+            return Err(format!("No semester named {}", name));
+        }
 
-            sqlx::query!("UPDATE semester SET current = false")
-                .query(tx)
-                .await?;
-            sqlx::query!("UPDATE semester SET current = true WHERE name = ?", true)
-                .query(tx)
-                .await?;
-
-            Ok(())
-        })
-        .await
+        sqlx::query!("UPDATE semester SET current = false")
+            .query(conn)
+            .await?;
+        sqlx::query!("UPDATE semester SET current = true WHERE name = ?", true)
+            .query(conn)
+            .await?;
     }
 }

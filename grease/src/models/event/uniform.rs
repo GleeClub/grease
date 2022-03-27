@@ -1,93 +1,75 @@
-require "graphql"
+use async_graphql::{SimpleObject, ComplexObject, InputValueError, InputValueResult, ScalarType, Scalar};
+use serde_json::Value;
+use crate::db_conn::DbConn;
+use regex::Regex;
 
-require "../../db"
+#[derive(SimpleObject)]
+pub struct Uniform {
+    /// The ID of the uniform
+    pub id: isize,
+    /// The name of the uniform
+    pub name: String,
+    /// The associated color (In the format #HHH, H being a hex digit)
+    pub color: Option<UniformColor>,
+    /// The explanation of what to wear when wearing the uniform
+    pub description: Option<String>,
+}
 
-module Models
-  @[GraphQL::Object]
-  class Uniform
-    include GraphQL::ObjectType
+/// A color for a uniform when rendered on the site
+struct UniformColor(String);
 
-    class_getter table_name = "uniform"
+#[Scalar]
+impl ScalarType for UniformColor {
+    fn parse(value: Value) -> InputValueResult<Self> {
+        if let Value::String(value) = &value {
+            let regex = Regex::new(r"^#(\w{3}|\w{6})$").unwrap();
+            if regex.is_match(value) {
+                Ok(UniformColor(value))
+            } else {
+                Err(InputValueError::custom("Uniform colors must look like #RGB or #RRGGBB"))
+            }
+        } else {
+            Err(InputValueError::expected_type(value))
+        }
+    }
 
-    DB.mapping({
-      id:          Int32,
-      name:        String,
-      color:       String?,
-      description: String?,
-    })
+    fn to_value(&self) -> Value {
+        Value::String(self.0.to_owned())
+    }
+}
 
-    def is_valid?
-      if color = u.color
-        match = /#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})/i.match(color)
-        !match.nil?
-      else
-        true
-      end
-    end
+impl Uniform {
+    pub async fn with_id(id: isize, conn: &DbConn) -> Result<Self> {
+        Self::with_id_opt(id, conn).await?.ok_or_else(|| format!("No uniform with id {}", id))
+    }
 
-    def validate!
-      raise "Uniform color must be a valid CSS color string" unless is_valid?
-    end
+    pub async fn with_id_opt(id: isize, conn: &DbConn) -> Result<Option<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM uniform WHERE id = ?", id).query_optional(conn).await
+    }
 
-    def self.with_id(id)
-      CONN.query_one? "SELECT * FROM #{@@table_name} WHERE id = ?", id, as: Uniform
-    end
+    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM uniform ORDER BY name").query_all(conn).await
+    }
 
-    def self.with_id!(id)
-      (with_id id) || raise "No uniform with id #{id}"
-    end
+    pub async fn get_default(conn: &DbConn) -> Result<Self> {
+        let uniform = sqlx::query_as!(Self, "SELECT * FROM uniform ORDER BY NAME").query_optional(conn).await?;
+        uniform.ok_or_else(|| "There are currently no uniforms")
+    }
 
-    def self.all
-      CONN.query_all "SELECT * FROM #{@@table_name} ORDER BY name", as: Uniform
-    end
+    pub async fn create(new_uniform: NewUniform, conn: &DbConn) -> Result<isize> {
+        sqlx::query!("INSERT INTO uniform (name, color, description) VALUES (?, ?, ?)", new_uniform.name, new_uniform.color, new_uniform.description).query(conn).await?;
 
-    def self.default
-      default = CONN.query_one? "SELECT * FROM #{@@table_name} ORDER BY name", as: Uniform
-      default || raise "There are currently no uniforms"
-    end
+        sqlx::query!("SELECT id FROM uniform ORDER BY id DESC").query(conn).await
+    }
 
-    def self.create(form)
-      CONN.exec "INSERT INTO #{@@table_name} (name, color, description) VALUES (?, ?, ?)",
-        form.name, form.color, form.description
-      CONN.query_one "SELECT id FROM #{@@table_name} ORDER BY id DESC", as: Int32
-    end
+    pub async fn update(id: isize, updated_uniform: UniformUpdate,conn: &DbConn) -> Result<()> {
+        // TODO: verify exists?
+        // TODO: mutation?
+        sqlx::query!("UPDATE uniform SET name = ?, color = ?, description = ? WHERE id = ?", update.name, update.color, update.description, id).query(conn).await
+    }
 
-    def update(form)
-      CONN.exec "UPDATE #{@@table_name} \
-      SET name = ?, color = ?, description = ? \
-      WHERE id = ?",
-        form.name, form.color, form.description, @id
+    pub async fn delete(id: isize, conn: &DbConn) -> Result<()> {
+        sqlx::query!("DELETE FROM uniform WHERE id = ?", id).query(conn).await
+    }
 
-      @name, @color, @description = form.name, form.color, form.description
-    end
-
-    def delete
-      CONN.exec "DELETE FROM  #{@@table_name} WHERE id = ?", @id
-    end
-
-    @[GraphQL::Field(description: "The ID of the uniform")]
-    def id : Int32
-      @id
-    end
-
-    @[GraphQL::Field(description: "The name of the uniform")]
-    def name : String
-      @name
-    end
-
-    @[GraphQL::Field(description: "The associated color of the uniform (In the format \"#HHH\", where \"H\" is a hex digit)")]
-    def color : String?
-      @color
-    end
-
-    @[GraphQL::Field(description: "The explanation of what to wear when wearing the uniform")]
-    def description : String?
-      @description
-    end
-
-    def self.with_id(id)
-      uniform = CONN.query_one? "SELECT * from #{@@table_name} where id = ?", id, as: Uniform
-      uniform || raise "No uniform with id #{id}"
-    end
-  end
-end
+}

@@ -1,4 +1,6 @@
 use async_graphql::guard::Guard;
+use async_graphql::{Result, Context};
+use crate::models::member::member::Member;
 
 pub struct Permission {
     name: &'static str,
@@ -15,7 +17,7 @@ impl Permission {
 
     pub fn for_type(self, event_type: &'static str) -> Self {
         Self {
-            name,
+            name: self.name,
             event_type: Some(event_type),
         }
     }
@@ -24,7 +26,7 @@ impl Permission {
         member.permissions().iter().any(|permission| {
             permission.name == self.name
                 && (permission.event_type.is_none()
-                    || permission.event_type.as_ref().map(|type_| type_.as_str()) == event_type)
+                    || permission.event_type.as_ref().map(|type_| type_.as_str()) == self.event_type)
         })
     }
 
@@ -65,8 +67,9 @@ impl Permission {
     pub const EDIT_CARPOOLS: Self = Self::new("edit-carpool");
 }
 
+#[async_trait::async_trait]
 impl Guard for Permission {
-    fn guard(&self, ctx: Context<'_>) -> Result<()> {
+    async fn check(&self, ctx: Context<'_>) -> Result<()> {
         if let Some(user) = ctx.data_opt::<Member>() {
             if self.able_to(user) {
                 return Ok(());

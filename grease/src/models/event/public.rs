@@ -1,87 +1,68 @@
-require "../../db"
-require "../../schema/context"
+use async_graphql::{SimpleObject, ComplexObject};
+use chrono::NaiveDateTime;
+use crate::db_conn::DbConn;
+use uuid::Uuid;
 
-module Models
-  @[GraphQL::Object]
-  class PublicEvent
-    include GraphQL::ObjectType
+#[derive(SimpleObject)]
+pub struct PublicEvent {
+    pub id: isize,
+    pub name: String,
+    pub start_time: NaiveDateTime,
+    pub end_time: Option<NaiveDateTime>,
+    // needs default
+    pub location: String,
+    // needs default
+    pub summary: String,
+    // needs default
+    pub description: String,
+}
 
-    DATETIME_FORMAT = "%Y%m%dT%H%M%SZ"
+#[ComplexObject]
+impl PublicEvent {
+    const DATETIME_FORMAT: &'static str = "%Y%m%dT%H%M%SZ";
 
-    def initialize(
-      @id : Int32,
-      @name : String,
-      @time : Time,
-      @location : String,
-      @summary : String,
-      @description : String,
-      @invite : String
-    )
-    end
+    pub async fn invite(&self) -> String {
+        let details = format!(
+            "VERSION:2.0\n\
+             PRODID:ICALENDAR-RS\n\
+             CALSCALE:GREGORIAN\n\
+             BEGIN:VEVENT\n\
+             DTSTAMP:{}\n\
+             DESCRIPTION:{}\n\
+             DTEND:{}\n\
+             DTSTART:{}\n\
+             LOCATION:{}\n\
+             SUMMARY:{}\n\
+             UID:{}\n\
+             END:VEVENT\n\
+             END:VCALENDAR\n\
+            ",
+            chrono::Local::now().naive_local(),
+            self.summary,
+            self.end_time,
+            self.start_time,
+            self.location,
+            self.description,
+            Uuid::new_v4(),
+        );
 
-    def self.all_for_current_semester
-      events = CONN.query_all "SELECT * FROM #{Event.table_name} WHERE id IN \
-        (SELECT event FROM #{Gig.table_name} WHERE public = true) \
-        ORDER BY call_time", as: Event
+        format!("data:text/calendar;base64,{}", base64::encode(&details))
+    }
 
-      events.map do |event|
-        gig = event.gig || raise "All public events must have gigs"
-        end_time = event.release_time || event.call_time.shift hours: 1
+}
 
-        calendar_event = String.build do |io|
-          io << "VERSION:2.0\n"
-          io << "PRODID:ICALENDAR-RS\n"
-          io << "CALSCALE:GREGORIAN\n"
-          io << "BEGIN:VEVENT\n"
-          io << "DTSTAMP:" << (Time.utc.to_s DATETIME_FORMAT) << "\n"
-          io << "DESCRIPTION:" << (gig.summary || "") << "\n"
-          io << "DTEND:" << (end_time.to_s DATETIME_FORMAT) << "\n"
-          io << "DTSTART:" << (event.call_time.to_s DATETIME_FORMAT) << "\n"
-          io << "LOCATION:" << (event.location || "") << "\n"
-          io << "SUMMARY:" << (gig.description || "") << "\n"
-          io << "UID:" << UUID.random << "\n"
-          io << "END:VEVENT\n"
-          io << "END:VCALENDAR\n"
-        end
+impl PublicEvent {
+    pub async fn all_for_current_semester(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(
+            Self,
+            "SELECT e.id, e.name, g.performance_time as start_time,
+                e.release_time as end_time, e.location, g.summary,
+                g.description
+             FROM event as e
+             INNER JOIN gig as g ON e.id = g.event
+             WHERE g.public = true").query_all(conn).await
+    }
 
-        new event.id, event.name, event.call_time, (event.location || ""), (gig.summary || ""),
-          (gig.description || ""), "data:text/calendar;base64,#{Base64.encode calendar_event}"
-      end
-    end
+}
 
-    @[GraphQL::Field]
-    def id : Int32
-      @id
-    end
 
-    @[GraphQL::Field]
-    def name : String
-      @name
-    end
-
-    @[GraphQL::Field(name: "time")]
-    def gql_time : String
-      @time.to_s
-    end
-
-    @[GraphQL::Field]
-    def location : String
-      @location
-    end
-
-    @[GraphQL::Field]
-    def summary : String
-      @summary
-    end
-
-    @[GraphQL::Field]
-    def description : String
-      @description
-    end
-
-    @[GraphQL::Field]
-    def invite : String
-      @invite
-    end
-  end
-end

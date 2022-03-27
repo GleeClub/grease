@@ -1,110 +1,154 @@
-require "graphql"
+use async_graphql::{Enum, SimpleObject, ComplexObject};
 
-require "../../db"
-require "../../schema/context"
+#[derive(Enum)]
+pub enum Period {
+    No,
+    Daily,
+    Weekly,
+    Biweekly,
+    Monthly,
+    Yearly,
+}
 
-module Models
-  @[GraphQL::Object]
-  class EventType
-    include GraphQL::ObjectType
+#[derive(SimpleObject)]
+pub struct EventType {
+    /// The name of the type of event
+    pub name: String,
+    /// The amount of points this event is normally worth
+    pub weight: isize,
+}
 
-    class_getter table_name = "event_type"
+impl EventType {
+    pub const REHEARSAL: &str     = "Rehearsal";
+    pub const SECTIONAL: &str     = "Sectional";
+    pub const VOLUNTEER_GIG: &str = "Volunteer Gig";
+    pub const TUTTI_GIG: &str     = "Tutti Gig";
+    pub const OMBUDS: &str        = "Ombuds";
+    pub const OTHER: &str         = "Other";
 
-    DB.mapping({
-      name:   String,
-      weight: Int32,
-    })
+    pub fn all(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM event_type ORDER BY name")
+            .query_all(conn).await
+    }
+}
 
-    def self.all
-      CONN.query_all "SELECT * FROM #{@@table_name} ORDER BY name", as: EventType
+#[derive(SimpleObject)]
+pub struct Event {
+    /// The ID of the event
+    pub id: isize,
+    /// The name of the event
+    pub name: String,
+    /// The name of the semester this event belongs to
+    pub semester: String,
+    /// The type of the event (see EventType)
+    pub r#type: String,
+    /// When members are expected to arrive to the event
+    pub call_time: NaiveDateTime,
+    /// When members are provably going to be released
+    pub release_time: Option<NaiveDateTime>,
+    /// How many points attendance of this event is worth
+    pub points: isize,
+    /// General information or details about this event
+    pub comments: Option<String>,
+    /// Where this event will be held
+    pub location: Option<String>,
+    /// Whether this event counts toward the volunteer gig count for the semester
+    pub gig_count: bool,
+    /// Whether members are assumed to attend (we assume as much for most events)
+    pub default_attend: bool,
+}
+
+#[ComplexObject]
+impl Event {
+    /// The gig for this event, if it is a gig
+    pub async fn gig(&self, ctx: &Context<'_>) -> Result<Option<Gig>> {
+        Gig::for_event(self.id, ctx.data_unchecked::<DbConn>())
+    }
+
+    /// The attendance for the current user at this event
+    pub async fn user_attendance(&self, ctx: &Context<'_>) -> Result<Attendance> {
+        let conn = ctx.data_unchecked::<DbConn>();
+        let user = unimplemented!("get member");
+
+        Attendance::for_member_at_event(user.email, self.id, conn).await
+    }
+
+    @[GraphQL::Field]
+    def attendance(member : String) : Models::Attendance
+      Attendance.for_member_at_event! member, @id
     end
 
-    @[GraphQL::Field(description: "The name of the type of event")]
-    def name : String
-      @name
+    @[GraphQL::Field]
+    def all_attendance : Array(Models::Attendance)
+      Attendance.for_event @id
     end
 
-    @[GraphQL::Field(description: "How many points this type is worth")]
-    def weight : Int32
-      @weight
-    end
-  end
-
-  @[GraphQL::Object]
-  class Event
-    include GraphQL::ObjectType
-
-    REHEARSAL     = "Rehearsal"
-    SECTIONAL     = "Sectional"
-    VOLUNTEER_GIG = "Volunteer Gig"
-    TUTTI_GIG     = "Tutti Gig"
-    OMBUDS        = "Ombuds"
-    OTHER         = "Other"
-
-    class_getter table_name = "event"
-
-    DB.mapping({
-      id:             Int32,
-      name:           String,
-      semester:       String,
-      type:           String,
-      call_time:      Time,
-      release_time:   Time?,
-      points:         Int32,
-      comments:       String?,
-      location:       String?,
-      gig_count:      {type: Bool, default: true},
-      default_attend: {type: Bool, default: true},
-    })
-
-    def self.with_id(id)
-      CONN.query_one? "SELECT * FROM #{@@table_name} WHERE id = ?", id, as: Event
+    @[GraphQL::Field]
+    def carpools : Array(Models::Carpool)
+      Carpool.for_event @id
     end
 
-    def self.with_id!(id)
-      (with_id id) || raise "No event with id #{id}"
+    @[GraphQL::Field]
+    def setlist : Array(Models::Song)
+      Song.setlist_for_event @id
     end
+}
 
-    def self.for_member_with_attendance(email, semester_name) : Array({Event, Attendance?})
-      events = CONN.query_all "SELECT * FROM #{Event.table_name} WHERE semester = ?", semester_name, as: Event
-      attendance = CONN.query_all "SELECT * FROM #{Attendance.table_name} WHERE member = ? AND event IN \
-        (SELECT id FROM #{Event.table_name} WHERE semester = ?)", email, semester_name, as: Attendance
+impl Event {
+    pub async fn with_id(id: isize, conn: &DbConn) -> Result<Self> {
+        Self::with_id_opt(id, conn).await?.ok_or_else(|| anyhow::anyhow!("No event with id {}", id))
+    }
 
-      events.map do |event|
-        {event, attendance.find { |a| a.event == event.id }}
-      end
-    end
+    pub async fn with_id_opt(id: isize, conn: &DbConn) -> Result<Option<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM event WHERE id = ?", id)
+            .query_optional(conn).await
+    }
 
-    def self.for_semester(semester_name)
-      CONN.query_all "SELECT * FROM #{@@table_name} WHERE semester = ?", semester_name, as: Event
-    end
+    pub async fn for_semester(semester: &str, conn: &DbConn) -> Result<Vec<Self>> {
+        Semester::verify_exists(semester, conn).await?;
 
-    def is_gig?
-      @type == TUTTI_GIG || @type == VOLUNTEER_GIG
-    end
+        sqlx::query_as!(Self, "SELECT * FROM event WHERE semester = ?", semester)
+            .query_all(conn)
+            .await
+    }
 
-    def ensure_no_rsvp_issue!(member, attendance)
-      rsvp_issue = rsvp_issue_for member, attendance
-      raise rsvp_issue if rsvp_issue
-    end
+    pub fn is_gig(&self) -> bool {
+        self.event_type
+    }
 
-    def rsvp_issue_for(member, attendance : Attendance?)
-      if !member.is_active?
-        return "Member must be active to RSVP to events."
-      elsif attendance && !attendance.should_attend
-        return nil
-      end
+    pub fn ensure_no_rsvp_issue(&self,member: &Member, attendance: &Option<Attendance>) -> Result<()> {
+        if let Some(rsvp_issue) = self.rsvp_issue_for(member, attendance) {
+            Err(rsvp_issue)
+        } else {
+            Ok(())
+        }
+    }
 
-      if @call_time < Time.local.shift days: 1
-        "Responses are closed for this event."
-      end
+    pub fn rsvp_issue_for(&self, member: &Member, attendance: &Option<Attendance>) -> Option<String> {
+        if !member.is_active {
+            Some("Member must be active to RSVP to events.".to_owned())
+        } else if !attendance.map(|a| a.should_attend).unwrap_or(true) {
+            None
+        } else if Local::now().naive_local() + Duration::days(1) > self.call_time {
+            Some("Responses are closed for this event.".to_owned())
+        } else if let Some(bad_type) = ["Tutti Gig", "Sectional", "Rehearsal"]
+            .contains(&self.type_)
+        {
+            Some(format!("You cannot RSVP for {} events.", bad_type))
+        } else {
+            None
+        }
+    }
 
-      [TUTTI_GIG, SECTIONAL, REHEARSAL].each do |type|
-        return "You cannot RSVP for #{type} events." if type == @type
-      end
+    pub async fn create(new_event: NewEvent, from_request: Option<GigRequest>,conn: &DbConn) -> Result<isize> {
+        if let Some(release_time) = new_event.event.release_time {
+            if release_time < new_event.event.call_time {
+                return Err("Release time must be after call time".into());
+            }
+        }
 
-      nil
-    end
+    }
+}
 
     def self.create(form, from_request = nil)
       if release_time = form.event.release_time
@@ -215,100 +259,5 @@ module Models
 
       CONN.exec "DELETE FROM #{@@table_name} WHERE id = ?", id
     end
-
-    @[GraphQL::Field(description: "The ID of the event")]
-    def id : Int32
-      @id
-    end
-
-    @[GraphQL::Field(description: "The name of the event")]
-    def name : String
-      @name
-    end
-
-    @[GraphQL::Field(description: "The name of the semester this event belongs to")]
-    def semester : String
-      @semester
-    end
-
-    @[GraphQL::Field(description: "The type of the event (see EventType)")]
-    def type : String
-      @type
-    end
-
-    @[GraphQL::Field(name: "callTime", description: "When members are expected to arrive to the event")]
-    def gql_call_time : String
-      @call_time.to_s
-    end
-
-    @[GraphQL::Field(name: "releaseTime", description: "When members are probably going to be released")]
-    def gql_release_time : String?
-      @release_time.try &.to_s
-    end
-
-    @[GraphQL::Field(description: "How many points attendance of this event is worth")]
-    def points : Int32
-      @points
-    end
-
-    @[GraphQL::Field(description: "General information or details about this event")]
-    def comments : String?
-      @comments
-    end
-
-    @[GraphQL::Field(description: "Where this event will be held")]
-    def location : String?
-      @location
-    end
-
-    @[GraphQL::Field(description: "Whether this event counts toward the volunteer gig count for the semester")]
-    def gig_count : Bool
-      @gig_count
-    end
-
-    @[GraphQL::Field(description: "Whether members are assumed to attend (most events)")]
-    def default_attend : Bool
-      @default_attend
-    end
-
-    @[GraphQL::Field]
-    def gig : Models::Gig?
-      Gig.for_event @id
-    end
-
-    @[GraphQL::Field]
-    def user_attendance(context : UserContext) : Models::Attendance
-      Attendance.for_member_at_event! context.user!.email, @id
-    end
-
-    @[GraphQL::Field]
-    def attendance(member : String) : Models::Attendance
-      Attendance.for_member_at_event! member, @id
-    end
-
-    @[GraphQL::Field]
-    def all_attendance : Array(Models::Attendance)
-      Attendance.for_event @id
-    end
-
-    @[GraphQL::Field]
-    def carpools : Array(Models::Carpool)
-      Carpool.for_event @id
-    end
-
-    @[GraphQL::Field]
-    def setlist : Array(Models::Song)
-      Song.setlist_for_event @id
-    end
   end
 end
-
-  @[GraphQL::Enum]
-  enum Period
-    NO
-    DAILY
-    WEEKLY
-    BIWEEKLY
-    MONTHLY
-    YEARLY
-  end

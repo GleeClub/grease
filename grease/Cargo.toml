@@ -21,7 +21,7 @@ owning_ref = "0.4.1"
 regex = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
-sqlx = { version = "0.4.1", features = ["runtime-tokio-rustls", "mysql", "offline"] }
+sqlx = { version = "0.4.1", features = ["runtime-tokio-rustls", "mysql", "chrono", "offline"] }
 tokio = { version = "1.5.0", features = ["full"] }
 url = "1.7.2"
 uuid = { version = "0.7", features = ["v4"] }

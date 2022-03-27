@@ -1,4 +1,6 @@
 use crate::db_conn::DbConn;
+use chrono::NaiveDateTime;
+use crate::models::semester::Semester;
 use async_graphql::{Result, SimpleObject};
 
 #[derive(SimpleObject)]
@@ -40,19 +42,19 @@ impl Fee {
 
     pub async fn charge_dues_for_semester(conn: &DbConn) -> Result<()> {
         let dues = Self::load(Self::DUES, conn).await?;
-        let semester = Semester::current(conn).await?;
+        let current_semester = Semester::current(conn).await?;
 
             let members_who_havent_paid = sqlx::query!(
-                "SELECT member FROM active_semester WHERE semester = ? AND email NOT IN \
+                "SELECT member FROM active_semester a WHERE semester = ? AND a.email NOT IN \
                  (SELECT member FROM transaction WHERE type = ? AND description = ?)",
-                 Semester::current().await?.name, DUES_NAME, DUES_DESCRIPTION)
+                 current_semester.name, Self::DUES_NAME, Self::DUES_DESCRIPTION)
                 .query_all(conn).await?;
 
             for email in members_who_havent_paid {
                 sqlx::query!(
                     "INSERT INTO transaction (member, amount, type, description, semester)
-                     VALUES (?, ?, ?, ?, ?)", email, dues.amount, DUES_NAME, DUES_DESCRIPTION,
-                     semester.name,
+                     VALUES (?, ?, ?, ?, ?)", email, dues.amount, Self::DUES_NAME, Self::DUES_DESCRIPTION,
+                     current_semester.name,
                 ).query().await?
 
             }
@@ -62,19 +64,19 @@ impl Fee {
 
     pub async fn charge_late_dues_for_semester(conn: &DbConn) -> Result<()> {
         let late_dues = Self::load(Self::LATE_DUES, conn).await?;
-        let semester = Semester::current(conn).await?;
+        let current_semester = Semester::current(conn).await?;
 
             let members_who_havent_paid = sqlx::query!(
                 "SELECT member FROM active_semester WHERE semester = ? AND email NOT IN \
                  (SELECT member FROM transaction WHERE type = ? AND description = ?)",
-                 Semester::current().await?.name, DUES_NAME, DUES_DESCRIPTION)
+                 current_semester.name, Self::DUES_NAME, Self::DUES_DESCRIPTION)
                 .query_all(conn).await?;
 
             for email in members_who_havent_paid {
                 sqlx::query!(
                     "INSERT INTO transaction (member, amount, type, description, semester)
-                     VALUES (?, ?, ?, ?, ?)", email, dues.amount, DUES_NAME, DUES_DESCRIPTION,
-                     semester.name,
+                     VALUES (?, ?, ?, ?, ?)", email, late_dues.amount, Self::DUES_NAME, Self::DUES_DESCRIPTION,
+                     current_semester.name,
                 ).query(conn).await?;
             }
 
@@ -92,7 +94,7 @@ impl TransactionType {
     }
 
     pub async fn with_name(name: &str, conn: &DbConn) -> Result<Self> {
-        Self::with_name_opt(name, conn).await?.ok_or_else(|| anyhow::anyhow!("No transaction type named {}", name))
+        Self::with_name_opt(name, conn).await?.ok_or_else(|| format!("No transaction type named {}", name))
     }
     
     pub async fn with_name_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
@@ -115,7 +117,7 @@ pub struct ClubTransaction {
     /// Optionally, the name of the semester this tranaction was made during
     pub semester: Option<String>,
     /// The name of the type of transaction
-    pub transaction_type: String,
+    pub r#type: String,
     /// Whether the member has paid the amount requested in this transaction
     pub resolved: bool
 }
@@ -144,7 +146,9 @@ impl ClubTransaction {
         let transaction_type = TransactionType::with_name(batch.r#type, conn).await?;
         
         for member in batch.members {
-            sqlx::query!("INSERT INTO tranaction (member, amount, type, description, semester) VALUES (?, ?, ?, ?, ?)", member, batch.amount, transaction_type.name, batch.description, current_semester.name)
+            sqlx::query!(
+                "INSERT INTO transaction (member, amount, type, description, semester) VALUES (?, ?, ?, ?, ?)",
+                member, batch.amount, transaction_type.name, batch.description, current_semester.name)
                 .query(conn).await
         }
 

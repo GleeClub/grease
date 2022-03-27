@@ -1,8 +1,8 @@
-use async_graphql::ComplexObject;
+use async_graphql::{ComplexObject, SimpleObject};
 use crate::db_conn::DbConn;
 use chrono::{NaiveDateTime, Local};
 
-#[derive(ComplexObject)]
+#[derive(SimpleObject)]
 pub struct Attendance {
     /// Whether the member is expected to attend the event
     pub should_attend: bool,
@@ -19,8 +19,7 @@ pub struct Attendance {
     pub event: isize,
 }
 
-
-#[complex]
+#[ComplexObject]
 impl Attendance {
     /// The email of the member this attendance belongs to
     pub async fn member(&self) -> async_graphql::Result<Member> {
@@ -28,7 +27,7 @@ impl Attendance {
     }
 
     /// The absence request made by the current member, if they requested one
-    pub async fn absence_request(&self, ctx: Context<'_>) -> Result<AbsenceRequest> {
+    pub async fn absence_request(&self, ctx: Context<'_>) -> Result<Option<AbsenceRequest>> {
         AbsenceRequest::for_member_at_event(&self.member, self.event).await
     }
 

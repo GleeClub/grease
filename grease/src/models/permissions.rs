@@ -1,217 +1,147 @@
-use anyhow::Context;
-
 use crate::db_conn::DbConn;
-use async_graphql::{Object, Context};
+use crate::models::member::member::Member;
+use async_graphql::{SimpleObject, ComplexObject, Context, Enum};
 
-// Roles that can be held by members to grant permissions.
+// Roles that can be held by members to grant permissions
 pub struct Role {
-    /// The name of the role.
+    /// The name of the role
     pub name: String,
-    /// Used for ordering the positions (e.g. President beforee Ombudsman).
-    pub rank: i32,
+    /// Used for ordering the positions (e.g. President beforee Ombudsman)
+    pub rank: isize,
     /// The maximum number of the position allowed to be held at once.
-    /// If it is 0 or less, no maximum is enforced.
-    pub max_quantity: i32,
+    /// If it is 0 or less, no maximum is enforced
+    pub max_quantity: isize,
 }
 
 impl Role {
-    pub async fn load_all(conn: &DbConn) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM role ORDER BY rank").query_all(&mut *conn).await.into()
+    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM role ORDER BY rank").query_all(conn).await
     }
 
-    pub async fn load_for_member(email: &str, conn: &DbConn) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM role WHERE name IN (SELECT rank FROM member_role WHERE member = ?) ORDER BY rank", email).query_all(&mut *conn).await.into()
+    pub async fn for_member(email: &str, conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(
+            Self,
+                "SELECT * FROM role WHERE name IN (SELECT rank FROM member_role WHERE member = ?) ORDER BY rank", email)
+            .query_all(conn)
+            .await
     }
 }
 
-#[derive(ComplexObject)]
+#[derive(SimpleObject)]
 pub struct MemberRole {
+    /// The name of the role being held
+    pub role: String,
+
     #[graphql(skip)]
     pub member: String,
-    /// The name of the role being held.
-    pub role: String,
 }
 
-#[complex]
+#[ComplexObject]
 impl MemberRole {
-    /// The member holding the role.
-    pub async fn member(&self, ctx: &Context) -> Result<Member> {
+    /// The member holding the role
+    pub async fn member(&self, ctx: &Context<'_>) -> Result<Member> {
         let conn = ctx.data_unchecked::<DbConn>();
         Member::load(&self.member, conn).await
     }
+}
 
-    @[GraphQL::Object]
-  class MemberRole
-    include GraphQL::ObjectType
+impl MemberRole {
+    pub async fn current_officers(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM member_role").query_all(conn).await
+    }
 
-    class_getter table_name = "member_role"
+    pub async fn member_has_role(member: &str, role: &str, conn: &DbConn) -> Result<bool> {
+        sqlx::query!("SELECT * FROM member_role WHERE member = ? AND role = ?", member, role).query_optional(conn).await.map(|r| r.is_some())
+    }
 
-    DB.mapping({
-      member: String,
-      role:   String,
-    })
-
-    def initialize(@member : String, @role : String)
-    end
-
-    def self.current_officers
-      CONN.query_all "SELECT * FROM #{@@table_name}", as: MemberRole
-    end
-
-    def self.member_has_role?(email, role_name)
-      CONN.query_one? "SELECT * FROM #{@@table_name} WHERE member = ? AND role = ?",
-        email, role_name, as: MemberRole
-    end
-
-    def add
-      raise "Member already has that role" if MemberRole.member_has_role? @member, @role
-
-      CONN.exec "INSERT INTO #{@@table_name} (member, role) VALUES (?, ?)",
-        @member, @role
-    end
-
-    def remove
-      raise "Member does not have that role" unless MemberRole.member_has_role? @member, @role
-
-      CONN.exec "DELETE #{@@table_name} WHERE member = ? AND role = ?",
-        @member, @role
-    end
-
-  end
-
-  @[GraphQL::Object]
-  class Permission
-    include GraphQL::ObjectType
-
-    class_getter table_name = "permission"
-
-    @[GraphQL::Enum(name: "PermissionType")]
-    enum Type
-      STATIC
-      EVENT
-
-      def self.mapping
-        {
-          "STATIC" => STATIC,
-          "EVENT"  => EVENT,
+    pub async fn add(member: &str, role: &str, conn: &DbConn) -> Result<()> {
+        if Self::member_has_role(member, role, conn).await? {
+            return Err("Member already has that role".to_owned());
         }
-      end
 
-      def to_rs
-        Type.mapping.invert[self].downcase
-      end
+        sqlx::query!("INSERT INTO member_role (member, role) VALUES (?, ?)", member, role).query(conn).await
+    }
 
-      def self.from_rs(rs)
-        val = rs.read
-        permission_type = val.as?(String).try { |v| Type.mapping[v.upcase]? }
-        permission_type || raise "Invalid permission type returned from database: #{val}"
-      end
+    pub async fn remove(member: &str, role: &str, conn: &DbConn) -> Result<> {
+        if !Self::member_has_role(member, role, conn).await? {
+            return Err("Member does not have that role".to_owned());
+        }
 
-      def self.parse(val)
-        Type.mapping[val]? || raise "Invalid permission type variant provided: #{val}"
-      end
-    end
+        sqlx::query!("DELETE FROM member_role WHERE member = ? AND role = ?", member, role).query(conn).await
+        
+    }
+}
 
-    DB.mapping({
-      name:        String,
-      description: String?,
-      type:        {type: Type, default: Type::STATIC, converter: Type},
-    })
+#[derive(Enum)]
+pub enum PermissionType {
+    Static,
+    Event,
+}
 
-    def self.all
-      CONN.query_all "SELECT * FROM #{@@table_name} ORDER BY name", as: Permission
-    end
+#[derive(SimpleObject)]
+pub struct Permission {
+    /// The name of the permission
+    pub name: String,
+    /// A description of what the permission entails
+    pub description: Option<String>,
+    /// Whether the permission applies to a type of event or generally
+    pub r#type: PermissionType,
+}
 
-    @[GraphQL::Field(description: "The name of the permission")]
-    def name : String
-      @name
-    end
+impl Permission {
+    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM permission ORDER BY name").query_all(conn).await
+    }
+}
 
-    @[GraphQL::Field(description: "A description of what the permission entails")]
-    def description : String?
-      @description
-    end
+#[derive(SimpleObject)]
+pub struct RolePermission {
+    /// The ID of the role permission
+    pub id: isize,
+    /// The name of the role this junction refers to
+    pub role: String,
+    /// The name of the permission the role is awarded
+    pub permission: String,
+    /// Optionally, the type of the event the permission applies to
+    pub event_type: Option<String>,
+}
 
-    @[GraphQL::Field(description: "Whether the permission applies to a type of event or generally")]
-    def type : Models::Permission::Type
-      @type
-    end
-  end
+impl RolePermission {
+    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM role_permission").query_all(conn).await
+    }
 
-  @[GraphQL::Object]
-  class RolePermission
-    include GraphQL::ObjectType
+    pub async fn add(role_permission: NewRolePermission, conn: &DbConn) -> Result<()> {
+        sqlx::query_as!(
+            Self, "INSERT IGNORE INTO role_permission (role, permission, event_type) VALUES (?, ?, ?)",
+                role_permission.role, role_permission.permission, role_permission.event_type
+        ).query(conn).await
+    }
 
-    class_getter table_name = "role_permission"
+    pub async fn remove(role_permission: NewRolePermission, conn: &DbConn) -> Result<()> {
+        sqlx::query_as!(
+            Self, "DELETE FROM role_permission WHERE role = ? AND permission = ? AND event_type = ?",
+                role_permission.role, role_permission.permission, role_permission.event_type
+        ).query(conn).await
+    }
+}
 
-    DB.mapping({
-      id:         Int32,
-      role:       String,
-      permission: String,
-      event_type: String?,
-    })
+#[derive(SimpleObject)]
+pub struct MemberPermission {
+    /// The name of the permission
+    pub name: String,
+    /// Optionally, the type of event the permission applies to
+    pub event_type: Option<String>,
+}
 
-    def self.all
-      CONN.query_all "SELECT * FROM #{@@table_name}", as: RolePermission
-    end
+impl MemberPermission {
+    pub async fn for_member(member: &str, conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(
+            Self,
+                "SELECT permission as name, event_type FROM role_permission
+                 INNER JOIN member_role ON role_permission.role = member_role.role
+                 WHERE member_role.member = ?", member)
+                     .query_all(conn).await
+    }
+}
 
-    def self.add(role, permission, event_type)
-      CONN.exec "INSERT IGNORE INTO #{@@table_name} (role, permission, event_type) \
-        VALUES (?, ?, ?)", role, permission, event_type
-    end
-
-    def self.remove(role, permission, event_type)
-      CONN.exec "DELETE #{@@table_name} WHERE role = ? AND permission = ? \
-        AND event_type = ?", role, permission, event_type
-    end
-
-    @[GraphQL::Field(description: "The ID of the role permission")]
-    def id : Int32
-      @id
-    end
-
-    @[GraphQL::Field(description: "The name of the role this junction refers to")]
-    def role : String
-      @role
-    end
-
-    @[GraphQL::Field(description: "The name of the permission the role is awarded")]
-    def permission : String
-      @permission
-    end
-
-    @[GraphQL::Field(description: "The type of event the permission optionally applies to")]
-    def event_type : String?
-      @event_type
-    end
-  end
-
-  @[GraphQL::Object]
-  class MemberPermission
-    include GraphQL::ObjectType
-
-    DB.mapping({
-      name:       String,
-      event_type: String?,
-    })
-
-    def initialize(@name : String, @event_type : String?)
-    end
-
-    def self.for_member(email)
-      CONN.query_all "SELECT permission as name, event_type FROM #{RolePermission.table_name} \
-        INNER JOIN #{MemberRole.table_name} ON #{RolePermission.table_name}.role = #{MemberRole.table_name}.role \
-        WHERE #{MemberRole.table_name}.member = ?", email, as: MemberPermission
-    end
-
-    @[GraphQL::Field]
-    def name : String
-      @name
-    end
-
-    @[GraphQL::Field]
-    def event_type : String?
-      @event_type
-    end
-  end
-end

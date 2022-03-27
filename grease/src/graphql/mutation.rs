@@ -5,7 +5,7 @@ pub struct MutationRoot;
 #[Object]
 impl MutationRoot {
     /// Gets a login token on successful login
-    pub async fn login(ctx: Context, email: String, pass_hash: String) -> Result<String> {
+    pub async fn login(ctx: &Context<'_>, email: String, pass_hash: String) -> Result<String> {
         let conn = ctx.data_unchecked::<DbConn>();
         Member::validate_login(&email, &pass_hash, conn).await?;
         
@@ -13,7 +13,10 @@ impl MutationRoot {
     }
 
     /// Logs the member out
-    pub async fn logout(ctx: Context, )
+    pub async fn logout(ctx: &Context<'_>) -> Result<String> {
+        let user = 
+        Session::remove_for()
+    }
   @[GraphQL::Field(description: "Logs the member out")]
   def logout(context : UserContext) : Bool
     Models::Session.remove_for context.user!.email
