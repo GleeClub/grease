@@ -1,233 +1,150 @@
-require "../../db"
-require "../../schema/context"
+use async_graphql::{ComplexObject, InputObject, SimpleObject, Enum};
 
-module Models
-  @[GraphQL::Object]
-  class Gig
-    include GraphQL::ObjectType
+pub struct Gig {
+    /// The ID of the event this gig belongs to
+    pub event: isize,
+    /// When members are expected to actually perform
+    pub performance_time: NaiveDateTime,
+    /// The name of the contact for this gig
+    pub contact_name: Option<String>,
+    /// The email of the contact for this gig
+    pub contact_email: Option<String>,
+    /// The phone number of the contact for this gig
+    pub contact_phone: Option<String>,
+    /// The price we are charging for this gig
+    pub price: Option<isize>,
+    /// Whether this gig is visible on the external website
+    pub public: bool,
+    /// A summary of this event for the external site (if it is public)
+    pub summary: Option<String>,
+    /// A description of this event for the external site (if it is public)
+    pub description: Option<String>,
 
-    class_getter table_name = "gig"
+    #[graphql(skip)]
+    pub uniform: isize,
+}
 
-    DB.mapping({
-      event:            Int32,
-      performance_time: Time,
-      uniform:          Int32,
-      contact_name:     String?,
-      contact_email:    String?,
-      contact_phone:    String?,
-      price:            Int32?,
-      public:           {type: Bool, default: false},
-      summary:          String?,
-      description:      String?,
-    })
+#[ComplexObject]
+impl Gig {
+    /// The uniform for this gig
+    pub async fn uniform(&self, ctx: &Context<'_>) -> Result<Uniform> {
+        let conn = ctx.data_unchecked::<DbConn>();
+        Uniform::with_id(self.uniform, conn).await
+    }
+}
 
-    def self.for_event(event_id)
-      CONN.query_one? "SELECT * FROM #{@@table_name} WHERE event = ?", event_id, as: Gig
-    end
+impl Gig {
+    pub fn for_event(event_id: isize, conn: &DbConn) -> Result<Option<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM gig WHERE event = ?", event_id).query_optional(conn).await
+    }
+}
 
-    @[GraphQL::Field(description: "The ID of the event this gig belongs to")]
-    def event : Int32
-      @event
-    end
+#[derive(Enum)]
+pub enum GigRequestStatus {
+    Pending,
+    Accepted,
+    Dismissed,
+}
 
-    @[GraphQL::Field(name: "performanceTime", description: "When members are expected to actually perform")]
-    def gql_performance_time : String
-      @performance_time.to_s
-    end
+pub struct GigRequest {
+    /// The ID of the gig request
+    pub id: isize,
+    /// When the gig request was placed
+    pub time: NaiveDateTime,
+    /// The name of the potential event
+    pub name: String,
+    /// The organization requesting a performance from the Glee Club
+    pub organization: String,
+    /// The name of the contact for the potential event
+    pub contact_name: String,
+    /// The email of the contact for the potential event
+    pub contact_phone: String,
+    /// The phone number of the contact for the potential event
+    pub contact_email: String,
+    /// When the event will probably happen
+    pub start_time: NaiveDateTime,
+    /// Where the event will be happening
+    pub location: String,
+    /// Any comments about the event
+    pub comments: Option<String>,
+    /// The current status of whether the request was accepted
+    pub status: GigRequestStatus,
 
-    @[GraphQL::Field(description: "The uniform for this gig")]
-    def uniform : Models::Uniform
-      Uniform.with_id! @uniform
-    end
+    #[graphql(skip)]
+    pub event: Option<isize>,
+}
 
-    @[GraphQL::Field(description: "The name of the contact for this gig")]
-    def contact_name : String?
-      @contact_name
-    end
-
-    @[GraphQL::Field(description: "The email of the contact for this gig")]
-    def contact_email : String?
-      @contact_email
-    end
-
-    @[GraphQL::Field(description: "The phone of the contact for this gig")]
-    def contact_phone : String?
-      @contact_phone
-    end
-
-    @[GraphQL::Field(description: "The price we are charging for this gig")]
-    def price : Int32?
-      @price
-    end
-
-    @[GraphQL::Field(description: "Whether this gig is visible on the external website")]
-    def public : Bool
-      @public
-    end
-
-    @[GraphQL::Field(description: "A summary of this event for the external site (if it is public)")]
-    def summary : String?
-      @summary
-    end
-
-    @[GraphQL::Field(description: "A description of this event for the external site (if it is public)")]
-    def description : String?
-      @description
-    end
-  end
-
-  @[GraphQL::Object]
-  class GigRequest
-    include GraphQL::ObjectType
-
-    class_getter table_name = "gig_request"
-
-    @[GraphQL::Enum(name: "GigRequestStatus")]
-    enum Status
-      PENDING
-      ACCEPTED
-      DISMISSED
-
-      def self.mapping
-        {
-          "PENDING"   => PENDING,
-          "ACCEPTED"  => ACCEPTED,
-          "DISMISSED" => DISMISSED,
+#[ComplexObject]
+impl GigRequest {
+    /// If and when an event is created from a request, this is the event
+    pub async fn event(&self, ctx: &Context<'_>) -> Result<Option<Event>> {
+        if let Some(event_id) = self.event {
+            let conn = ctx.data_unchecked::<DbConn>();
+            Ok(Some(Event::with_id(event_id).await?))
+        } else {
+            Ok(None)
         }
-      end
+    }
+}
 
-      def to_rs
-        Status.mapping.invert[self].downcase
-      end
+impl GigRequest {
+    pub async fn with_id(id: isize, conn: &DbConn) -> Result<Self> {
+        Self::with_id_opt(id, conn).await?.ok_or_else(|| format!("No gig request with ID {}", id))
+    }
 
-      def self.from_rs(rs)
-        val = rs.read
-        status = val.as?(String).try { |v| Status.mapping[v.upcase]? }
-        status || raise "Invalid gig request status returned from database: #{val}"
-      end
+    pub async fn with_id_opt(id: isize, conn: &DbConn) -> Result<Option<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM gig_request WHERE id = ?", id).query_optional(conn).await
+    }
 
-      def self.parse(val)
-        Status.mapping[val]? || raise "Invalid gig request status variant provided: #{val}"
-      end
-    end
+    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM gig_request ORDER BY time").query_all(conn).await
+    }
 
-    DB.mapping({
-      id:            Int32,
-      event:         Int32?,
-      time:          {type: Time, default: Time.local},
-      name:          String,
-      organization:  String,
-      contact_name:  String,
-      contact_phone: String,
-      contact_email: String,
-      start_time:    Time,
-      location:      String,
-      comments:      String?,
-      status:        {type: Status, default: Status::PENDING, converter: Status},
-    })
+    pub async fn submit(new_request: NewGigRequest,conn: &DbConn) -> Result<isize> {
+        sqlx::query!(
+            "INSERT INTO gig_request (
+                name, organization, contact_name, contact_phone,
+                contact_email, start_time, location, comments)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+             new_request.name, new_request.organization, new_request.contact_name, new_request.contact_phone,
+             new_request.contact_email, new_request.start_time, new_request.location, new_request.comments
+        ).query(conn).await?;
 
-    def self.with_id(id)
-      CONN.query_one? "SELECT * FROM #{@@table_name} WHERE id = ?", id, as: GigRequest
-    end
+        sqlx::query!("SELECT id FROM gig_request ORDER BY id DESC").query_one(conn).await
+    }
 
-    def self.with_id!(id)
-      (with_id id) || raise "No gig request with ID #{id}"
-    end
+    pub async fn set_status(id: isize, status: GigRequestStatus, conn: &DbConn) -> Result<()> {
+        let request = Self::with_id(id, conn).await?;
 
-    def self.all
-      CONN.query_all "SELECT * FROM #{@@table_name} ORDER BY time", as: GigRequest
-    end
+        if request.status == status {
+            return Ok(());
+        }
 
-    def self.submit(form)
-      CONN.exec "INSERT INTO #{@@table_name} \
-        (name, organization, contact_name, contact_phone, \
-        contact_email, start_time, location, comments) \
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        form.name, form.organization, form.contact_name, form.contact_phone,
-        form.contact_email, form.start_time, form.location, form.comments
+        match request.status {
+            GigRequestStatus::Accepted => {
+                Err("Cannot change the status of an accepted gig request")
+            }
+            GigRequestStatus::Dismissed if status == GigRequestStatus::Accepted => {
+                Err("Cannot directly accept a gig request if it is dismissed (please reopen it first)")
+            }
+            GigRequestStatus::Pending if status == GigRequestStatus::Accepted && self.event.is_none() => {
+                Err("Must create the event for the gig request first before marking it as accepted")
+            }
+            _ => {
+                sqlx::query!("UPDATE gig_request SET status = ? WHERE id = ?", status, id).query(conn).await
+            }
+        }
+    }
+}
 
-      CONN.query_one "SELECT id FROM #{@@table_name} ORDER BY id DESC", as: Int32
-    end
-
-    def set_status(status)
-      if @status == status
-        return
-      elsif @status == Status::ACCEPTED
-        raise "Cannot change the status of an accepted gig request"
-      elsif @status == Status::DISMISSED && status == Status::ACCEPTED
-        raise "Cannot directly accept a gig request if it is dismissed (please reopen it first)"
-      elsif @status == Status::PENDING && status == Status::ACCEPTED && @event.nil?
-        raise "Must create the event for the gig request first before marking it as accepted"
-      else
-        CONN.exec "UPDATE #{@@table_name} SET status = ? WHERE id = ?", status.to_rs, @id
-
-        @status = status
-      end
-    end
-
-    def build_new_gig
-      Input::NewGig.new @start_time.to_s, Uniform.default.id, @contact_name, @contact_email,
-        @contact_phone, nil, false, nil, nil
-    end
-
-    @[GraphQL::Field(description: "The ID of the gig request")]
-    def id : Int32
-      @id
-    end
-
-    @[GraphQL::Field(name: "time", description: "When the gig request was placed")]
-    def gql_time : String
-      @time.to_s
-    end
-
-    @[GraphQL::Field(description: "The name of the potential event")]
-    def name : String
-      @name
-    end
-
-    @[GraphQL::Field(description: "The organization requesting a performance from the Glee Club")]
-    def organization : String
-      @organization
-    end
-
-    @[GraphQL::Field(description: "If and when an event is created from a request, this is the event")]
-    def event : Models::Event?
-      @event.try { |id| Event.with_id! id }
-    end
-
-    @[GraphQL::Field(description: "The name of the contact for the potential event")]
-    def contact_name : String
-      @contact_name
-    end
-
-    @[GraphQL::Field(description: "The email of the contact for the potential event")]
-    def contact_email : String
-      @contact_email
-    end
-
-    @[GraphQL::Field(description: "The phone number of the contact for the potential event")]
-    def contact_phone : String
-      @contact_phone
-    end
-
-    @[GraphQL::Field(name: "startTime", description: "When the event will probably happen")]
-    def gql_start_time : String
-      @start_time.to_s
-    end
-
-    @[GraphQL::Field(description: "Where the event will be happening")]
-    def location : String
-      @location
-    end
-
-    @[GraphQL::Field(description: "Any comments about the event")]
-    def comments : String?
-      @comments
-    end
-
-    @[GraphQL::Field(description: "The current status of whether the request was accepted")]
-    def status : Models::GigRequest::Status
-      @status
-    end
-  end
-end
+#[derive(InputObject)]
+pub struct NewGigRequest {
+    pub name: String,
+    pub organization: String,
+    pub contact_name: String,
+    pub contact_email: String,
+    pub contact_phone: String,
+    pub start_time: NaiveDateTime,
+    pub location: String,
+    pub comments: Option<String>,
+}

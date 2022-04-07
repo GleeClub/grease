@@ -1,7 +1,7 @@
 use crate::db_conn::DbConn;
 use chrono::NaiveDateTime;
 use crate::models::semester::Semester;
-use async_graphql::{Result, SimpleObject};
+use async_graphql::{Result, SimpleObject, InputObject};
 
 #[derive(SimpleObject)]
 pub struct Fee {
@@ -13,7 +13,6 @@ pub struct Fee {
     pub amount: i32,
 }
 
-
 impl Fee {
     pub const DUES: &'static str = "dues";
     pub const LATE_DUES: &'static str = "latedues";
@@ -22,18 +21,18 @@ impl Fee {
     pub const DUES_DESCRIPTION: &'static str = "Semesterly Dues";
     pub const LATE_DUES_DESCRIPTION: &'static str = "Late Dues";
 
-    pub async fn load_all(conn: &DbConn) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM fee ORDER BY NAME")
-            .query_all(conn).await
+    pub async fn with_name(name: &str, conn: &DbConn) -> Result<Self> {
+        Self::load_opt(name, conn).await?.ok_or_else(|| format!("No fee named {}", name))
     }
 
-    pub async fn load_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM fee WHERE name = ?", name)
             .query_optional(conn).await
     }
 
-    pub async fn load(name: &str, conn: &DbConn) -> Result<Self> {
-        Self::load_opt(name, conn).await.and_then(|fee| fee.ok_or_else(|| format!("No fee named {}", name)))
+    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM fee ORDER BY NAME")
+            .query_all(conn).await
     }
 
     pub async fn set_amount(name: &str, new_amount: i32, conn: &DbConn) -> Result<()> {
@@ -45,7 +44,7 @@ impl Fee {
         let current_semester = Semester::current(conn).await?;
 
             let members_who_havent_paid = sqlx::query!(
-                "SELECT member FROM active_semester a WHERE semester = ? AND a.email NOT IN \
+                "SELECT member FROM active_semester WHERE semester = ? AND member NOT IN \
                  (SELECT member FROM transaction WHERE type = ? AND description = ?)",
                  current_semester.name, Self::DUES_NAME, Self::DUES_DESCRIPTION)
                 .query_all(conn).await?;
@@ -67,7 +66,7 @@ impl Fee {
         let current_semester = Semester::current(conn).await?;
 
             let members_who_havent_paid = sqlx::query!(
-                "SELECT member FROM active_semester WHERE semester = ? AND email NOT IN \
+                "SELECT member FROM active_semester WHERE semester = ? AND member NOT IN \
                  (SELECT member FROM transaction WHERE type = ? AND description = ?)",
                  current_semester.name, Self::DUES_NAME, Self::DUES_DESCRIPTION)
                 .query_all(conn).await?;
@@ -159,4 +158,12 @@ impl ClubTransaction {
         sqlx::query!("UPDATE transaction SET resolved = ? WHERE id = ?", resolved, id)
             .query(conn).await
     }
+}
+
+#[derive(InputObject)]
+pub struct TransactionBatch {
+    pub members: Vec<String>,
+    pub r#type: String,
+    pub amount: isize,
+    pub description: String,
 }

@@ -1,4 +1,4 @@
-use async_graphql::{ComplexObject, SimpleObject};
+use async_graphql::{ComplexObject, SimpleObject, InputObject};
 use crate::db_conn::DbConn;
 use chrono::{NaiveDateTime, Local};
 
@@ -40,9 +40,9 @@ impl Attendance {
     /// Whether the absence is approved
     pub async fn approved_absence(&self, ctx: Context<'_>) -> Result<bool> {
         if let Some(absence_request) = self.absence_request(ctx).await? {
-            absence_request.state == AbsenceRequestState::Approved
+            Ok(absence_request.state == AbsenceRequestState::Approved)
         } else {
-            false
+            Ok(false)
         }
     }
 
@@ -76,7 +76,7 @@ impl Attendance {
         let events = Event::for_semester(current_semester.name).await?;
 
         // TODO: make batch query
-        let now = NaiveDateTime<Local>::now();
+        let now = NaiveDateTime::<Local>::now();
 
         for event in events {
             let should_attend = if event.call_time < now { false } else { event.default_attend };
@@ -145,4 +145,12 @@ impl Attendance {
             .query(conn)
             .await
     }
+}
+
+#[derive(InputObject)]
+pub struct AttendanceForm {
+    pub should_attend: bool,
+    pub did_attend: bool,
+    pub confirmed: bool,
+    pub minutes_late: isize,
 }

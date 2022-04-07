@@ -68,7 +68,6 @@ impl MemberRole {
         }
 
         sqlx::query!("DELETE FROM member_role WHERE member = ? AND role = ?", member, role).query(conn).await
-        
     }
 }
 
@@ -138,10 +137,10 @@ impl MemberPermission {
     pub async fn for_member(member: &str, conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
-                "SELECT permission as name, event_type FROM role_permission
-                 INNER JOIN member_role ON role_permission.role = member_role.role
-                 WHERE member_role.member = ?", member)
-                     .query_all(conn).await
+            "SELECT permission as name, event_type FROM role_permission
+             INNER JOIN member_role ON role_permission.role = member_role.role
+             WHERE member_role.member = ?", member)
+            .query_all(conn).await
     }
 }
 

@@ -1,4 +1,4 @@
-use async_graphql::{ComplexObject, SimpleObject};
+use async_graphql::{ComplexObject, InputObject, SimpleObject, Context};
 use crate::db_conn::DbConn;
 use chrono::{NaiveDateTime, Local};
 
@@ -52,7 +52,14 @@ impl Carpool {
     }
 }
 
+// TODO: remove?
 pub struct RidesIn {
     pub member: String,
     pub carpool: isize,
+}
+
+#[derive(InputObject)]
+pub struct UpdatedCarpool {
+    pub driver: String,
+    pub passengers: Vec<String>,
 }

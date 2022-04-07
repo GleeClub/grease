@@ -1,6 +1,8 @@
-use async_graphql::{ComplexObject, Context, Enum};
+use async_graphql::{ComplexObject, SimpleObject, Context, Enum, Result};
+use crate::models::member::member::Member;
+use crate::db_conn::DbConn;
 
-#[derive(ComplexObject)]
+#[derive(SimpleObject)]
 pub struct ActiveSemester {
     /// The email of the member
     pub member: String,
@@ -12,10 +14,11 @@ pub struct ActiveSemester {
     pub section: Option<String>,
 }
 
-#[complex]
+#[ComplexObject]
 impl ActiveSemester {
     /// The grades for the member in the given semester
-    pub async fn grades(&self, ctx: &Context) -> Result<Grades> {
+    pub async fn grades(&self, ctx: &Context<'_>) -> Result<Grades> {
+        // TODO
         // Grades.for_member (Member.with_email! @member), (Semester.with_name! @semester)
     }
 }
@@ -26,52 +29,51 @@ pub enum Enrollment {
     Club,
 }
 
-// impl ActiveSemester {
+impl ActiveSemester {
+    pub async fn all_for_member(member: &str, conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM active_semester WHERE member = ?", member).query_all(conn).await
+    }
 
-// module Models
-//   @[GraphQL::Object]
-//   class ActiveSemester
-//     include GraphQL::ObjectType
+    pub async fn for_member_during_semester(member: &str, semester: &str, conn: &DbConn) -> Result<Option<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM active_semester WHERE member = ? AND semester = ?", member, semester).query_optional(conn).await
+    }
 
-//     class_getter table_name = "active_semester"
+    pub async fn create_for_member(member: &Member, new_semester: NewActiveSemester, conn: &DbConn) -> Result<()> {
+        if Member::semester(new_semester.semester, conn).await?.is_some() {
+            return Err(format!("{} is already active for the current semester", member.full_name()));
+        }
 
-//     DB.mapping({
-//       member:     String,
-//       semester:   String,
-//       enrollment: {type: Enrollment, default: Enrollment::CLUB, converter: Enrollment},
-//       section:    String?,
-//     })
+        // TODO: create attendance or something?
 
-//     def self.all_for_member(email)
-//       CONN.query_all "SELECT * FROM #{@@table_name} WHERE member = ?", email, as: ActiveSemester
-//     end
+        sqlx::query!(
+            "INSERT INTO active_semester (member, semester, enrollment, section) VALUES (?, ?, ?, ?)",
+            member.email, new_semester.semester, new_semester.enrollment, new_semester.section
+        ).query(conn).await
+    }
 
-//     def self.for_semester(email, semester_name)
-//       CONN.query_one? "SELECT * FROM #{@@table_name} WHERE member = ? AND SEMESTER = ?",
-//         email, semester_name, as: ActiveSemester
-//     end
+    pub async fn update(semester_update: ActiveSemesterUpdate, conn: &DbConn) -> Result<()> {
+        let active_semester = Self::for_semester(semester_update.member, semester_update.semester, conn).await?;
 
-//     def self.create_for_member(member, form, semester)
-//       if member.get_semester(semester.name)
-//         raise "#{member.full_name} is already active for the current semester"
-//       end
-
-//       CONN.exec "INSERT INTO #{@@table_name} (member, semester, enrollment, section)
-//         VALUES (?, ?, ?, ?)", member.email, semester.name, form.enrollment.to_rs, form.section
-//     end
-
-//     def self.update(email, semester_name, enrollment, section)
-//       active_semester = for_semester email, semester_name
-
-//       if enrollment
-//         if active_semester
-//           CONN.exec "UPDATE #{@@table_name} SET enrollment = ?, section = ? \
-//             WHERE member = ? AND semester = ?", enrollment.to_rs, section, email, semester_name
-//         else
-//           CONN.exec "INSERT INTO #{@@table_name} (member, semester, enrollment, section)
-//             VALUES (?, ?, ?, ?)", email, semester_name, enrollment.to_rs, section
-//         end
-//       elsif active_semester
-//         CONN.exec "DELETE FROM #{@@table_name} WHERE member = ? AND SEMESTER = ?", email, semester_name
-//       end
-//     end
+        match (semester_update.enrollment, active_semester) {
+            (Some(enrollment), Some(active_semester)) => {
+                sqlx::query!(
+                    "UPDATE active_semester SET enrollment = ?, section = ? WHERE member = ? AND semester = ?",
+                    enrollment, semester_update.section, semester_update.member, semester_update.semester
+                ).query(conn).await
+            }
+            (Some(enrollment), None) => {
+                sqlx::query!(
+                    "INSERT INTO active_semester (member, semester, enrollment, section) VALUES (?, ?, ?, ?)",
+                    semester_update.member, semester_update.semester, enrollment, semester_update.section
+                ).query(conn).await
+            }
+            (None, Some(active_semester)) => {
+                sqlx::query!(
+                    "DELETE FROM active_semester WHERE member = ? AND semester = ?",
+                    semester_update.member, semester_update.semester
+                ).query(conn).await
+            }
+            (None, None) => {}
+        }
+    }
+}

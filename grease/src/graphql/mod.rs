@@ -5,7 +5,7 @@ use async_graphql::types::EmptySubscription;
 use async_graphql::{Context, Request, Schema};
 use sqlx::{Connection, MySql, MySqlConnection, Transaction};
 use crate::db_conn::DbConn;
-use crate::models::member::Member;
+use crate::models::member::member::Member;
 
 pub mod input;
 pub mod mutation;

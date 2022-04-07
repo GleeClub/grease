@@ -1,6 +1,7 @@
-use async_graphql::{ComplexObject, Result};
+use async_graphql::{ComplexObject, SimpleObject, Result};
+use crate::db_conn::DbConn;
 
-#[derive(ComplexObject)]
+#[derive(SimpleObject)]
 pub struct Member {
     /// The member's email, which must be unique
     pub email:                String,
@@ -10,8 +11,6 @@ pub struct Member {
     pub preferred_name:       Option<String>,
     /// The member's last name
     pub last_name:            String,
-    #[graphql(skip)]
-    pub pass_hash:            String,
     /// The member's phone number
     pub phone_number:         String,
     /// An optional link to a profile picture for the member
@@ -38,48 +37,44 @@ pub struct Member {
     pub conflicts:            Option<String>,
     /// Any dietary restrictions the member may have
     pub dietary_restrictions: Option<String>,
+
+    #[graphql(skip)]
+    pub pass_hash:            String,
 }
 
-#[complex]
+#[ComplexObject]
 impl Member {
     /// The member's full name
     pub async fn full_name(&self) -> String {
-        format!("{} {}", self.preferred_name.as_ref().unwrap_or(&self.first_name), self.last_name)
+        self.full_name_inner()
     }
+
+    /// The semester TODO
+    pub async fn semester(&self) -> Result<Option<String>> {
+        self.semester()
+    }
+
+    /// The officer positions currently held by the member
+    pub async fn positions(&self, ctx: &Context<'_>) -> Result<Vec<Role>> {
+        let conn = ctx.data_unchecked::<DbConn>();
+        Role::for_member(&self.email, conn).await
+    }
+
+    /// The permissions currently held by the member
+    pub async fn positions(&self, ctx: &Context<'_>) -> Result<Vec<MemberPermission>> {
+        let conn = ctx.data_unchecked::<DbConn>();
+        MemberPermission::for_member(&self.email, conn).await
+    }
+}
 
     /// The name of the semester they were active during
     // pub async fn semester(
-
-    // @[GraphQL::Field(description: "The name of the semester they were active during")]
-    // def semester : String?
-    //   get_semester(Semester.current.name).try &.semester
-    // end
 
     // @[GraphQL::Field(description: "The name of the semester they were active during")]
     // def semesters(context : UserContext) : Array(Models::ActiveSemester)
     //   context.able_to! Permissions::VIEW_USER_PRIVATE_DETAILS unless @email == context.user!.email
 
     //   (ActiveSemester.all_for_member @email).sort_by &.semester
-    // end
-
-    // @[GraphQL::Field(description: "Whether they were in the class or the club")]
-    // def enrollment : Models::ActiveSemester::Enrollment?
-    //   get_semester(Semester.current.name).try &.enrollment
-    // end
-
-    // @[GraphQL::Field(description: "Which section the member sang in")]
-    // def section : String?
-    //   get_semester(Semester.current.name).try &.section
-    // end
-
-    // @[GraphQL::Field(description: "The officer positions currently held by the member")]
-    // def positions : Array(String)
-    //   (Role.for_member @email).map &.name
-    // end
-
-    // @[GraphQL::Field(description: "The permissions held currently by the member")]
-    // def permissions : Array(Models::MemberPermission)
-    //   MemberPermission.for_member @email
     // end
 
     // @[GraphQL::Field(description: "The grades for the member in the given semester (default the current semester)")]
@@ -100,11 +95,11 @@ impl Member {
 // @semesters : Hash(String, ActiveSemester)?
 
 impl Member {
-    pub async fn load_opt(email: &str, conn: &DbConn) -> Result<Option<Member>> {
+    pub async fn with_email_opt(email: &str, conn: &DbConn) -> Result<Option<Member>> {
         sqlx::query_as!(Member, "SELECT * FROM member WHERE email = ?", email).query_optional(&mut *conn).await.into()
     }
 
-    pub async fn load(email: &str, conn: &DbConn) -> Result<Member> {
+    pub async fn with_email(email: &str, conn: &DbConn) -> Result<Member> {
         Self::with_email_opt(email, conn).and_then(|res| res.ok_or_else(|| format!("No member with email {}", email)))
     }
 
@@ -113,26 +108,39 @@ impl Member {
         Self::with_email(&session.member, conn).await
     }
 
-    pub async fn load_all(conn: &DbConn) -> Result<
+    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM member ORDER BY last_name, first_name").query_all(conn).await
+    }
 
-    def self.all
-      CONN.query_all "SELECT * FROM #{@@table_name} ORDER BY last_name, first_name", as: Member
-    end
+    pub async fn active_during(semester: &str, conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(
+            Self,
+            "SELECT * FROM member WHERE email IN
+             (SELECT member FROM active_semester WHERE semester = ?)",
+             semester
+        ).query_all(conn).await
+    }
 
-    def self.active_during(semester_name)
-      CONN.query_all "SELECT * FROM #{@@table_name} WHERE email IN \
-        (SELECT member FROM #{ActiveSemester.table_name} WHERE semester = ?)", semester_name, as: Member
-    end
+    pub fn full_name_inner(&self) -> String {
+        format!("{} {}", self.preferred_name.as_deref().unwrap_or(&self.first_name), self.last_name)
+    }
 
-    def self.valid_login?(email, given_pass_hash)
-      pass_hash = CONN.query_one? "SELECT pass_hash FROM #{@@table_name} \
-        WHERE email = ?", email, as: String
-      pass_hash && Password.new(raw_hash: pass_hash).verify(given_pass_hash)
-    end
+    pub async fn login_is_valid(email: &str, pass_hash: &str) -> Result<bool> {
+        if let Some(hash) = sqlx::query!("SELECT pass_hash FROM member WHERE email = ?", email).query_optional(conn).await? {
+            Password::from_hash(hash).verify(pass_hash)
+        } else {
+            false
+        }
+    }
 
-    def is_active?
-      get_semester(Semester.current.name)
-    end
+    pub async fn is_active(&self, email: &str, conn: &DbConn) -> Result<bool> {
+        let current_semester = Semester::current(conn).await?;
+        Ok(self.semester(current_semester.name).await?.is_some())
+    }
+
+    pub async fn semester(&self, semester: &str, conn: &DbConn) -> Result<ActiveSemester> {
+        ActiveSemester::for_member_during_semester(&self.email, semester, conn).ok_or_else(|| format!("{} was not active during {}", self.full_name())
+    }
 
     def get_semester(semester_name)
       ActiveSemester.for_semester @email, semester_name
@@ -228,16 +236,16 @@ impl Member {
       CONN.exec "DELETE FROM #{@@table_name} WHERE email = ?", @email
     end
   end
-
-  class SectionType
-    class_getter table_name = "section_type"
-
-    DB.mapping({
-      name: String,
-    })
-
-    def self.all
-      CONN.query_all "SELECT * FROM #{@@table_name} ORDER BY name", as: SectionType
-    end
-  end
 end
+
+#[SimpleObject]
+pub struct SectionType {
+    /// The name of the section (Tenor, Baritone, etc.)
+    pub name: String,
+}
+
+impl SectionType {
+    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM section_type ORDER BY name").query_all(conn).await
+    }
+}

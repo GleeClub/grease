@@ -38,9 +38,7 @@ pub enum AbsenceRequestState {
 impl AbsenceRequest {
     pub async fn for_member_at_event(&self, email: &str, event_id: isize, conn: &DbConn) -> Result<Self> {
         Self::for_member_at_event_opt(email, event_id, conn).await?
-
-
-            .ok_or_else(|| anyhow::anyhow!("No absence request for member {} at event with id {}", email, event_id))
+            .ok_or_else(|| format!("No absence request for member {} at event with id {}", email, event_id))
     }
 
     pub async fn for_member_at_event_opt(&self, email: &str, event_id: isize, conn: &DbConn) -> Result<Option<Self>> {
@@ -49,8 +47,13 @@ impl AbsenceRequest {
     }
 
     pub async fn for_semester(&self, semester_name: &str, conn: &DbConn) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM absence_request WHERE semester = ? ORDER BY time", semester_name)
-            .query_all(conn).await
+        sqlx::query_as!(
+            Self,
+            "SELECT * FROM absence_request WHERE event IN
+             (SELECT id FROM event WHERE semester = ?)
+             ORDER BY time",
+         semester_name)
+        .query_all(conn).await
     }
 
     pub async fn submit(event_id: isize, email: &str, reason: &str, conn: &DbConn) -> Result<()> {

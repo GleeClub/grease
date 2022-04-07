@@ -48,21 +48,16 @@ impl PublicEvent {
 
         format!("data:text/calendar;base64,{}", base64::encode(&details))
     }
-
 }
 
 impl PublicEvent {
     pub async fn all_for_current_semester(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT e.id, e.name, g.performance_time as start_time,
-                e.release_time as end_time, e.location, g.summary,
-                g.description
-             FROM event as e
-             INNER JOIN gig as g ON e.id = g.event
-             WHERE g.public = true").query_all(conn).await
+            "SELECT event.id, event.name, gig.performance_time as start_time,
+                event.release_time as end_time, event.location, gig.summary, gig.description
+             FROM event
+             INNER JOIN gig ON event.id = gig.event
+             WHERE gig.public = true").query_all(conn).await
     }
-
 }
-
-

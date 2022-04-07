@@ -1,4 +1,4 @@
-use async_graphql::{SimpleObject, ComplexObject, InputValueError, InputValueResult, ScalarType, Scalar};
+use async_graphql::{SimpleObject, ComplexObject, InputValueError, InputValueResult, ScalarType, Scalar, InputObject};
 use serde_json::Value;
 use crate::db_conn::DbConn;
 use regex::Regex;
@@ -57,7 +57,9 @@ impl Uniform {
     }
 
     pub async fn create(new_uniform: NewUniform, conn: &DbConn) -> Result<isize> {
-        sqlx::query!("INSERT INTO uniform (name, color, description) VALUES (?, ?, ?)", new_uniform.name, new_uniform.color, new_uniform.description).query(conn).await?;
+        sqlx::query!(
+            "INSERT INTO uniform (name, color, description) VALUES (?, ?, ?)",
+            new_uniform.name, new_uniform.color, new_uniform.description).query(conn).await?;
 
         sqlx::query!("SELECT id FROM uniform ORDER BY id DESC").query(conn).await
     }
@@ -65,11 +67,19 @@ impl Uniform {
     pub async fn update(id: isize, updated_uniform: UniformUpdate,conn: &DbConn) -> Result<()> {
         // TODO: verify exists?
         // TODO: mutation?
-        sqlx::query!("UPDATE uniform SET name = ?, color = ?, description = ? WHERE id = ?", update.name, update.color, update.description, id).query(conn).await
+        sqlx::query!(
+            "UPDATE uniform SET name = ?, color = ?, description = ? WHERE id = ?",
+            update.name, update.color, update.description, id).query(conn).await
     }
 
     pub async fn delete(id: isize, conn: &DbConn) -> Result<()> {
         sqlx::query!("DELETE FROM uniform WHERE id = ?", id).query(conn).await
     }
+}
 
+#[derive(InputObject)]
+pub struct NewUniform {
+    pub name: String,
+    pub color: Option<UniformColor>,
+    pub description: Option<String>,
 }

@@ -1,4 +1,14 @@
-require "../../event/*"
+pub struct WeekOfEvents {
+    pub events_with_attendance: Vec<(Event, Option<Attendance>)>,
+}
+
+impl WeekOfEvents {
+    pub fn missed_rehearsal(&self) -> bool {
+        self.events_with_attendance.iter().any(|(event, attendance)| event.r#type == Event::REHEARSAL && attendance.deny_credit())
+    }
+}
+
+
 
 module Models
   class WeekOfEvents

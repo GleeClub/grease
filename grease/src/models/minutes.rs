@@ -1,4 +1,4 @@
-use async_graphql::{Result, SimpleObject, ComplexObject, Context};
+use async_graphql::{Result, SimpleObject; InputObject, ComplexObject, Context};
 use chrono::NaiveDateTime;
 use crate::models::member::member::Member;
 use crate::db_conn::DbConn;
@@ -19,24 +19,37 @@ pub struct Minutes {
     pub private: Option<String>,
 }
 
+#[ComplexObject]
 impl Minutes {
+    /// The private, complete officer notes
+    pub async fn private(&self, ctx: &Context<'_>) -> Option<&str> {
+        if let Some(user) = ctx.data_opt::<Member>() {
+            if user.able_to(Permission::VIEW_COMPLETE_MINUTES) {
+                return Some(self.complete);
+            }
+        }
+
+        None
+    }
+}
+
+impl Minutes {
+    pub async fn with_id(id: isize, conn: &DbConn) -> Result<Self> {
+        Self::with_id_opt(id, conn)
+            .await?
+            .ok_or_else(format!("No meeting minutes with id {}", id))
+    }
+
     pub async fn with_id_opt(id: isize, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM minutes WHERE id = ?", id)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn with_id(id: isize, conn: &DbConn) -> Result<Self> {
-        Self::with_id_opt(id, conn)
-            .await
-            .and_then(|res| res.ok_or_else(format!("No meeting minutes with id {}", id)))
-    }
-
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM minutes ORDER BY date")
             .query_all(conn)
             .await
-            .into()
     }
 
     pub async fn create(name: &str, conn: &DbConn) -> Result<isize> {
@@ -59,14 +72,12 @@ impl Minutes {
         )
         .query(conn)
         .await
-        .into()
     }
 
     pub async fn delete(id: isize, conn: &DbConn) -> Result<()> {
         sqlx::query!("DELETE FROM minutes WHERE id = ?", id)
             .query(conn)
             .await
-            .into()
     }
 
     // def email
@@ -74,16 +85,9 @@ impl Minutes {
     // end
 }
 
-#[ComplexObject]
-impl Minutes {
-    /// The private, complete officer notes
-    pub async fn private(&self, ctx: &Context<'_>) -> Option<&str> {
-        if let Some(user) = ctx.data_opt::<Member>() {
-            if user.able_to(Permission::VIEW_COMPLETE_MINUTES) {
-                return Some(self.complete);
-            }
-        }
-
-        None
-    }
+#[derive(InputObject)]
+pub struct UpdatedMeetingMinutes {
+    pub name: String,
+    pub public: String,
+    pub private: Option<String>,
 }

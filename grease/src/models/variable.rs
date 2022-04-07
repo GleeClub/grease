@@ -12,16 +12,16 @@ pub struct Variable {
 }
 
 impl Variable {
-    pub async fn load_opt(key: &str, conn: &DbConn) -> Result<Option<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM variable WHERE `key` = ?", key)
-            .query_optional(conn)
-            .await
-    }
-
-    pub async fn load(key: &str, conn: &DbConn) -> Result<Self> {
+    pub async fn with_key(key: &str, conn: &DbConn) -> Result<Self> {
         Self::load_opt(key, conn)
             .await?
             .ok_or_else(|| format!("No variable with key {}", key))
+    }
+
+    pub async fn with_key_opt(key: &str, conn: &DbConn) -> Result<Option<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM variable WHERE `key` = ?", key)
+            .query_optional(conn)
+            .await
     }
 
     pub async fn set(key: &str, value: &str, conn: &DbConn) -> Result<()> {
@@ -37,7 +37,6 @@ impl Variable {
             )
             .query(conn)
             .await
-            .into()
         }
     }
 
@@ -45,6 +44,5 @@ impl Variable {
         sqlx::query!("DELETE FROM variable WHERE `key` = ?", key)
             .query(conn)
             .await
-            .into()
     }
 }

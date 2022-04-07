@@ -1,4 +1,4 @@
-use async_graphql::{Result, SimpleObject};
+use async_graphql::{Result, InputObject, SimpleObject};
 use chrono::NaiveDateTime;
 use crate::db_conn::DbConn;
 
@@ -98,4 +98,12 @@ impl Semester {
             .query(conn)
             .await?;
     }
+}
+
+#[derive(InputObject)]
+pub struct NewSemester {
+    pub name: String,
+    pub start_date: Date,
+    pub end_date: Date,
+    pub gig_requirement: isize,
 }
