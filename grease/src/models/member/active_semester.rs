@@ -1,5 +1,5 @@
-use async_graphql::{ComplexObject, SimpleObject, Context, Enum, Result};
-use crate::models::member::member::Member;
+use async_graphql::{ComplexObject, SimpleObject, Context, Enum, Result, InputObject};
+use crate::models::member::Member;
 use crate::db_conn::DbConn;
 
 #[derive(SimpleObject)]
@@ -38,9 +38,9 @@ impl ActiveSemester {
         sqlx::query_as!(Self, "SELECT * FROM active_semester WHERE member = ? AND semester = ?", member, semester).query_optional(conn).await
     }
 
-    pub async fn create_for_member(member: &Member, new_semester: NewActiveSemester, conn: &DbConn) -> Result<()> {
-        if Member::semester(new_semester.semester, conn).await?.is_some() {
-            return Err(format!("{} is already active for the current semester", member.full_name()));
+    pub async fn create_for_member(member: &str, semester: &str, new_semester: NewActiveSemester, conn: &DbConn) -> Result<()> {
+        if Self::for_member_during_semester(member, semester, conn).await?.is_some() {
+            return Err("Member is already active for the current semester".to_owned());
         }
 
         // TODO: create attendance or something?
@@ -76,4 +76,12 @@ impl ActiveSemester {
             (None, None) => {}
         }
     }
+}
+
+#[derive(InputObject)]
+pub struct ActiveSemesterUpdate {
+    pub member: String,
+    pub semester: String,
+    pub enrollment: Option<Enrollment>,
+    pub section: Option<String>,
 }

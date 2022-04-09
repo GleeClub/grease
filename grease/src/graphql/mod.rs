@@ -7,10 +7,10 @@ use sqlx::{Connection, MySql, MySqlConnection, Transaction};
 use crate::db_conn::DbConn;
 use crate::models::member::member::Member;
 
-pub mod input;
 pub mod mutation;
 pub mod permission;
 pub mod query;
+pub mod static_data;
 
 pub struct LoggedIn;
 
@@ -41,8 +41,8 @@ pub async fn handle(request: cgi::Request) -> anyhow::Result<cgi::Response> {
         .data(conn);
 
     let schema = Schema::new(QueryRoot, MutationRoot, EmptySubscription);
-    let response = schema.execute(request);
-    conn.finish().await?;
+    let response = schema.execute(request).await;
+    conn.finish(!response.errors.is_empty()).await?;
 
     let body = serde_json::to_vec(&value).context("Failed to serialize response")?;
 

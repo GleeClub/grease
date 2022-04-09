@@ -1,10 +1,8 @@
 use async_graphql::Result;
 use uuid::Uuid;
 use crate::db_conn::DbConn;
-use crate::models::member::member::Member;
-use chrono::{Duration, Local, NaiveDateTime};
-
-use crate::db_conn::DbConn;
+use crate::models::member::Member;
+use time::{Duration, OffsetDateTime};
 
 pub struct Session {
     pub member: String,
@@ -28,19 +26,19 @@ impl Session {
     ///
     /// Assumes the current session is a password request session, so non-password resets
     /// will return true as if they are expired sessions.
-    fn is_expired_password_reset(&self) -> bool {
-        let time_requested = session
+    fn is_expired_password_reset(&self) -> Result<bool> {
+        let timestamp_requested = self
             .key
             .split('X')
             .nth(1)
-            .and_then(|ts| ts.parse::<i64>().ok())
-            .map(|ts| NaiveDateTime::from_timestamp(ts, 0));
+            .and_then(|ts| ts.parse::<i64>().ok());
 
-        if let Some(time_requested) = time_requested {
-            let now = Local::now().naive_local();
-            (now - time_requested) > Duration::days(1)
+        if let Some(timestamp) = timestamp_requested {
+            let time_requested = OffsetDateTime::from_unix_timestamp(timestamp).context("Failed to parse timestamp")?;
+            let now = OffsetDateTime::now_local().context("Failed to get current time")?;
+            Ok((now - time_requested) > Duration::days(1))
         } else {
-            true
+            Ok(true)
         }
     }
 
@@ -60,7 +58,7 @@ impl Session {
             email,
             token
         )
-        .query(&conn)
+        .execute(&conn)
         .await?;
 
         Ok(token)
@@ -68,7 +66,7 @@ impl Session {
 
     pub async fn remove(email: &str, conn: &DbConn) -> Result<()> {
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
-            .query(&conn)
+            .execute(&conn)
             .await
             .into()
     }
@@ -77,22 +75,23 @@ impl Session {
         Member::load(email, conn).await?; // ensure that member exists
 
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
-            .query(&conn)
+            .execute(conn)
             .await?;
         let new_token = format!(
             "{}X{}",
             Uuid::new_v4().to_string()[..32],
-            Local::now().timestamp()
+            OffsetDateTime::now_local().timestamp()
         );
         sqlx::query!(
             "INSERT INTO session (member, `key`) VALUES (?, ?)",
             email,
             new_token
         )
-        .query(&conn)
+        .execute(conn)
         .await?;
 
-        emails::reset_password(email, new_token).send().await
+        // TODO: fix emails
+        // emails::reset_password(email, new_token).send().await
     }
 
     pub async fn reset_password(token: &str, pass_hash: &str,conn: &DbConn) -> Result<()> {
@@ -112,7 +111,7 @@ impl Session {
             hash,
             session.member
         )
-        .query(&conn)
+        .execute(conn)
         .await
     }
 }

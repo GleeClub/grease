@@ -1,4 +1,4 @@
-use async_graphql::{ComplexObject, SimpleObject, InputObject};
+use async_graphql::{ComplexObject, SimpleObject, InputObject, Result};
 use crate::db_conn::DbConn;
 use chrono::{NaiveDateTime, Local};
 
@@ -22,7 +22,7 @@ pub struct Attendance {
 #[ComplexObject]
 impl Attendance {
     /// The email of the member this attendance belongs to
-    pub async fn member(&self) -> async_graphql::Result<Member> {
+    pub async fn member(&self) -> Result<Member> {
         Member::load(&self.member).await
     }
 
@@ -71,9 +71,8 @@ impl Attendance {
             .await
     }
 
-    pub async fn create_for_new_member(email: &str, conn: &DbConn) -> Result<()> {
-        let current_semester = Semester::current(conn).await?;
-        let events = Event::for_semester(current_semester.name).await?;
+    pub async fn create_for_new_member(email: &str, semester: &str, conn: &DbConn) -> Result<()> {
+        let events = Event::for_semester(semester).await?;
 
         // TODO: make batch query
         let now = NaiveDateTime::<Local>::now();

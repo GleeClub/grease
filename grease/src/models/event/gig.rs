@@ -1,10 +1,11 @@
 use async_graphql::{ComplexObject, InputObject, SimpleObject, Enum};
+use time::OffsetDateTime;
 
 pub struct Gig {
     /// The ID of the event this gig belongs to
     pub event: isize,
     /// When members are expected to actually perform
-    pub performance_time: NaiveDateTime,
+    pub performance_time: OffsetDateTime,
     /// The name of the contact for this gig
     pub contact_name: Option<String>,
     /// The email of the contact for this gig
@@ -37,6 +38,15 @@ impl Gig {
     pub fn for_event(event_id: isize, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM gig WHERE event = ?", event_id).query_optional(conn).await
     }
+
+    pub fn for_semester(semester: &str, conn: &DbConn) -> Result<Vec<Self>> {
+        sqlx::query_as!(
+            Self,
+                "SELECT * FROM gig WHERE event in
+                 (SELECT id FROM event WHERE semester = ?)",
+                 event_id
+        ).query_all(conn).await
+    }
 }
 
 #[derive(Enum)]
@@ -50,7 +60,7 @@ pub struct GigRequest {
     /// The ID of the gig request
     pub id: isize,
     /// When the gig request was placed
-    pub time: NaiveDateTime,
+    pub time: OffsetDateTime,
     /// The name of the potential event
     pub name: String,
     /// The organization requesting a performance from the Glee Club
@@ -62,7 +72,7 @@ pub struct GigRequest {
     /// The phone number of the contact for the potential event
     pub contact_email: String,
     /// When the event will probably happen
-    pub start_time: NaiveDateTime,
+    pub start_time: OffsetDateTime,
     /// Where the event will be happening
     pub location: String,
     /// Any comments about the event
@@ -144,7 +154,20 @@ pub struct NewGigRequest {
     pub contact_name: String,
     pub contact_email: String,
     pub contact_phone: String,
-    pub start_time: NaiveDateTime,
+    pub start_time: OffsetDateTime,
     pub location: String,
     pub comments: Option<String>,
+}
+
+#[derive(InputObject)]
+pub struct NewGig {
+    pub performance_time: OffsetDateTime,
+    pub uniform: isize,
+    pub contact_name: Option<String>,
+    pub contact_email: Option<String>,
+    pub contact_phone: Option<String>,
+    pub price: Option<isize>,
+    pub public: bool,
+    pub summary: Option<String>,
+    pub description: Option<String>,
 }

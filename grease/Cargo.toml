@@ -1,8 +1,8 @@
 [package]
 name = "grease"
 version = "0.1.0"
-authors = ["Sam Mohr <sam@mohr.codes>"]
-edition = "2018"
+authors = ["Sam Mohr <sam.mohr@protonmail.com>"]
+edition = "2021"
 
 [dependencies]
 anyhow = "1"
@@ -23,6 +23,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 sqlx = { version = "0.4.1", features = ["runtime-tokio-rustls", "mysql", "chrono", "offline"] }
 tokio = { version = "1.5.0", features = ["full"] }
+time = { version = "0.3", features = ["formatting", "parsing", "serde", "serde-well-known", "local-offset"] }
 url = "1.7.2"
 uuid = { version = "0.7", features = ["v4"] }
 zip = "0.5"

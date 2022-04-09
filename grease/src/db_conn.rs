@@ -21,7 +21,7 @@ impl DbConn {
         })
     }
 
-    pub async fn close(self, successful: bool) -> anyhow::Result<()> {
+    pub async fn finish(self, successful: bool) -> anyhow::Result<()> {
         if successful {
             self.transaction
                 .commit()

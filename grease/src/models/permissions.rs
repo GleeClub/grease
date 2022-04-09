@@ -1,6 +1,6 @@
 use crate::db_conn::DbConn;
-use crate::models::member::member::Member;
-use async_graphql::{SimpleObject, ComplexObject, Context, Enum};
+use crate::models::member::Member;
+use async_graphql::{SimpleObject, ComplexObject, InputObject, Context, Enum};
 
 // Roles that can be held by members to grant permissions
 pub struct Role {
@@ -91,6 +91,16 @@ impl Permission {
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM permission ORDER BY name").query_all(conn).await
     }
+}
+
+#[derive(InputObject)]
+pub struct NewRolePermission {
+    /// The name of the role this junction refers to
+    pub role: String,
+    /// The name of the permission the role is awarded
+    pub permission: String,
+    /// Optionally, the type of the event the permission applies to
+    pub event_type: Option<String>,
 }
 
 #[derive(SimpleObject)]
