@@ -1,14 +1,19 @@
-use async_graphql::{Object, Context, Result};
+use async_graphql::{Context, Object, Result};
 
 pub struct MutationRoot;
 
 #[Object]
 impl MutationRoot {
     /// Gets a login token on successful login
-    pub async fn login(&self, ctx: &Context<'_>, email: String, pass_hash: String) -> Result<String> {
+    pub async fn login(
+        &self,
+        ctx: &Context<'_>,
+        email: String,
+        pass_hash: String,
+    ) -> Result<String> {
         let conn = ctx.data_unchecked::<DbConn>();
         Member::validate_login(&email, &pass_hash, conn).await?;
-        
+
         Session::get_or_generate_token(&email, conn).await
     }
 
@@ -29,21 +34,34 @@ impl MutationRoot {
         Ok(())
     }
 
-    pub async fn reset_password(&self, ctx: &Context<'_>, token: String, pass_hash: String) -> Result<()> {
+    pub async fn reset_password(
+        &self,
+        ctx: &Context<'_>,
+        token: String,
+        pass_hash: String,
+    ) -> Result<()> {
         let conn = ctx.data_unchecked::<DbConn>();
         Session::reset_password(token, pass_hash, conn).await?;
 
         Ok(())
     }
 
-    pub async fn register_member(&self, ctx: &Context<'_>, new_member: NewMember) -> Result<Member> {
+    pub async fn register_member(
+        &self,
+        ctx: &Context<'_>,
+        new_member: NewMember,
+    ) -> Result<Member> {
         let conn = ctx.data_unchecked::<DbConn>();
         Member::register(new_member, conn).await?;
         Member::with_email(new_member.email, conn).await
     }
 
-    #[graphql(guard = "LoggedIn")]
-    pub async fn register_for_semester(&self, ctx: &Context<'_>, new_semester: RegisterForSemesterForm) -> Result<Member> {
+    #[graphql(guard = "crate::graphql::LoggedIn")]
+    pub async fn register_for_semester(
+        &self,
+        ctx: &Context<'_>,
+        new_semester: RegisterForSemesterForm,
+    ) -> Result<Member> {
         let conn = ctx.data_unchecked::<DbConn>();
         Member::register(new_member, conn).await?;
         Member::with_email(new_member.email, conn).await

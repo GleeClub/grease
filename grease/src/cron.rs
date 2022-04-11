@@ -1,30 +1,34 @@
-use crate::db::{connect_to_db, Event};
-use chrono::{Duration, Local, NaiveDateTime};
-use error::GreaseResult;
+use anyhow::Result;
+use time::{Duration, OffsetDateTime};
+
+use crate::db_conn::DbConn;
+use crate::models::event::Event;
 
 const LIST_ADDRESS: &'static str = "gleeclub@lists.gatech.edu";
 
-pub fn send_event_emails(events_since: Option<NaiveDateTime>) -> GreaseResult<()> {
-    let conn = connect_to_db()?;
+pub async fn send_event_emails(events_since: Option<OffsetDateTime>) -> Result<()> {
+    let conn = DbConn::connect().await?;
     let all_events = Event::load_all_for_current_semester(&conn)?;
-    let since = events_since.unwrap_or_else(|| Local::now().naive_local() - Duration::hours(1));
+    let since = events_since.unwrap_or_else(|| OffsetDateTime::now_local() - Duration::hours(1));
 
     two_days_out::send_emails(&all_events, &since, &conn)
 }
 
 mod two_days_out {
+    use anyhow::{Context, Result};
+    use time::{Duration, OffsetDateTime};
+
     use super::LIST_ADDRESS;
-    use crate::db::{models::event::EventWithGig, Uniform};
-    use crate::{error::GreaseResult, util::Email};
-    use chrono::{Duration, Local, NaiveDateTime};
-    use diesel::MysqlConnection;
+    use crate::db_conn::DbConn;
+    use crate::email::Email;
+    use crate::models::event::Event;
 
     pub fn send_emails(
-        all_events: &Vec<EventWithGig>,
-        since: &NaiveDateTime,
-        conn: &MysqlConnection,
-    ) -> GreaseResult<()> {
-        for event in filter_unaddressed_events(all_events, since) {
+        all_events: &[Event],
+        since: &OffsetDateTime,
+        conn: &DbConn<'_>,
+    ) -> Result<()> {
+        for event in filter_unaddressed_events(all_events, since)? {
             Email {
                 subject: email_subject(event),
                 to_address: LIST_ADDRESS.to_owned(),
@@ -37,24 +41,24 @@ mod two_days_out {
     }
 
     fn filter_unaddressed_events<'e>(
-        events: &'e Vec<EventWithGig>,
-        since: &NaiveDateTime,
-    ) -> impl Iterator<Item = &'e EventWithGig> {
-        let now = Local::now().naive_local();
+        events: &'e [Event],
+        since: &OffsetDateTime,
+    ) -> Result<impl Iterator<Item = &'e Event>> {
+        let now = OffsetDateTime::now_local().context("Failed to get current time")?;
         let two_days_from_now = now + Duration::days(2);
         let two_days_from_last_checked = *since + Duration::days(2);
 
-        events.iter().filter(move |event| {
+        Ok(events.iter().filter(move |event| {
             event.event.call_time < two_days_from_now
                 && event.event.call_time > two_days_from_last_checked
-        })
+        }))
     }
 
-    fn email_subject(event: &EventWithGig) -> String {
-        format!("{} is in 48 Hours", event.event.name)
+    fn email_subject(event: &Event) -> String {
+        format!("{} is in 48 Hours", event.name)
     }
 
-    fn email_body(event: &EventWithGig, conn: &MysqlConnection) -> GreaseResult<String> {
+    fn email_body(event: &Event, conn: &DbConn) -> Result<String> {
         Ok(String::new())
         // let url = format!(
         //     "https://gleeclub.gatech.edu/glubhub/#/events/{}",

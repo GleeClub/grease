@@ -1,15 +1,15 @@
-use async_graphql::{ComplexObject, InputObject, SimpleObject, Context};
-use crate::models::member::Member;
-use crate::models::event::Event;
+use async_graphql::{ComplexObject, Context, InputObject, SimpleObject};
+
 use crate::db_conn::DbConn;
-use time::OffsetDateTime;
+use crate::models::event::Event;
+use crate::models::member::Member;
 
 #[derive(SimpleObject)]
 pub struct Carpool {
     /// The ID of the carpool
-    pub id: isize,
+    pub id: i64,
     /// The event it belongs to
-    pub event: isize,
+    pub event: i64,
 
     #[graphql(skip)]
     pub driver: String,
@@ -30,31 +30,52 @@ impl Carpool {
             Member,
             "SELECT * FROM member WHERE email IN
              (SELECT member FROM rides_in WHERE carpool = ?)",
-             self.id
-        ).query_all(conn).await
+            self.id
+        )
+        .query_all(conn)
+        .await
     }
 }
 
 impl Carpool {
-    pub async fn for_event(event_id: isize, conn: &DbConn) -> Result<Vec<Carpool>> {
-        sqlx::query_as!(
-            Self, "SELECT * FROM carpool WHERE event = ?", event_id).fetch_all(conn).await
+    pub async fn for_event(event_id: i64, conn: &DbConn<'_>) -> Result<Vec<Carpool>> {
+        sqlx::query_as!(Self, "SELECT * FROM carpool WHERE event = ?", event_id)
+            .fetch_all(conn)
+            .await
     }
 
-    pub async fn update(event_id: isize, updated_carpools: Vec<Carpool>, conn: &DbConn) -> Result<()> {
+    pub async fn update(
+        event_id: i64,
+        updated_carpools: Vec<Carpool>,
+        conn: &DbConn<'_>,
+    ) -> Result<()> {
         Event::verify_exists(event_id).await?;
 
-        sqlx::query!(
-            "DELETE FROM carpool WHERE event = ?", event_id
-        ).execute(conn).await?;
+        sqlx::query!("DELETE FROM carpool WHERE event = ?", event_id)
+            .execute(conn)
+            .await?;
 
         // TODO: batch?
         for carpool in updated_carpools {
-            sqlx::query!("INSERT INTO carpool (event, driver) VALUES (?, ?)", event_id, carpool.driver).execute(conn).await?;
-            let new_carpool_id: isize = sqlx::query!("SELECT id FROM carpool ORDER BY id DESC").query_one(conn).await?;
+            sqlx::query!(
+                "INSERT INTO carpool (event, driver) VALUES (?, ?)",
+                event_id,
+                carpool.driver
+            )
+            .execute(conn)
+            .await?;
+            let new_carpool_id: i64 = sqlx::query!("SELECT id FROM carpool ORDER BY id DESC")
+                .query_one(conn)
+                .await?;
 
             for passenger in carpool.passengers {
-                sqlx::query!("INSERT INTO rides_in (member, carpool) VALUES (?, ?)", passenger, new_carpool_id).execute(conn).await?;
+                sqlx::query!(
+                    "INSERT INTO rides_in (member, carpool) VALUES (?, ?)",
+                    passenger,
+                    new_carpool_id
+                )
+                .execute(conn)
+                .await?;
             }
         }
 

@@ -1,7 +1,10 @@
 use async_graphql::{Result, SimpleObject};
+use time::{Duration, OffsetDateTime};
+
 use crate::db_conn::DbConn;
-use time::{OffsetDateTime, Duration};
-use crate::models::member::grades::context::{GradesContext, AttendanceContext};
+use crate::models::event::Event;
+use crate::models::grades::context::{AttendanceContext, GradesContext};
+use crate::models::grades::week::{EventWithAttendance, WeekOfAttendances};
 
 pub mod context;
 pub mod week;
@@ -35,7 +38,7 @@ pub struct GradeChange {
 }
 
 impl Grades {
-    pub async fn for_member(email: &str, semester: &str, conn: &DbConn) -> Result<Grades> {
+    pub async fn for_member(email: &str, semester: &str, conn: &DbConn<'_>) -> Result<Grades> {
         let context = GradesContext::for_member_during_semester(email, semester, conn).await?;
         let mut grades = Grades {
             grade: 100.0,
@@ -45,7 +48,7 @@ impl Grades {
 
         for week in context.weeks_of_attendance(email) {
             for event in &week {
-                let change = Self::calculate_grade_change(event, week, grades.grade);
+                let change = Self::calculate_grade_change(event, &week, grades.grade);
                 grades.grade = change.partial_score;
                 grades.events_with_changes.push(change);
 
@@ -59,14 +62,15 @@ impl Grades {
     }
 
     fn calculate_grade_change(
-        member_attendance: &MemberAttendance,
-        context: &WeeklyAttendanceContext,
+        event: &EventWithAttendance<'_>,
+        context: &WeekOfAttendances<'_>,
         grade: f32,
     ) -> GradeChange {
         let event = &member_attendance.event.event;
         let is_bonus_event = Self::is_bonus_event(&member_attendance, &context);
 
-        let (change, reason) = if event.call_time > Local::now().naive_utc() {
+        let now = OffsetDateTime::now_local().context("Failed to get current time")?;
+        let (change, reason) = if event.call_time > now {
             Self::event_hasnt_happened_yet()
         } else if member_attendance.did_attend() {
             if context.missed_rehearsal && event.is_gig() {
@@ -106,8 +110,11 @@ impl Grades {
         (0.0, "Event hasn't happened yet".to_owned())
     }
 
-    fn late_for_event(event: EventWithAttendance<'_>, grade: f32, bonus_event: bool) -> (f32, String) {
-        let event = &member_attendance.event.event;
+    fn late_for_event(
+        event: EventWithAttendance<'_>,
+        grade: f32,
+        bonus_event: bool,
+    ) -> (f32, String) {
         let points_lost_for_lateness =
             Self::points_lost_for_lateness(event, member_attendance.minutes_late());
 
@@ -131,7 +138,7 @@ impl Grades {
                     ),
                 )
             }
-        } else if member_attendance.should_attend() {
+        } else if event.should_attend() {
             (
                 -points_lost_for_lateness,
                 format!(
@@ -147,7 +154,7 @@ impl Grades {
         }
     }
 
-    fn points_lost_for_lateness(event: &Event, minutes_late: i32) -> f32 {
+    fn points_lost_for_lateness(event: &Event, minutes_late: i64) -> f32 {
         // Lose points equal to the percentage of the event missed, if they should have attended
         let event_duration = if let Some(release_time) = event.release_time {
             if release_time <= event.call_time {

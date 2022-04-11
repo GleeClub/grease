@@ -1,13 +1,14 @@
 use std::sync::Mutex;
+
 use anyhow::Context;
 use owning_ref::{MutexGuardRefMut, OwningRefMut};
 use sqlx::{Connection, MySql, MySqlConnection, Transaction};
 
-pub struct DbConn {
-    transaction: MutexGuardRefMut<MySqlConnection, Transaction<'_, MySql>>,
+pub struct DbConn<'c> {
+    transaction: MutexGuardRefMut<'c, MySqlConnection, Transaction<'c, MySql>>,
 }
 
-impl DbConn {
+impl<'c> DbConn<'c> {
     pub async fn connect() -> anyhow::Result<Self> {
         dotenv::dotenv();
 
@@ -36,9 +37,15 @@ impl DbConn {
     }
 }
 
-impl<'c> std::ops::DerefMut for DbConn {
-    type Deref = Transaction<'c, MySql>;
+impl<'c> std::ops::Deref for DbConn<'c> {
+    type Target = Transaction<'c, MySql>;
 
+    fn deref(&self) -> Self::Target {
+        self.transaction.as_ref()
+    }
+}
+
+impl<'c> std::ops::DerefMut for DbConn<'c> {
     fn deref_mut(&mut self) -> Self::Target {
         self.transaction.as_mut()
     }

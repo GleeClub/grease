@@ -1,9 +1,11 @@
+pub mod document;
 pub mod event;
-pub mod variable;
+pub mod grades;
 pub mod member;
 pub mod minutes;
-pub mod document;
 pub mod money;
 pub mod permissions;
 pub mod semester;
 pub mod song;
+pub mod static_data;
+pub mod variable;

@@ -1,20 +1,18 @@
-use crate::graphql::LoggedIn;
 use async_graphql::*;
 use sqlx::MySqlPool;
 
-pub struct Query;
+use crate::graphql::LoggedIn;
+
+pub struct QueryRoot;
 
 #[Object]
-impl Query {
+impl QueryRoot {
     pub async fn user(&self, ctx: Context<'_>) -> Option<Member> {
         ctx.data_opt::<Member>()
     }
 
     #[graphql(guard = "LoggedIn")]
-    pub async fn member(
-        &self,
-        ctx: &Context<'_>,
-        email: String) -> Result<Member> {
+    pub async fn member(&self, ctx: &Context<'_>, email: String) -> Result<Member> {
         let conn = ctx.data_unchecked::<DbConn>();
         Member::with_email(&email, conn).await
     }
@@ -52,7 +50,7 @@ impl Query {
     }
 
     #[graphql(guard = "LoggedIn")]
-    pub async fn event(&self, ctx: &Context<'_>, id: isize) -> Result<Event> {
+    pub async fn event(&self, ctx: &Context<'_>, id: i64) -> Result<Event> {
         let conn = ctx.data_unchecked::<DbConn>();
         Event::load(id, conn).await
     }
@@ -71,7 +69,7 @@ impl Query {
     }
 
     #[graphql(guard = "LoggedIn", guard = "Permission::PROCESS_GIG_REQUESTS")]
-    pub async fn gig_request(&self, ctx: &Context<'_>, id: isize) -> Result<GigRequest> {
+    pub async fn gig_request(&self, ctx: &Context<'_>, id: i64) -> Result<GigRequest> {
         let conn = ctx.data_unchecked::<DbConn>();
         GigRequest::with_id(id, conn).await
     }
@@ -83,7 +81,7 @@ impl Query {
     }
 
     #[graphql(guard = "LoggedIn")]
-    pub async fn meeting_minutes(&self, ctx: &Context<'_>, id: isize) -> Result<Minutes> {
+    pub async fn meeting_minutes(&self, ctx: &Context<'_>, id: i64) -> Result<Minutes> {
         let conn = ctx.data_unchecked::<DbConn>();
         Minutes::with_id(id, conn).await
     }
@@ -113,7 +111,7 @@ impl Query {
     }
 
     #[graphql(guard = "LoggedIn")]
-    pub async fn uniform(&self, ctx: &Context<'_>, id: isize) -> Result<Uniform> {
+    pub async fn uniform(&self, ctx: &Context<'_>, id: i64) -> Result<Uniform> {
         let conn = ctx.data_unchecked::<DbConn>();
         Uniform::with_id(id, conn).await
     }
@@ -131,7 +129,7 @@ impl Query {
     }
 
     #[graphql(guard = "LoggedIn")]
-    pub async fn song(&self, ctx: &Context<'_>, id: isize) -> Result<Song> {
+    pub async fn song(&self, ctx: &Context<'_>, id: i64) -> Result<Song> {
         let conn = ctx.data_unchecked::<DbConn>();
         Song::with_id(id, conn).await
     }
@@ -143,7 +141,7 @@ impl Query {
     }
 
     #[graphql(guard = "LoggedIn")]
-    pub async fn song_link(&self, ctx: &Context<'_>, id: isize) -> Result<SongLink> {
+    pub async fn song_link(&self, ctx: &Context<'_>, id: i64) -> Result<SongLink> {
         let conn = ctx.data_unchecked::<DbConn>();
         SongLink::with_id(id, conn).await
     }

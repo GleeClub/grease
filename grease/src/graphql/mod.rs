@@ -1,22 +1,25 @@
-use anyhow::Context as _;
-use serde::Deserialize;
+use anyhow::{Context as _, Result};
 use async_graphql::guard::Guard;
 use async_graphql::types::EmptySubscription;
 use async_graphql::{Context, Request, Schema};
-use sqlx::{Connection, MySql, MySqlConnection, Transaction};
+use cgi::http::header::{CONTENT_LENGTH, CONTENT_TYPE};
+use serde::Deserialize;
+use serde_json::Value;
+
 use crate::db_conn::DbConn;
-use crate::models::member::member::Member;
+use crate::graphql::mutation::MutationRoot;
+use crate::graphql::query::QueryRoot;
+use crate::models::member::Member;
 
 pub mod mutation;
 pub mod permission;
 pub mod query;
-pub mod static_data;
 
 pub struct LoggedIn;
 
 #[async_trait::async_trait]
 impl Guard for LoggedIn {
-    async fn check(&self, ctx: &Context<'_>) -> Result<()> {
+    async fn check(&self, ctx: &Context<'_>) -> async_graphql::Result<()> {
         if ctx.data_opt::<Member>().is_some() {
             Ok(())
         } else {
@@ -31,7 +34,7 @@ struct RequestBody {
     pub variables: Value,
 }
 
-pub async fn handle(request: cgi::Request) -> anyhow::Result<cgi::Response> {
+pub async fn handle(request: cgi::Request) -> Result<cgi::Response> {
     let conn = DbConn::connect().await?;
 
     let body: RequestBody =
@@ -44,10 +47,10 @@ pub async fn handle(request: cgi::Request) -> anyhow::Result<cgi::Response> {
     let response = schema.execute(request).await;
     conn.finish(!response.errors.is_empty()).await?;
 
-    let body = serde_json::to_vec(&value).context("Failed to serialize response")?;
+    let body = serde_json::to_vec(&response).context("Failed to serialize response")?;
 
     Ok(cgi::http::response::Builder::new()
-        .status(status_code)
+        .status(200)
         .header(CONTENT_TYPE, "application/json")
         .header("Access-Control-Allow-Origin", "*")
         .header(CONTENT_LENGTH, body.len().to_string().as_str())

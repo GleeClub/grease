@@ -1,8 +1,8 @@
 [package]
 name = "migration_script"
 version = "0.1.0"
-authors = ["Sam Mohr <sammohr97@gmail.com>"]
-edition = "2018"
+authors = ["Sam Mohr <sam.mohr@protonmail.com>"]
+edition = "2021"
 
 [dependencies]
 bcrypt = "0.4"

@@ -1,6 +1,9 @@
 use async_graphql::guard::Guard;
-use async_graphql::{Result, Context};
-use crate::models::member::member::Member;
+use async_graphql::{Context, Result};
+
+use crate::db_conn::DbConn;
+use crate::models::member::Member;
+use crate::models::permissions::MemberPermission;
 
 pub struct Permission {
     name: &'static str,
@@ -22,11 +25,13 @@ impl Permission {
         }
     }
 
-    pub fn able_to(&self, member: &Member) -> bool {
-        member.permissions().iter().any(|permission| {
+    pub async fn granted_to(&self, member: &Member, conn: &DbConn<'_>) -> bool {
+        let permissions = MemberPermission::for_member(&member.email, conn).await?;
+        permissions.iter().any(|permission| {
             permission.name == self.name
                 && (permission.event_type.is_none()
-                    || permission.event_type.as_ref().map(|type_| type_.as_str()) == self.event_type)
+                    || permission.event_type.as_ref().map(|type_| type_.as_str())
+                        == self.event_type)
         })
     }
 
@@ -69,7 +74,7 @@ impl Permission {
 
 #[async_trait::async_trait]
 impl Guard for Permission {
-    async fn check(&self, ctx: Context<'_>) -> Result<()> {
+    async fn check(&self, ctx: &Context<'_>) -> Result<()> {
         if let Some(user) = ctx.data_opt::<Member>() {
             if self.able_to(user) {
                 return Ok(());

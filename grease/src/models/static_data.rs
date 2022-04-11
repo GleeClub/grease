@@ -1,4 +1,11 @@
-use async_graphql::Object;
+use async_graphql::{Context, Object, Result};
+
+use crate::db_conn::DbConn;
+use crate::models::event::EventType;
+use crate::models::member::SectionType;
+use crate::models::money::TransactionType;
+use crate::models::permissions::{Permission, Role};
+use crate::models::song::MediaType;
 
 pub struct StaticData;
 
@@ -18,7 +25,7 @@ impl StaticData {
         let conn = ctx.data_unchecked::<DbConn>();
         Role::all(conn).await
     }
-    
+
     pub async fn event_types(&self, ctx: &Context<'_>) -> Result<Vec<EventType>> {
         let conn = ctx.data_unchecked::<DbConn>();
         EventType::all(conn).await

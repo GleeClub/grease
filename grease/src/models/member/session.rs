@@ -1,8 +1,9 @@
 use async_graphql::Result;
+use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
+
 use crate::db_conn::DbConn;
 use crate::models::member::Member;
-use time::{Duration, OffsetDateTime};
 
 pub struct Session {
     pub member: String,
@@ -10,13 +11,13 @@ pub struct Session {
 }
 
 impl Session {
-    pub async fn with_token(token: &str, conn: &DbConn) -> Result<Self> {
+    pub async fn with_token(token: &str, conn: &DbConn<'_>) -> Result<Self> {
         Self::load_opt(token, conn)
             .await?
             .ok_or_else(|| "No login tied to the provided API token".to_owned())
     }
 
-    pub async fn with_token_opt(token: &str, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_token_opt(token: &str, conn: &DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM session WHERE `key` = ?", token)
             .query_optional(&conn)
             .await
@@ -34,7 +35,8 @@ impl Session {
             .and_then(|ts| ts.parse::<i64>().ok());
 
         if let Some(timestamp) = timestamp_requested {
-            let time_requested = OffsetDateTime::from_unix_timestamp(timestamp).context("Failed to parse timestamp")?;
+            let time_requested = OffsetDateTime::from_unix_timestamp(timestamp)
+                .context("Failed to parse timestamp")?;
             let now = OffsetDateTime::now_local().context("Failed to get current time")?;
             Ok((now - time_requested) > Duration::days(1))
         } else {
@@ -42,7 +44,7 @@ impl Session {
         }
     }
 
-    pub async fn get_or_generate_token(email: &str, conn: &DbConn) -> Result<String> {
+    pub async fn get_or_generate_token(email: &str, conn: &DbConn<'_>) -> Result<String> {
         Member::load(email, conn).await?; // ensure that member exists
 
         let session = sqlx::query!("SELECT `key` FROM session WHERE member = ?", email)
@@ -64,14 +66,14 @@ impl Session {
         Ok(token)
     }
 
-    pub async fn remove(email: &str, conn: &DbConn) -> Result<()> {
+    pub async fn remove(email: &str, conn: &DbConn<'_>) -> Result<()> {
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
             .execute(&conn)
             .await
             .into()
     }
 
-    pub async fn generate_for_forgotten_password(email: &str, conn: &DbConn) -> Result<()> {
+    pub async fn generate_for_forgotten_password(email: &str, conn: &DbConn<'_>) -> Result<()> {
         Member::load(email, conn).await?; // ensure that member exists
 
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
@@ -94,14 +96,18 @@ impl Session {
         // emails::reset_password(email, new_token).send().await
     }
 
-    pub async fn reset_password(token: &str, pass_hash: &str,conn: &DbConn) -> Result<()> {
+    pub async fn reset_password(token: &str, pass_hash: &str, conn: &DbConn<'_>) -> Result<()> {
         let session = Self::with_token_opt(token, conn).await?.ok_or_else(|| {
-                "No password reset request was found for the given token. \
-                 Please request another password reset.".to_owned()
+            "No password reset request was found for the given token. \
+                 Please request another password reset."
+                .to_owned()
         })?;
 
         if session.is_expired_password_reset() {
-            return Err("Your token expired after 24 hours. Please request another password reset.".to_owned());
+            return Err(
+                "Your token expired after 24 hours. Please request another password reset."
+                    .to_owned(),
+            );
         }
 
         Self::remove(session.member, conn).await?;
