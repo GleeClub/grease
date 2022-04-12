@@ -9,4 +9,4 @@ edition = "2021"
 [dependencies]
 cgi = "0.2"
 mysql = "16"
-dotenv = "0.14.1"
+dotenv = "0.14"
