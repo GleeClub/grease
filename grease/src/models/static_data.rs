@@ -1,6 +1,6 @@
 use async_graphql::{Context, Object, Result};
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 use crate::models::event::EventType;
 use crate::models::member::SectionType;
 use crate::models::money::TransactionType;

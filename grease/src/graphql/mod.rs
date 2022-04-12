@@ -1,12 +1,11 @@
 use anyhow::{Context as _, Result};
-use async_graphql::guard::Guard;
-use async_graphql::types::EmptySubscription;
-use async_graphql::{Context, Request, Schema};
+use async_graphql::{Guard, Context, Request, Schema, EmptySubscription};
 use cgi::http::header::{CONTENT_LENGTH, CONTENT_TYPE};
 use serde::Deserialize;
 use serde_json::Value;
+use sqlx::Connection;
 
-use crate::db_conn::DbConn;
+use crate::db;
 use crate::graphql::mutation::MutationRoot;
 use crate::graphql::query::QueryRoot;
 use crate::models::member::Member;
@@ -35,17 +34,17 @@ struct RequestBody {
 }
 
 pub async fn handle(request: cgi::Request) -> Result<cgi::Response> {
-    let conn = DbConn::connect().await?;
+    let mut conn = db::connect().await?;
 
     let body: RequestBody =
         serde_json::from_slice(request.body()).context("Invalid request body")?;
     let request = Request::new(body.query)
-        .variables(body.variables)
-        .data(conn);
+        .variables(body.variables);
 
     let schema = Schema::new(QueryRoot, MutationRoot, EmptySubscription);
-    let response = schema.execute(request).await;
-    conn.finish(!response.errors.is_empty()).await?;
+    let response = conn.transaction(|conn| async move {
+        schema.execute(request.data(conn)).await
+    }).await?;
 
     let body = serde_json::to_vec(&response).context("Failed to serialize response")?;
 

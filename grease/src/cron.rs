@@ -1,7 +1,7 @@
 use anyhow::Result;
 use time::{Duration, OffsetDateTime};
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 use crate::models::event::Event;
 
 const LIST_ADDRESS: &'static str = "gleeclub@lists.gatech.edu";
@@ -19,14 +19,14 @@ mod two_days_out {
     use time::{Duration, OffsetDateTime};
 
     use super::LIST_ADDRESS;
-    use crate::db_conn::DbConn;
+    use crate::db::DbConn;
     use crate::email::Email;
     use crate::models::event::Event;
 
     pub fn send_emails(
         all_events: &[Event],
         since: &OffsetDateTime,
-        conn: &DbConn<'_>,
+        conn: DbConn<'_>,
     ) -> Result<()> {
         for event in filter_unaddressed_events(all_events, since)? {
             Email {
@@ -49,8 +49,8 @@ mod two_days_out {
         let two_days_from_last_checked = *since + Duration::days(2);
 
         Ok(events.iter().filter(move |event| {
-            event.event.call_time < two_days_from_now
-                && event.event.call_time > two_days_from_last_checked
+            event.call_time < two_days_from_now
+                && event.call_time > two_days_from_last_checked
         }))
     }
 
@@ -58,7 +58,7 @@ mod two_days_out {
         format!("{} is in 48 Hours", event.name)
     }
 
-    fn email_body(event: &Event, conn: &DbConn) -> Result<String> {
+    fn email_body(event: &Event, conn: DbConn) -> Result<String> {
         Ok(String::new())
         // let url = format!(
         //     "https://gleeclub.gatech.edu/glubhub/#/events/{}",

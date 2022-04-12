@@ -1,15 +1,15 @@
 use async_graphql::{ComplexObject, Context, InputObject, SimpleObject};
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 use crate::models::event::Event;
 use crate::models::member::Member;
 
 #[derive(SimpleObject)]
 pub struct Carpool {
     /// The ID of the carpool
-    pub id: i64,
+    pub id: i32,
     /// The event it belongs to
-    pub event: i64,
+    pub event: i32,
 
     #[graphql(skip)]
     pub driver: String,
@@ -32,22 +32,22 @@ impl Carpool {
              (SELECT member FROM rides_in WHERE carpool = ?)",
             self.id
         )
-        .query_all(conn)
+        .fetch_all(conn)
         .await
     }
 }
 
 impl Carpool {
-    pub async fn for_event(event_id: i64, conn: &DbConn<'_>) -> Result<Vec<Carpool>> {
+    pub async fn for_event(event_id: i32, conn: DbConn<'_>) -> Result<Vec<Carpool>> {
         sqlx::query_as!(Self, "SELECT * FROM carpool WHERE event = ?", event_id)
             .fetch_all(conn)
             .await
     }
 
     pub async fn update(
-        event_id: i64,
+        event_id: i32,
         updated_carpools: Vec<Carpool>,
-        conn: &DbConn<'_>,
+        conn: DbConn<'_>,
     ) -> Result<()> {
         Event::verify_exists(event_id).await?;
 
@@ -64,8 +64,8 @@ impl Carpool {
             )
             .execute(conn)
             .await?;
-            let new_carpool_id: i64 = sqlx::query!("SELECT id FROM carpool ORDER BY id DESC")
-                .query_one(conn)
+            let new_carpool_id: i32 = sqlx::query!("SELECT id FROM carpool ORDER BY id DESC")
+                .fetch_one(conn)
                 .await?;
 
             for passenger in carpool.passengers {

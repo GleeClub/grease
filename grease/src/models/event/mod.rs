@@ -1,7 +1,7 @@
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
-use time::{Duration, OffsetDateTime};
-
-use crate::db_conn::DbConn;
+use time::{OffsetDateTime, Duration};
+use crate::models::GqlDateTime;
+use crate::db::DbConn;
 use crate::models::event::attendance::Attendance;
 use crate::models::event::carpool::Carpool;
 use crate::models::event::gig::{Gig, GigRequest, GigRequestStatus, NewGig};
@@ -31,7 +31,7 @@ pub struct EventType {
     /// The name of the type of event
     pub name: String,
     /// The amount of points this event is normally worth
-    pub weight: i64,
+    pub weight: i32,
 }
 
 impl EventType {
@@ -42,17 +42,18 @@ impl EventType {
     pub const OMBUDS: &'static str = "Ombuds";
     pub const OTHER: &'static str = "Other";
 
-    pub async fn all(conn: &DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM event_type ORDER BY name")
-            .fetch_all(conn)
+            .fetch_all(&mut **conn)
             .await
+            .into()
     }
 }
 
 #[derive(SimpleObject)]
 pub struct Event {
     /// The ID of the event
-    pub id: i64,
+    pub id: i32,
     /// The name of the event
     pub name: String,
     /// The name of the semester this event belongs to
@@ -60,11 +61,11 @@ pub struct Event {
     /// The type of the event (see EventType)
     pub r#type: String,
     /// When members are expected to arrive to the event
-    pub call_time: OffsetDateTime,
+    pub call_time: GqlDateTime,
     /// When members are probably going to be released
-    pub release_time: Option<OffsetDateTime>,
+    pub release_time: Option<GqlDateTime>,
     /// How many points attendance of this event is worth
-    pub points: i64,
+    pub points: i32,
     /// General information or details about this event
     pub comments: Option<String>,
     /// Where this event will be held
@@ -94,7 +95,7 @@ impl Event {
     /// The attendance for a specific member at this event
     pub async fn attendance(&self, ctx: &Context<'_>, member: String) -> Result<Attendance> {
         let conn = ctx.data_unchecked::<DbConn>();
-        Attendance::for_member_at_event(member, self.id, conn).await
+        Attendance::for_member_at_event(&member, self.id, conn).await
     }
 
     pub async fn all_attendance(&self, ctx: &Context<'_>) -> Result<Vec<Attendance>> {
@@ -114,19 +115,20 @@ impl Event {
 }
 
 impl Event {
-    pub async fn with_id(id: i64, conn: &DbConn<'_>) -> Result<Self> {
+    pub async fn with_id(id: i32, conn: DbConn<'_>) -> Result<Self> {
         Self::with_id_opt(id, conn)
             .await?
             .ok_or_else(|| format!("No event with id {}", id))
+            .into()
     }
 
-    pub async fn with_id_opt(id: i64, conn: &DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM event WHERE id = ?", id)
-            .query_optional(conn)
+            .fetch_optional(conn)
             .await
     }
 
-    pub async fn for_semester(semester: &str, conn: &DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester: &str, conn: DbConn<'_>) -> Result<Vec<Self>> {
         Semester::verify_exists(semester, conn).await?;
 
         sqlx::query_as!(
@@ -134,7 +136,7 @@ impl Event {
             "SELECT * FROM event WHERE semester = ? ORDER BY call_time",
             semester
         )
-        .query_all(conn)
+        .fetch_all(conn)
         .await
     }
 
@@ -176,8 +178,8 @@ impl Event {
     pub async fn create(
         new_event: NewEvent,
         from_request: Option<GigRequest>,
-        conn: &DbConn<'_>,
-    ) -> Result<i64> {
+        conn: DbConn<'_>,
+    ) -> Result<i32> {
         if let Some(release_time) = new_event.event.release_time {
             if release_time <= new_event.event.call_time {
                 return Err("Release time must be after call time".into());
@@ -226,7 +228,7 @@ impl Event {
                 new_event.event.gig_count,
                 new_event.event.default_attend
             )
-            .query(conn)
+            .execute(conn)
             .await?;
         }
 
@@ -234,7 +236,7 @@ impl Event {
             "SELECT id FROM event ORDER BY id DESC LIMIT ?",
             call_and_release_times.len()
         )
-        .query_all(conn)
+        .fetch_all(conn)
         .await?;
         for new_id in new_ids.iter() {
             Attendance::create_for_new_event(new_id, conn).await?;
@@ -261,7 +263,7 @@ impl Event {
                     new_event.gig.summary,
                     new_event.gig.description
                 )
-                .query_all(conn)
+                .fetch_all(conn)
                 .await
             }
         }
@@ -275,7 +277,7 @@ impl Event {
             .ok_or_else(|| "Failed to find latest event ID")
     }
 
-    pub async fn update(id: i64, update: NewEvent, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn update(id: i32, update: NewEvent, conn: DbConn<'_>) -> Result<()> {
         let event = Self::with_id(id, conn).await?;
 
         sqlx::query!(
@@ -294,7 +296,7 @@ impl Event {
             update.event.default_attend,
             id
         )
-        .query(conn)
+        .execute(conn)
         .await?;
 
         if event.gig.is_some() {
@@ -303,19 +305,19 @@ impl Event {
                     "UPDATE gig SET performance_time = ?, uniform = ?, contact_name = ?, contact_email = ?,
                      contact_phone = ?, price = ?, public = ?, summary = ?, description = ?
                      WHERE event = ?", gig.performance_time, gig.uniform, gig.contact_name, gig.contact_email,
-                    gig.contact_phone, gig.price, gig.public, gig.summary, gig.description, id).query(conn).await?;
+                    gig.contact_phone, gig.price, gig.public, gig.summary, gig.description, id).execute(conn).await?;
             }
         }
 
         Ok(())
     }
 
-    pub async fn delete(id: i64, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn delete(id: i32, conn: DbConn<'_>) -> Result<()> {
         // TODO: verify exists?
         Event::with_id(id, conn).await?;
 
         sqlx::query!("DELETE FROM event WHERE id = ?", id)
-            .query(conn)
+            .execute(conn)
             .await
     }
 
@@ -352,9 +354,9 @@ pub struct NewEventFields {
     pub name: String,
     pub semester: String,
     pub r#type: String,
-    pub call_time: OffsetDateTime,
-    pub release_time: Option<OffsetDateTime>,
-    pub points: i64,
+    pub call_time: GqlDateTime,
+    pub release_time: Option<GqlDateTime>,
+    pub points: i32,
     pub comments: Option<String>,
     pub location: Option<String>,
     pub gig_count: Option<bool>,
@@ -364,5 +366,5 @@ pub struct NewEventFields {
 #[derive(InputObject)]
 pub struct NewEventPeriod {
     pub period: Period,
-    pub repeat_until: Option<OffsetDateTime>,
+    pub repeat_until: Option<GqlDateTime>,
 }

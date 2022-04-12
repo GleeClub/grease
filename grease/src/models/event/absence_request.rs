@@ -1,14 +1,14 @@
 use async_graphql::{ComplexObject, Context, Enum, Result, SimpleObject};
-use time::OffsetDateTime;
+use crate::models::GqlDateTime;
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 use crate::models::event::Event;
 use crate::models::member::Member;
 
 #[derive(SimpleObject)]
 pub struct AbsenceRequest {
     /// The time this request was placed
-    pub time: OffsetDateTime,
+    pub time: GqlDateTime,
     /// The reason the member petitioned for absence with
     pub reason: String,
     /// The current state of the request
@@ -17,7 +17,7 @@ pub struct AbsenceRequest {
     #[graphql(skip)]
     pub member: String,
     #[graphql(skip)]
-    pub event: i64,
+    pub event: i32,
 }
 
 #[ComplexObject]
@@ -46,8 +46,8 @@ impl AbsenceRequest {
     pub async fn for_member_at_event(
         &self,
         email: &str,
-        event_id: i64,
-        conn: &DbConn<'_>,
+        event_id: i32,
+        conn: DbConn<'_>,
     ) -> Result<Self> {
         Self::for_member_at_event_opt(email, event_id, conn)
             .await?
@@ -62,8 +62,8 @@ impl AbsenceRequest {
     pub async fn for_member_at_event_opt(
         &self,
         email: &str,
-        event_id: i64,
-        conn: &DbConn<'_>,
+        event_id: i32,
+        conn: DbConn<'_>,
     ) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
@@ -71,11 +71,11 @@ impl AbsenceRequest {
             email,
             event_id
         )
-        .query_optional(conn)
+        .fetch_optional(conn)
         .await
     }
 
-    pub async fn for_semester(&self, semester_name: &str, conn: &DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn for_semester(&self, semester_name: &str, conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT * FROM absence_request WHERE event IN
@@ -83,15 +83,15 @@ impl AbsenceRequest {
              ORDER BY time",
             semester_name
         )
-        .query_all(conn)
+        .fetch_all(conn)
         .await
     }
 
     pub async fn submit(
-        event_id: i64,
+        event_id: i32,
         email: &str,
         reason: &str,
-        conn: &DbConn<'_>,
+        conn: DbConn<'_>,
     ) -> Result<()> {
         sqlx::query!(
             "INSERT INTO absence_request (member, event, reason) VALUES (?, ?, ?)",
@@ -99,15 +99,15 @@ impl AbsenceRequest {
             event_id,
             reason
         )
-        .query(conn)
+        .execute(conn)
         .await
     }
 
     pub async fn set_state(
-        event_id: i64,
+        event_id: i32,
         member: &str,
         state: AbsenceRequestState,
-        conn: &DbConn<'_>,
+        conn: DbConn<'_>,
     ) -> Result<()> {
         AbsenceRequest::for_member_at_event(member, event_id, conn).await?;
 
@@ -117,7 +117,7 @@ impl AbsenceRequest {
             event_id,
             member
         )
-        .query(conn)
+        .execute(conn)
         .await
     }
 }

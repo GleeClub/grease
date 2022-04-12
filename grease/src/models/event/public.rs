@@ -2,11 +2,11 @@ use async_graphql::{ComplexObject, Result, SimpleObject};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 
 #[derive(SimpleObject)]
 pub struct PublicEvent {
-    pub id: i64,
+    pub id: i32,
     pub name: String,
     pub start_time: OffsetDateTime,
     pub end_time: Option<OffsetDateTime>,
@@ -57,7 +57,7 @@ impl PublicEvent {
 }
 
 impl PublicEvent {
-    pub async fn all_for_current_semester(conn: &DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all_for_current_semester(conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT event.id, event.name, gig.performance_time as start_time,
@@ -66,7 +66,7 @@ impl PublicEvent {
              INNER JOIN gig ON event.id = gig.event
              WHERE gig.public = true"
         )
-        .query_all(conn)
+        .fetch_all(conn)
         .await
     }
 }

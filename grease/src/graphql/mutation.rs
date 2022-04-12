@@ -1,4 +1,9 @@
 use async_graphql::{Context, Object, Result};
+use crate::graphql::LoggedIn;
+use crate::db::DbConn;
+use crate::models::member::active_semester::ActiveSemester;
+use crate::models::member::{NewMember, Member, RegisterForSemesterForm};
+use crate::models::member::session::Session;
 
 pub struct MutationRoot;
 
@@ -29,7 +34,7 @@ impl MutationRoot {
 
     pub async fn forgot_password(&self, ctx: &Context<'_>, email: String) -> Result<()> {
         let conn = ctx.data_unchecked::<DbConn>();
-        Session::generate_for_forgotten_password(email, conn).await?;
+        Session::generate_for_forgotten_password(&email, conn).await?;
 
         Ok(())
     }
@@ -41,7 +46,7 @@ impl MutationRoot {
         pass_hash: String,
     ) -> Result<()> {
         let conn = ctx.data_unchecked::<DbConn>();
-        Session::reset_password(token, pass_hash, conn).await?;
+        Session::reset_password(&token, &pass_hash, conn).await?;
 
         Ok(())
     }
@@ -53,18 +58,18 @@ impl MutationRoot {
     ) -> Result<Member> {
         let conn = ctx.data_unchecked::<DbConn>();
         Member::register(new_member, conn).await?;
-        Member::with_email(new_member.email, conn).await
+        Member::with_email(&new_member.email, conn).await
     }
 
-    #[graphql(guard = "crate::graphql::LoggedIn")]
+    #[graphql(guard = "LoggedIn")]
     pub async fn register_for_semester(
         &self,
         ctx: &Context<'_>,
         new_semester: RegisterForSemesterForm,
     ) -> Result<Member> {
         let conn = ctx.data_unchecked::<DbConn>();
-        Member::register(new_member, conn).await?;
-        Member::with_email(new_member.email, conn).await
+        ActiveSemester::register_for_semester(new_semester, conn).await?;
+        Member::with_email(&new_semester.email, conn).await
     }
 }
 

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use async_graphql::Result;
 use time::Duration;
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestState};
 use crate::models::event::attendance::Attendance;
 use crate::models::event::gig::Gig;
@@ -35,19 +35,19 @@ impl AttendanceContext {
 pub struct GradesContext {
     pub semester: Semester,
     pub events: Vec<(Event, Option<Gig>)>,
-    pub attendance: HashMap<i64, HashMap<String, AttendanceContext>>,
+    pub attendance: HashMap<i32, HashMap<String, AttendanceContext>>,
 }
 
 impl GradesContext {
     pub async fn for_member_during_semester(
         email: &str,
         semester: &str,
-        conn: &DbConn<'_>,
+        conn: DbConn<'_>,
     ) -> Result<Self> {
         let semester = Semester::with_name(semester, conn).await?;
         let events = Event::for_semester(semester, conn).await?;
         let mut gigs = Gig::for_semester(semester, conn).await?;
-        let event_types: HashMap<i64, &str> = events
+        let event_types: HashMap<i32, &str> = events
             .iter()
             .map(|event| (event.id, &event.r#type))
             .collect();
@@ -109,9 +109,9 @@ impl AttendanceContext {
     async fn for_member_during_semester(
         email: &str,
         semester: &str,
-        event_types: &HashMap<i64, &str>,
-        conn: &DbConn<'_>,
-    ) -> Result<HashMap<i64, HashMap<String, Self>>> {
+        event_types: &HashMap<i32, &str>,
+        conn: DbConn<'_>,
+    ) -> Result<HashMap<i32, HashMap<String, Self>>> {
         let is_active = sqlx::query!(
             "SELECT member FROM active_semester WHERE member = ? AND semester = ?",
             email,
@@ -137,7 +137,7 @@ impl AttendanceContext {
         .fetch_all(conn)
         .await?;
 
-        let mut all_context: HashMap<i64, HashMap<String, Self>> = HashMap::new();
+        let mut all_context: HashMap<i32, HashMap<String, Self>> = HashMap::new();
 
         for attendance in attendances {
             let context = all_context

@@ -1,7 +1,7 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
 use time::OffsetDateTime;
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestState};
 use crate::models::event::Event;
 use crate::models::member::Member;
@@ -15,12 +15,12 @@ pub struct Attendance {
     /// Whether the member confirmed that they would attend
     pub confirmed: bool,
     /// How late the member was if they attended
-    pub minutes_late: i64,
+    pub minutes_late: i32,
 
     #[graphql(skip)]
     pub member: String,
     #[graphql(skip)]
-    pub event: i64,
+    pub event: i32,
 }
 
 #[ComplexObject]
@@ -62,8 +62,8 @@ impl Attendance {
 impl Attendance {
     pub async fn for_member_at_event(
         email: &str,
-        event_id: i64,
-        conn: &DbConn<'_>,
+        event_id: i32,
+        conn: DbConn<'_>,
     ) -> Result<Self> {
         Self::for_member_at_event(email, event_id, conn)
             .await?
@@ -78,8 +78,8 @@ impl Attendance {
 
     pub async fn for_member_at_event_opt(
         email: &str,
-        event_id: i64,
-        conn: &DbConn<'_>,
+        event_id: i32,
+        conn: DbConn<'_>,
     ) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
@@ -91,7 +91,7 @@ impl Attendance {
         .await
     }
 
-    pub async fn for_event(event_id: i64, conn: &DbConn<'_>) -> Result<Self> {
+    pub async fn for_event(event_id: i32, conn: DbConn<'_>) -> Result<Self> {
         Event::verify_exists(event_id, conn).await?;
 
         sqlx::query_as!(Self, "SELECT * FROM attendance WHERE event = ?", event_id)
@@ -102,7 +102,7 @@ impl Attendance {
     pub async fn create_for_new_member(
         email: &str,
         semester: &str,
-        conn: &DbConn<'_>,
+        conn: DbConn<'_>,
     ) -> Result<()> {
         let events = Event::for_semester(semester, conn).await?;
 
@@ -121,14 +121,14 @@ impl Attendance {
                 should_attend,
                 email
             )
-            .query(conn)
+            .execute(conn)
             .await?;
         }
 
         Ok(())
     }
 
-    pub async fn create_for_new_event(event_id: i64, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn create_for_new_event(event_id: i32, conn: DbConn<'_>) -> Result<()> {
         let event = Event::with_id(event_id, conn).await?;
         let active_members = Member::those_active_during(event.semester, conn).await?;
 
@@ -140,29 +140,29 @@ impl Attendance {
                 event.default_attend,
                 member.email
             )
-            .query(conn)
+            .execute(conn)
             .await?;
         }
 
         Ok(())
     }
 
-    pub async fn excuse_unconfirmed(event_id: i64, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn excuse_unconfirmed(event_id: i32, conn: DbConn<'_>) -> Result<()> {
         let event = Event::with_id(event_id, conn).await?;
 
         sqlx::query!(
             "UPDATE attendance SET should_attend = false WHERE event = ? AND confirmed = false",
             event_id
         )
-        .query(conn)
+        .execute(conn)
         .await
     }
 
     pub async fn update(
-        event_id: i64,
+        event_id: i32,
         email: &str,
         update: AttendanceUpdate,
-        conn: &DbConn<'_>,
+        conn: DbConn<'_>,
     ) -> Result<()> {
         Self::verify_for_member_at_event(event_id, email, conn).await?;
 
@@ -177,15 +177,15 @@ impl Attendance {
             email,
             event_id
         )
-        .query(conn)
+        .execute(conn)
         .await
     }
 
     pub async fn rsvp_for_event(
-        event_id: i64,
+        event_id: i32,
         email: &str,
         attending: bool,
-        conn: &DbConn<'_>,
+        conn: DbConn<'_>,
     ) -> Result<()> {
         let event = Event::with_id(event_id, conn).await?;
         let attendance = Self::for_member_at_event(email, event_id, conn).await?;
@@ -198,11 +198,11 @@ impl Attendance {
             event_id,
             email
         )
-        .query(conn)
+        .execute(conn)
         .await
     }
 
-    pub async fn confirm_for_event(event_id: i64, email: &str, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn confirm_for_event(event_id: i32, email: &str, conn: DbConn<'_>) -> Result<()> {
         Event::verify_exists(event_id, conn).await?;
         Self::verify_for_member_at_event(email, event_id, conn).await?;
 
@@ -212,7 +212,7 @@ impl Attendance {
             event_id,
             email
         )
-        .query(conn)
+        .execute(conn)
         .await
     }
 }
@@ -222,5 +222,5 @@ pub struct AttendanceUpdate {
     pub should_attend: bool,
     pub did_attend: bool,
     pub confirmed: bool,
-    pub minutes_late: i64,
+    pub minutes_late: i32,
 }

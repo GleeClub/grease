@@ -1,6 +1,6 @@
 use async_graphql::{Result, SimpleObject};
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 
 /// A link to a Google Doc or other important document.
 #[derive(SimpleObject)]
@@ -12,28 +12,30 @@ pub struct Document {
 }
 
 impl Document {
-    pub async fn with_name(name: &str, conn: &DbConn<'_>) -> Result<Self> {
-        Self::load_opt(name, conn)
+    pub async fn with_name(name: &str, conn: DbConn<'_>) -> Result<Self> {
+        Self::with_name_opt(name, conn)
             .await?
             .ok_or_else(|| format!("No document named {}", name))
+            .into()
     }
 
-    pub async fn with_name_opt(name: &str, conn: &DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM google_docs WHERE name = ?", name)
-            .query_optional(conn)
-            .await
-    }
-
-    pub async fn all(conn: &DbConn<'_>) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM google_docs ORDER BY name")
-            .query_all(conn)
+            .fetch_optional(conn)
             .await
             .into()
     }
 
-    pub async fn create(name: &str, url: &str, conn: &DbConn<'_>) -> Result<()> {
-        if Self::load_opt(name, conn).await?.is_some() {
-            return Err(format!("A document named {} already exists", name));
+    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM google_docs ORDER BY name")
+            .fetch_all(*conn)
+            .await
+            .into()
+    }
+
+    pub async fn create(name: &str, url: &str, conn: DbConn<'_>) -> Result<()> {
+        if Self::with_name_opt(name, conn).await?.is_some() {
+            return Err(format!("A document named {} already exists", name).into());
         }
 
         sqlx::query!(
@@ -41,25 +43,28 @@ impl Document {
             name,
             url
         )
-        .query(conn)
+        .execute(*conn)
         .await
+        .into()
     }
 
-    pub async fn set_url(name: &str, url: &str, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn set_url(name: &str, url: &str, conn: DbConn<'_>) -> Result<()> {
         // TODO: verify exists
-        Self::load(name, conn).await?;
+        Self::with_name(name, conn).await?;
 
         sqlx::query!("UPDATE google_docs SET url = ? WHERE name = ?", url, name)
-            .query(conn)
+            .execute(*conn)
             .await
+            .into()
     }
 
-    pub async fn delete(name: &str, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn delete(name: &str, conn: DbConn<'_>) -> Result<()> {
         // TODO: verify exists
-        Self::load(name, conn).await?;
+        Self::with_name(name, conn).await?;
 
         sqlx::query!("DELETE FROM google_docs WHERE name = ?", name)
-            .query(conn)
+            .execute(*conn)
             .await
+            .into()
     }
 }

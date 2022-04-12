@@ -1,7 +1,5 @@
-use async_graphql::guard::Guard;
-use async_graphql::{Context, Result};
-
-use crate::db_conn::DbConn;
+use async_graphql::{Guard, Context, Result};
+use crate::db::{get_conn, DbConn};
 use crate::models::member::Member;
 use crate::models::permissions::MemberPermission;
 
@@ -25,13 +23,13 @@ impl Permission {
         }
     }
 
-    pub async fn granted_to(&self, member: &Member, conn: &DbConn<'_>) -> bool {
-        let permissions = MemberPermission::for_member(&member.email, conn).await?;
+    pub async fn granted_to(&self, member: &str, conn: DbConn<'_>) -> bool {
+        let permissions = MemberPermission::for_member(member, conn).await?;
         permissions.iter().any(|permission| {
             permission.name == self.name
                 && (permission.event_type.is_none()
-                    || permission.event_type.as_ref().map(|type_| type_.as_str())
-                        == self.event_type)
+                || permission.event_type.as_ref().map(|type_| type_.as_str())
+                    == self.event_type)
         })
     }
 
@@ -76,11 +74,12 @@ impl Permission {
 impl Guard for Permission {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
         if let Some(user) = ctx.data_opt::<Member>() {
-            if self.able_to(user) {
+            let mut conn = get_conn(ctx);
+            if self.granted_to(&user, conn) {
                 return Ok(());
             }
         }
 
-        Err(format!("Permission {} required", self.name))
+        Err(format!("Permission {} required", self.name).into())
     }
 }

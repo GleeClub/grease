@@ -1,16 +1,16 @@
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
-use time::OffsetDateTime;
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
+use crate::models::GqlDateTime;
 use crate::models::event::uniform::Uniform;
 use crate::models::event::Event;
 
 #[derive(SimpleObject)]
 pub struct Gig {
     /// The ID of the event this gig belongs to
-    pub event: i64,
+    pub event: i32,
     /// When members are expected to actually perform
-    pub performance_time: OffsetDateTime,
+    pub performance_time: GqlDateTime,
     /// The name of the contact for this gig
     pub contact_name: Option<String>,
     /// The email of the contact for this gig
@@ -18,7 +18,7 @@ pub struct Gig {
     /// The phone number of the contact for this gig
     pub contact_phone: Option<String>,
     /// The price we are charging for this gig
-    pub price: Option<i64>,
+    pub price: Option<i32>,
     /// Whether this gig is visible on the external website
     pub public: bool,
     /// A summary of this event for the external site (if it is public)
@@ -27,7 +27,7 @@ pub struct Gig {
     pub description: Option<String>,
 
     #[graphql(skip)]
-    pub uniform: i64,
+    pub uniform: i32,
 }
 
 #[ComplexObject]
@@ -40,13 +40,13 @@ impl Gig {
 }
 
 impl Gig {
-    pub async fn for_event(event_id: i64, conn: &DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn for_event(event_id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM gig WHERE event = ?", event_id)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn for_semester(semester: &str, conn: &DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester: &str, conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT * FROM gig WHERE event in
@@ -68,9 +68,9 @@ pub enum GigRequestStatus {
 #[derive(SimpleObject)]
 pub struct GigRequest {
     /// The ID of the gig request
-    pub id: i64,
+    pub id: i32,
     /// When the gig request was placed
-    pub time: OffsetDateTime,
+    pub time: GqlDateTime,
     /// The name of the potential event
     pub name: String,
     /// The organization requesting a performance from the Glee Club
@@ -82,7 +82,7 @@ pub struct GigRequest {
     /// The phone number of the contact for the potential event
     pub contact_email: String,
     /// When the event will probably happen
-    pub start_time: OffsetDateTime,
+    pub start_time: GqlDateTime,
     /// Where the event will be happening
     pub location: String,
     /// Any comments about the event
@@ -91,7 +91,7 @@ pub struct GigRequest {
     pub status: GigRequestStatus,
 
     #[graphql(skip)]
-    pub event: Option<i64>,
+    pub event: Option<i32>,
 }
 
 #[ComplexObject]
@@ -108,25 +108,28 @@ impl GigRequest {
 }
 
 impl GigRequest {
-    pub async fn with_id(id: i64, conn: &DbConn<'_>) -> Result<Self> {
+    pub async fn with_id(id: i32, conn: DbConn<'_>) -> Result<Self> {
         Self::with_id_opt(id, conn)
             .await?
             .ok_or_else(|| format!("No gig request with ID {}", id))
+            .into()
     }
 
-    pub async fn with_id_opt(id: i64, conn: &DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM gig_request WHERE id = ?", id)
-            .query_optional(conn)
+            .fetch_optional(conn)
             .await
+            .into()
     }
 
-    pub async fn all(conn: &DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM gig_request ORDER BY time")
-            .query_all(conn)
+            .fetch_all(conn)
             .await
+            .into()
     }
 
-    pub async fn submit(new_request: NewGigRequest, conn: &DbConn<'_>) -> Result<i64> {
+    pub async fn submit(new_request: NewGigRequest, conn: DbConn<'_>) -> Result<i32> {
         sqlx::query!(
             "INSERT INTO gig_request (
                 name, organization, contact_name, contact_phone,
@@ -141,15 +144,16 @@ impl GigRequest {
             new_request.location,
             new_request.comments
         )
-        .query(conn)
+        .execute(conn)
         .await?;
 
         sqlx::query!("SELECT id FROM gig_request ORDER BY id DESC")
-            .query_one(conn)
+            .fetch_one(conn)
             .await
+            .into()
     }
 
-    pub async fn set_status(id: i64, status: GigRequestStatus, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn set_status(id: i32, status: GigRequestStatus, conn: DbConn<'_>) -> Result<()> {
         let request = Self::with_id(id, conn).await?;
 
         if request.status == status {
@@ -170,7 +174,7 @@ impl GigRequest {
             }
             _ => {
                 sqlx::query!("UPDATE gig_request SET status = ? WHERE id = ?", status, id)
-                    .query(conn)
+                    .execute(conn)
                     .await
             }
         }
@@ -184,19 +188,19 @@ pub struct NewGigRequest {
     pub contact_name: String,
     pub contact_email: String,
     pub contact_phone: String,
-    pub start_time: OffsetDateTime,
+    pub start_time: GqlDateTime,
     pub location: String,
     pub comments: Option<String>,
 }
 
 #[derive(InputObject)]
 pub struct NewGig {
-    pub performance_time: OffsetDateTime,
-    pub uniform: i64,
+    pub performance_time: GqlDateTime,
+    pub uniform: i32,
     pub contact_name: Option<String>,
     pub contact_email: Option<String>,
     pub contact_phone: Option<String>,
-    pub price: Option<i64>,
+    pub price: Option<i32>,
     pub public: bool,
     pub summary: Option<String>,
     pub description: Option<String>,

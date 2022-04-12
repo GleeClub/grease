@@ -4,12 +4,12 @@ use async_graphql::{
 use regex::Regex;
 use serde_json::Value;
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 
 #[derive(SimpleObject)]
 pub struct Uniform {
     /// The ID of the uniform
-    pub id: i64,
+    pub id: i32,
     /// The name of the uniform
     pub name: String,
     /// The associated color (In the format #HHH, H being a hex digit)
@@ -24,10 +24,10 @@ struct UniformColor(String);
 #[Scalar]
 impl ScalarType for UniformColor {
     fn parse(value: Value) -> InputValueResult<Self> {
-        if let Value::String(value) = &value {
+        if let Value::String(color) = value {
             let regex = Regex::new(r"^#(\w{3}|\w{6})$").unwrap();
-            if regex.is_match(value) {
-                Ok(UniformColor(value))
+            if regex.is_match(&color) {
+                Ok(UniformColor(color))
             } else {
                 Err(InputValueError::custom(
                     "Uniform colors must look like #RGB or #RRGGBB",
@@ -44,47 +44,47 @@ impl ScalarType for UniformColor {
 }
 
 impl Uniform {
-    pub async fn with_id(id: i64, conn: &DbConn<'_>) -> Result<Self> {
+    pub async fn with_id(id: i32, conn: DbConn<'_>) -> Result<Self> {
         Self::with_id_opt(id, conn)
             .await?
             .ok_or_else(|| format!("No uniform with id {}", id))
     }
 
-    pub async fn with_id_opt(id: i64, conn: &DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM uniform WHERE id = ?", id)
-            .query_optional(conn)
+            .fetch_optional(conn)
             .await
     }
 
-    pub async fn all(conn: &DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM uniform ORDER BY name")
-            .query_all(conn)
+            .fetch_all(conn)
             .await
     }
 
-    pub async fn get_default(conn: &DbConn<'_>) -> Result<Self> {
+    pub async fn get_default(conn: DbConn<'_>) -> Result<Self> {
         let uniform = sqlx::query_as!(Self, "SELECT * FROM uniform ORDER BY NAME")
-            .query_optional(conn)
+            .fetch_optional(conn)
             .await?;
         uniform.ok_or_else(|| "There are currently no uniforms")
     }
 
-    pub async fn create(new_uniform: NewUniform, conn: &DbConn<'_>) -> Result<i64> {
+    pub async fn create(new_uniform: NewUniform, conn: DbConn<'_>) -> Result<i32> {
         sqlx::query!(
             "INSERT INTO uniform (name, color, description) VALUES (?, ?, ?)",
             new_uniform.name,
             new_uniform.color,
             new_uniform.description
         )
-        .query(conn)
+        .execute(conn)
         .await?;
 
         sqlx::query!("SELECT id FROM uniform ORDER BY id DESC")
-            .query(conn)
+            .execute(conn)
             .await
     }
 
-    pub async fn update(id: i64, update: NewUniform, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn update(id: i32, update: NewUniform, conn: DbConn<'_>) -> Result<()> {
         // TODO: verify exists?
         // TODO: mutation?
         sqlx::query!(
@@ -94,13 +94,13 @@ impl Uniform {
             update.description,
             id
         )
-        .query(conn)
+        .execute(conn)
         .await
     }
 
-    pub async fn delete(id: i64, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn delete(id: i32, conn: DbConn<'_>) -> Result<()> {
         sqlx::query!("DELETE FROM uniform WHERE id = ?", id)
-            .query(conn)
+            .execute(conn)
             .await
     }
 }

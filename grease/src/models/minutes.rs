@@ -1,18 +1,17 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
-use time::OffsetDateTime;
-
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
+use crate::models::GqlDateTime;
 use crate::graphql::permission::Permission;
 use crate::models::member::Member;
 
 #[derive(SimpleObject)]
 pub struct Minutes {
     /// The ID of the meeting minutes
-    pub id: i64,
+    pub id: i32,
     /// The name of the meeting
     pub name: String,
     /// When these notes were initially created
-    pub date: OffsetDateTime,
+    pub date: GqlDateTime,
     /// The public, redacted notes visible by all members
     pub public: Option<String>,
 
@@ -35,35 +34,35 @@ impl Minutes {
 }
 
 impl Minutes {
-    pub async fn with_id(id: i64, conn: &DbConn<'_>) -> Result<Self> {
+    pub async fn with_id(id: i32, conn: DbConn<'_>) -> Result<Self> {
         Self::with_id_opt(id, conn)
             .await?
             .ok_or_else(format!("No meeting minutes with id {}", id))
     }
 
-    pub async fn with_id_opt(id: i64, conn: &DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM minutes WHERE id = ?", id)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn all(conn: &DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM minutes ORDER BY date")
-            .query_all(conn)
+            .fetch_all(conn)
             .await
     }
 
-    pub async fn create(name: &str, conn: &DbConn<'_>) -> Result<i64> {
+    pub async fn create(name: &str, conn: DbConn<'_>) -> Result<i32> {
         sqlx::query!("INSERT INTO minutes (name) VALUES (?)", name)
-            .query(conn)
+            .execute(conn)
             .await?;
 
         sqlx::query!("SELECT id FROM minutes ORDER BY id DESC")
-            .query(conn)
+            .execute(conn)
             .await
     }
 
-    pub async fn update(id: i64, update: UpdatedMeetingMinutes, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn update(id: i32, update: UpdatedMeetingMinutes, conn: DbConn<'_>) -> Result<()> {
         sqlx::query!(
             "UPDATE minutes SET name = ?, private = ?, public = ? WHERE id = ?",
             update.name,
@@ -71,13 +70,13 @@ impl Minutes {
             update.public,
             id
         )
-        .query(conn)
+        .execute(conn)
         .await
     }
 
-    pub async fn delete(id: i64, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn delete(id: i32, conn: DbConn<'_>) -> Result<()> {
         sqlx::query!("DELETE FROM minutes WHERE id = ?", id)
-            .query(conn)
+            .execute(conn)
             .await
     }
 

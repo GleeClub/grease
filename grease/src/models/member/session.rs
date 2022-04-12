@@ -2,7 +2,7 @@ use async_graphql::Result;
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 use crate::models::member::Member;
 
 pub struct Session {
@@ -11,16 +11,18 @@ pub struct Session {
 }
 
 impl Session {
-    pub async fn with_token(token: &str, conn: &DbConn<'_>) -> Result<Self> {
-        Self::load_opt(token, conn)
+    pub async fn with_token(token: &str, conn: DbConn<'_>) -> Result<Self> {
+        Self::with_token_opt(token, conn)
             .await?
             .ok_or_else(|| "No login tied to the provided API token".to_owned())
+            .into()
     }
 
-    pub async fn with_token_opt(token: &str, conn: &DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_token_opt(token: &str, conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM session WHERE `key` = ?", token)
-            .query_optional(&conn)
+            .fetch_optional(&conn)
             .await
+            .into()
     }
 
     /// Determines if a password reset request has expired.
@@ -32,7 +34,7 @@ impl Session {
             .key
             .split('X')
             .nth(1)
-            .and_then(|ts| ts.parse::<i64>().ok());
+            .and_then(|ts| ts.parse::<i32>().ok());
 
         if let Some(timestamp) = timestamp_requested {
             let time_requested = OffsetDateTime::from_unix_timestamp(timestamp)
@@ -44,11 +46,11 @@ impl Session {
         }
     }
 
-    pub async fn get_or_generate_token(email: &str, conn: &DbConn<'_>) -> Result<String> {
+    pub async fn get_or_generate_token(email: &str, conn: DbConn<'_>) -> Result<String> {
         Member::load(email, conn).await?; // ensure that member exists
 
         let session = sqlx::query!("SELECT `key` FROM session WHERE member = ?", email)
-            .query_optional(&conn)
+            .fetch_optional(&conn)
             .await?;
         if let Some(session_key) = session {
             return Ok(session_key);
@@ -66,15 +68,15 @@ impl Session {
         Ok(token)
     }
 
-    pub async fn remove(email: &str, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn remove(email: &str, conn: DbConn<'_>) -> Result<()> {
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
             .execute(&conn)
             .await
             .into()
     }
 
-    pub async fn generate_for_forgotten_password(email: &str, conn: &DbConn<'_>) -> Result<()> {
-        Member::load(email, conn).await?; // ensure that member exists
+    pub async fn generate_for_forgotten_password(email: &str, conn: DbConn<'_>) -> Result<()> {
+        Member::with_email(email, conn).await?; // ensure that member exists
 
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
             .execute(conn)
@@ -94,9 +96,11 @@ impl Session {
 
         // TODO: fix emails
         // emails::reset_password(email, new_token).send().await
+
+        Ok(())
     }
 
-    pub async fn reset_password(token: &str, pass_hash: &str, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn reset_password(token: &str, pass_hash: &str, conn: DbConn<'_>) -> Result<()> {
         let session = Self::with_token_opt(token, conn).await?.ok_or_else(|| {
             "No password reset request was found for the given token. \
                  Please request another password reset."
@@ -110,7 +114,7 @@ impl Session {
             );
         }
 
-        Self::remove(session.member, conn).await?;
+        Self::remove(&session.member, conn).await?;
         let hash = bcrypt::hash(pass_hash, 10).context("Failed to hash password")?;
         sqlx::query!(
             "UPDATE member SET pass_hash = ? WHERE email = ?",

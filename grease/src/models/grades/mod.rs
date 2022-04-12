@@ -1,7 +1,7 @@
 use async_graphql::{Result, SimpleObject};
 use time::{Duration, OffsetDateTime};
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 use crate::models::event::Event;
 use crate::models::grades::context::{AttendanceContext, GradesContext};
 use crate::models::grades::week::{EventWithAttendance, WeekOfAttendances};
@@ -38,7 +38,7 @@ pub struct GradeChange {
 }
 
 impl Grades {
-    pub async fn for_member(email: &str, semester: &str, conn: &DbConn<'_>) -> Result<Grades> {
+    pub async fn for_member(email: &str, semester: &str, conn: DbConn<'_>) -> Result<Grades> {
         let context = GradesContext::for_member_during_semester(email, semester, conn).await?;
         let mut grades = Grades {
             grade: 100.0,
@@ -154,7 +154,7 @@ impl Grades {
         }
     }
 
-    fn points_lost_for_lateness(event: &Event, minutes_late: i64) -> f32 {
+    fn points_lost_for_lateness(event: &Event, minutes_late: i32) -> f32 {
         // Lose points equal to the percentage of the event missed, if they should have attended
         let event_duration = if let Some(release_time) = event.release_time {
             if release_time <= event.call_time {

@@ -1,49 +1,50 @@
 use async_graphql::{InputObject, Result, SimpleObject};
-use time::{Date, OffsetDateTime};
+use crate::models::{GqlGqlDate, GqlGqlDateTime};
 
-use crate::db_conn::DbConn;
+use crate::db::DbConn;
 
 #[derive(SimpleObject)]
 pub struct Semester {
     /// The name of the semester
     pub name: String,
     /// When the semester starts
-    pub start_date: OffsetDateTime,
+    pub start_date: GqlGqlDateTime,
     /// When the semester ends
-    pub end_date: OffsetDateTime,
+    pub end_date: GqlGqlDateTime,
     /// How many volunteer gigs are required for the semester (default: 5)
-    pub gig_requirement: i64,
+    pub gig_requirement: i32,
     /// Whether this is the current semester
     pub current: bool,
 }
 
 impl Semester {
-    pub async fn get_current(conn: &DbConn<'_>) -> Result<Self> {
+    pub async fn get_current(conn: DbConn<'_>) -> Result<Self> {
         sqlx::query_as!(Self, "SELECT * FROM semester WHERE current = true")
-            .fetch_optional(conn)
+            .fetch_optional(*conn)
             .await?
-            .ok_or_else(|| "No current semester set".to_owned())
+            .ok_or_else(|| "No current semester set")
+            .into()
     }
 
-    pub async fn with_name(name: &str, conn: &DbConn<'_>) -> Result<Self> {
+    pub async fn with_name(name: &str, conn: DbConn<'_>) -> Result<Self> {
         Self::with_name_opt(name, conn)
             .await?
             .ok_or_else(|| format!("No semester named {}", name))
     }
 
-    pub async fn with_name_opt(name: &str, conn: &DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM semester WHERE name = ?", name)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn all(conn: &DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM semester ORDER BY start_date")
             .fetch_all(conn)
             .await
     }
 
-    pub async fn create(new_semester: NewSemester, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn create(new_semester: NewSemester, conn: DbConn<'_>) -> Result<()> {
         if Self::with_name_opt(&new_semester.name, conn)
             .await?
             .is_some()
@@ -66,7 +67,7 @@ impl Semester {
         .await
     }
 
-    pub async fn update(name: &str, update: NewSemester, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn update(name: &str, update: NewSemester, conn: DbConn<'_>) -> Result<()> {
         // check that semester exists
         Self::with_name(name, conn).await?;
 
@@ -84,14 +85,14 @@ impl Semester {
             update.gig_requirement,
             name
         )
-        .query(conn)
+        .execute(conn)
         .await
         .into()
     }
 
-    pub async fn set_current(name: &str, conn: &DbConn<'_>) -> Result<()> {
+    pub async fn set_current(name: &str, conn: DbConn<'_>) -> Result<()> {
         if sqlx::query!("SELECT name FROM semester WHERE name = ?", name)
-            .query_optional(conn)
+            .fetch_optional(conn)
             .await?
             .is_none()
         {
@@ -99,18 +100,18 @@ impl Semester {
         }
 
         sqlx::query!("UPDATE semester SET current = false")
-            .query(conn)
+            .execute(conn)
             .await?;
         sqlx::query!("UPDATE semester SET current = true WHERE name = ?", true)
-            .query(conn)
-            .await?;
+            .execute(conn)
+            .await
     }
 }
 
 #[derive(InputObject)]
 pub struct NewSemester {
     pub name: String,
-    pub start_date: Date,
-    pub end_date: Date,
-    pub gig_requirement: i64,
+    pub start_date: GqlDate,
+    pub end_date: GqlDate,
+    pub gig_requirement: i32,
 }

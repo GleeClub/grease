@@ -2,10 +2,10 @@
 //!
 //! The backend for the Georgia Tech Glee Club's website.
 
-#![feature(drain_filter, path_try_exists)]
+#![feature(drain_filter, path_try_exists, once_cell)]
 
 mod cron;
-mod db_conn;
+mod db;
 mod email;
 mod file;
 mod graphql;
