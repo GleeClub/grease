@@ -1,7 +1,7 @@
 use async_graphql::Result;
 use time::{Duration, OffsetDateTime};
+use crate::util::now;
 use uuid::Uuid;
-
 use crate::db::DbConn;
 use crate::models::member::Member;
 
@@ -11,14 +11,14 @@ pub struct Session {
 }
 
 impl Session {
-    pub async fn with_token(token: &str, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_token(token: &str, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_token_opt(token, conn)
             .await?
-            .ok_or_else(|| "No login tied to the provided API token".to_owned())
+            .ok_or("No login tied to the provided API token")
             .into()
     }
 
-    pub async fn with_token_opt(token: &str, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_token_opt(token: &str, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM session WHERE `key` = ?", token)
             .fetch_optional(&conn)
             .await
@@ -37,20 +37,19 @@ impl Session {
             .and_then(|ts| ts.parse::<i32>().ok());
 
         if let Some(timestamp) = timestamp_requested {
-            let time_requested = OffsetDateTime::from_unix_timestamp(timestamp)
-                .context("Failed to parse timestamp")?;
-            let now = OffsetDateTime::now_local().context("Failed to get current time")?;
-            Ok((now - time_requested) > Duration::days(1))
+            let time_requested = OffsetDateTime::from_unix_timestamp(timestamp as i64)
+                .map_err(|err| format!("Failed to parse timestamp: {}"))?;
+            Ok((now() - time_requested) > Duration::days(1))
         } else {
             Ok(true)
         }
     }
 
-    pub async fn get_or_generate_token(email: &str, conn: DbConn<'_>) -> Result<String> {
-        Member::load(email, conn).await?; // ensure that member exists
+    pub async fn get_or_generate_token(email: &str, mut conn: DbConn<'_>) -> Result<String> {
+        Member::with_email(email, conn).await?; // ensure that member exists
 
-        let session = sqlx::query!("SELECT `key` FROM session WHERE member = ?", email)
-            .fetch_optional(&conn)
+        let session: Option<String> = sqlx::query!("SELECT `key` FROM session WHERE member = ?", email)
+            .fetch_optional(conn)
             .await?;
         if let Some(session_key) = session {
             return Ok(session_key);
@@ -68,14 +67,14 @@ impl Session {
         Ok(token)
     }
 
-    pub async fn remove(email: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn remove(email: &str, mut conn: DbConn<'_>) -> Result<()> {
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
             .execute(&conn)
             .await
             .into()
     }
 
-    pub async fn generate_for_forgotten_password(email: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn generate_for_forgotten_password(email: &str, mut conn: DbConn<'_>) -> Result<()> {
         Member::with_email(email, conn).await?; // ensure that member exists
 
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
@@ -83,8 +82,8 @@ impl Session {
             .await?;
         let new_token = format!(
             "{}X{}",
-            Uuid::new_v4().to_string()[..32],
-            OffsetDateTime::now_local().timestamp()
+            Uuid::new_v4(),
+            now().unix_timestamp()
         );
         sqlx::query!(
             "INSERT INTO session (member, `key`) VALUES (?, ?)",
@@ -100,7 +99,7 @@ impl Session {
         Ok(())
     }
 
-    pub async fn reset_password(token: &str, pass_hash: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn reset_password(token: &str, pass_hash: &str, mut conn: DbConn<'_>) -> Result<()> {
         let session = Self::with_token_opt(token, conn).await?.ok_or_else(|| {
             "No password reset request was found for the given token. \
                  Please request another password reset."

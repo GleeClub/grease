@@ -34,25 +34,25 @@ impl Minutes {
 }
 
 impl Minutes {
-    pub async fn with_id(id: i32, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_id(id: i32, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_id_opt(id, conn)
             .await?
             .ok_or_else(format!("No meeting minutes with id {}", id))
     }
 
-    pub async fn with_id_opt(id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM minutes WHERE id = ?", id)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM minutes ORDER BY date")
             .fetch_all(conn)
             .await
     }
 
-    pub async fn create(name: &str, conn: DbConn<'_>) -> Result<i32> {
+    pub async fn create(name: &str, mut conn: DbConn<'_>) -> Result<i32> {
         sqlx::query!("INSERT INTO minutes (name) VALUES (?)", name)
             .execute(conn)
             .await?;
@@ -62,7 +62,7 @@ impl Minutes {
             .await
     }
 
-    pub async fn update(id: i32, update: UpdatedMeetingMinutes, conn: DbConn<'_>) -> Result<()> {
+    pub async fn update(id: i32, update: UpdatedMeetingMinutes, mut conn: DbConn<'_>) -> Result<()> {
         sqlx::query!(
             "UPDATE minutes SET name = ?, private = ?, public = ? WHERE id = ?",
             update.name,
@@ -74,7 +74,7 @@ impl Minutes {
         .await
     }
 
-    pub async fn delete(id: i32, conn: DbConn<'_>) -> Result<()> {
+    pub async fn delete(id: i32, mut conn: DbConn<'_>) -> Result<()> {
         sqlx::query!("DELETE FROM minutes WHERE id = ?", id)
             .execute(conn)
             .await

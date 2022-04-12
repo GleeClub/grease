@@ -60,7 +60,7 @@ pub struct Song {
 impl Song {
     /// The links connected to the song sorted into sections
     pub async fn links(&self, ctx: &Context<'_>) -> Result<Vec<SongLinkSection>> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         let mut all_links = SongLink::for_song(self.id, conn).await?;
         let all_types = MediaType::all(conn).await?;
 
@@ -72,26 +72,26 @@ impl Song {
 }
 
 impl Song {
-    pub async fn with_id(id: i32, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_id(id: i32, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_id_opt(id, conn)
             .await?
             .ok_or_else(|| format!("No song with id {}", id))
     }
 
-    pub async fn with_id_opt(id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM song WHERE id = ?", id)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM song ORDER BY title")
             .fetch_all(conn)
             .await
     }
 
     // TODO: fix query
-    pub async fn setlist_for_event(event_id: i32, conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn setlist_for_event(event_id: i32, mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT s.* FROM song s INNER JOIN gig_song ON s.id = gig_song.song
@@ -102,7 +102,7 @@ impl Song {
         .await
     }
 
-    pub async fn create(new_song: NewSong, conn: DbConn<'_>) -> Result<i32> {
+    pub async fn create(new_song: NewSong, mut conn: DbConn<'_>) -> Result<i32> {
         sqlx::query!(
             "INSERT INTO song (title, info) VALUES (?, ?)",
             new_song.title,
@@ -116,14 +116,14 @@ impl Song {
             .await
     }
 
-    pub async fn update(id: i32, updated_song: SongUpdate, conn: DbConn<'_>) -> Result<()> {
+    pub async fn update(id: i32, updated_song: SongUpdate, mut conn: DbConn<'_>) -> Result<()> {
         sqlx::query!(
             "UPDATE song SET title = ?, current = ?, info = ?, `key` = ?, starting_pitch = ?, mode = ? WHERE id = ?",
             updated_song.title, updated_song.current, updated_song.info, updated_song.key, updated_song.starting_pitch, updated_song.mode, id
         ).execute(conn).await
     }
 
-    pub async fn delete(id: i32, conn: DbConn<'_>) -> Result<()> {
+    pub async fn delete(id: i32, mut conn: DbConn<'_>) -> Result<()> {
         // TODO: verify exists
         sqlx::query!("DELETE FROM song WHERE id = ?", id)
             .execute(conn)
@@ -139,7 +139,7 @@ pub struct PublicSong {
 }
 
 impl PublicSong {
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         let mut all_public_videos = sqlx::query!(
             "SELECT name, target, song FROM song_link WHERE `type` = ?",
             SongLink::PERFORMANCES
@@ -200,19 +200,19 @@ pub enum StorageType {
 }
 
 impl MediaType {
-    pub async fn with_name(name: &str, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_name(name: &str, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_name_opt(name, conn)
             .await?
             .ok_or_else(|| format!("No media type named {}", name))
     }
 
-    pub async fn with_name_opt(name: &str, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM media_type WHERE name = ?", name)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         // TODO: grep ASC -> remove all instances
         sqlx::query_as!(Self, "SELECT * FROM media_type ORDER BY `order`")
             .fetch_all(conn)
@@ -239,34 +239,34 @@ impl SongLink {
 
     // class_getter table_name = "song_link"
 
-    pub async fn with_id_opt(id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM song_link WHERE id = ?", id)
             .fetch_optional(conn)
             .await
             .into()
     }
 
-    pub async fn with_id(id: i32, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_id(id: i32, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_id_opt(id, conn)
             .await
             .and_then(|res| res.ok_or_else(|| format!("No song link with id {}", id)))
     }
 
-    pub async fn for_song(song_id: i32, conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn for_song(song_id: i32, mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM song_link WHERE song = ?", song_id)
             .fetch_all(conn)
             .await
             .into()
     }
 
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM song_link")
             .fetch_all(conn)
             .await
             .into()
     }
 
-    pub async fn create(song_id: i32, new_link: NewSongLink, conn: DbConn<'_>) -> Result<i32> {
+    pub async fn create(song_id: i32, new_link: NewSongLink, mut conn: DbConn<'_>) -> Result<i32> {
         let encoded_target = if let Some(file) = new_link.link_file() {
             file.upload().await?;
             file.path.to_string_lossy().to_string()
@@ -289,7 +289,7 @@ impl SongLink {
             .await
     }
 
-    pub async fn update(id: i32, update: SongLinkUpdate, conn: DbConn<'_>) -> Result<()> {
+    pub async fn update(id: i32, update: SongLinkUpdate, mut conn: DbConn<'_>) -> Result<()> {
         let song = Song::with_id(id, conn).await?;
 
         let media_type = MediaType::with_name(song.r#type, conn).await?;
@@ -323,7 +323,7 @@ impl SongLink {
         Ok(())
     }
 
-    pub async fn delete(id: i32, conn: DbConn<'_>) -> Result<()> {
+    pub async fn delete(id: i32, mut conn: DbConn<'_>) -> Result<()> {
         let song = Song::with_id(id, conn).await?;
 
         let media_type = MediaType::with_name(song.r#type, conn).await?;

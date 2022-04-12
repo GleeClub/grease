@@ -24,13 +24,13 @@ pub struct AbsenceRequest {
 impl AbsenceRequest {
     /// The event they requested absence from
     pub async fn event(&self, ctx: &Context<'_>) -> Result<Event> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         Event::with_id(self.event, conn).await
     }
 
     /// The member that requested an absence
     pub async fn member(&self, ctx: &Context<'_>) -> Result<Member> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         Member::with_email(&self.member, conn).await
     }
 }
@@ -44,10 +44,9 @@ pub enum AbsenceRequestState {
 
 impl AbsenceRequest {
     pub async fn for_member_at_event(
-        &self,
         email: &str,
         event_id: i32,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<Self> {
         Self::for_member_at_event_opt(email, event_id, conn)
             .await?
@@ -57,13 +56,13 @@ impl AbsenceRequest {
                     email, event_id
                 )
             })
+            .into()
     }
 
     pub async fn for_member_at_event_opt(
-        &self,
         email: &str,
         event_id: i32,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
@@ -73,9 +72,10 @@ impl AbsenceRequest {
         )
         .fetch_optional(conn)
         .await
+        .into()
     }
 
-    pub async fn for_semester(&self, semester_name: &str, conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn for_semester(&self, semester_name: &str, mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT * FROM absence_request WHERE event IN
@@ -91,7 +91,7 @@ impl AbsenceRequest {
         event_id: i32,
         email: &str,
         reason: &str,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<()> {
         sqlx::query!(
             "INSERT INTO absence_request (member, event, reason) VALUES (?, ?, ?)",
@@ -107,7 +107,7 @@ impl AbsenceRequest {
         event_id: i32,
         member: &str,
         state: AbsenceRequestState,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<()> {
         AbsenceRequest::for_member_at_event(member, event_id, conn).await?;
 

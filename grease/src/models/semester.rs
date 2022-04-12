@@ -18,7 +18,7 @@ pub struct Semester {
 }
 
 impl Semester {
-    pub async fn get_current(conn: DbConn<'_>) -> Result<Self> {
+    pub async fn get_current(mut conn: DbConn<'_>) -> Result<Self> {
         sqlx::query_as!(Self, "SELECT * FROM semester WHERE current = true")
             .fetch_optional(*conn)
             .await?
@@ -26,25 +26,25 @@ impl Semester {
             .into()
     }
 
-    pub async fn with_name(name: &str, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_name(name: &str, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_name_opt(name, conn)
             .await?
             .ok_or_else(|| format!("No semester named {}", name))
     }
 
-    pub async fn with_name_opt(name: &str, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM semester WHERE name = ?", name)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM semester ORDER BY start_date")
             .fetch_all(conn)
             .await
     }
 
-    pub async fn create(new_semester: NewSemester, conn: DbConn<'_>) -> Result<()> {
+    pub async fn create(new_semester: NewSemester, mut conn: DbConn<'_>) -> Result<()> {
         if Self::with_name_opt(&new_semester.name, conn)
             .await?
             .is_some()
@@ -67,7 +67,7 @@ impl Semester {
         .await
     }
 
-    pub async fn update(name: &str, update: NewSemester, conn: DbConn<'_>) -> Result<()> {
+    pub async fn update(name: &str, update: NewSemester, mut conn: DbConn<'_>) -> Result<()> {
         // check that semester exists
         Self::with_name(name, conn).await?;
 
@@ -90,7 +90,7 @@ impl Semester {
         .into()
     }
 
-    pub async fn set_current(name: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn set_current(name: &str, mut conn: DbConn<'_>) -> Result<()> {
         if sqlx::query!("SELECT name FROM semester WHERE name = ?", name)
             .fetch_optional(conn)
             .await?

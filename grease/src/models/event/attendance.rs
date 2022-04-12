@@ -1,7 +1,6 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
 use time::OffsetDateTime;
-
-use crate::db::DbConn;
+use crate::db::{get_conn, DbConn};
 use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestState};
 use crate::models::event::Event;
 use crate::models::member::Member;
@@ -27,19 +26,19 @@ pub struct Attendance {
 impl Attendance {
     /// The email of the member this attendance belongs to
     pub async fn member(&self, ctx: &Context<'_>) -> Result<Member> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         Member::load(&self.member, conn).await
     }
 
     /// The absence request made by the current member, if they requested one
     pub async fn absence_request(&self, ctx: &Context<'_>) -> Result<Option<AbsenceRequest>> {
-        let conn = ctx.data_unchecked::<DbConn>();
-        AbsenceRequest::for_member_at_event(&self.member, self.event).await
+        let mut conn = get_conn(ctx);
+        AbsenceRequest::for_member_at_event(&self.member, self.event, &mut conn).await
     }
 
     /// If the member is not allowed to RSVP, this is why
     pub async fn rsvp_issue(&self, ctx: &Context<'_>) -> Result<String> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         let event = Event::with_id(self.event, conn).await?;
         event.rsvp_issue_for(self.member, conn).await
     }
@@ -63,23 +62,24 @@ impl Attendance {
     pub async fn for_member_at_event(
         email: &str,
         event_id: i32,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<Self> {
-        Self::for_member_at_event(email, event_id, conn)
+        Self::for_member_at_event_opt(email, event_id, conn)
             .await?
             .ok_or_else(|| {
-                anyhow::anyhow!(
+                format!(
                     "No attendance for member {} at event with id {}",
                     email,
                     event_id
                 )
             })
+            .into()
     }
 
     pub async fn for_member_at_event_opt(
         email: &str,
         event_id: i32,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
@@ -91,8 +91,9 @@ impl Attendance {
         .await
     }
 
-    pub async fn for_event(event_id: i32, conn: DbConn<'_>) -> Result<Self> {
-        Event::verify_exists(event_id, conn).await?;
+    pub async fn for_event(event_id: i32, mut conn: DbConn<'_>) -> Result<Vec<Self>> {
+        // TODO: verify_exists
+        Event::with_id(event_id, conn).await?;
 
         sqlx::query_as!(Self, "SELECT * FROM attendance WHERE event = ?", event_id)
             .fetch_all(conn)
@@ -102,15 +103,14 @@ impl Attendance {
     pub async fn create_for_new_member(
         email: &str,
         semester: &str,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<()> {
         let events = Event::for_semester(semester, conn).await?;
 
         // TODO: make batch query
-        let now = OffsetDateTime::now_local().context("Failed to get current time")?;
-
+        let now = crate::util::now();
         for event in events {
-            let should_attend = if event.call_time < now {
+            let should_attend = if event.call_time.0 < now {
                 false
             } else {
                 event.default_attend
@@ -128,9 +128,9 @@ impl Attendance {
         Ok(())
     }
 
-    pub async fn create_for_new_event(event_id: i32, conn: DbConn<'_>) -> Result<()> {
+    pub async fn create_for_new_event(event_id: i32, mut conn: DbConn<'_>) -> Result<()> {
         let event = Event::with_id(event_id, conn).await?;
-        let active_members = Member::those_active_during(event.semester, conn).await?;
+        let active_members = Member::active_during(&event.semester, conn).await?;
 
         // TODO: make batch query
         for member in active_members {
@@ -147,7 +147,7 @@ impl Attendance {
         Ok(())
     }
 
-    pub async fn excuse_unconfirmed(event_id: i32, conn: DbConn<'_>) -> Result<()> {
+    pub async fn excuse_unconfirmed(event_id: i32, mut conn: DbConn<'_>) -> Result<()> {
         let event = Event::with_id(event_id, conn).await?;
 
         sqlx::query!(
@@ -162,7 +162,7 @@ impl Attendance {
         event_id: i32,
         email: &str,
         update: AttendanceUpdate,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<()> {
         Self::verify_for_member_at_event(event_id, email, conn).await?;
 
@@ -185,7 +185,7 @@ impl Attendance {
         event_id: i32,
         email: &str,
         attending: bool,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<()> {
         let event = Event::with_id(event_id, conn).await?;
         let attendance = Self::for_member_at_event(email, event_id, conn).await?;
@@ -202,7 +202,7 @@ impl Attendance {
         .await
     }
 
-    pub async fn confirm_for_event(event_id: i32, email: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn confirm_for_event(event_id: i32, email: &str, mut conn: DbConn<'_>) -> Result<()> {
         Event::verify_exists(event_id, conn).await?;
         Self::verify_for_member_at_event(email, event_id, conn).await?;
 

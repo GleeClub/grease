@@ -14,6 +14,8 @@ pub mod mutation;
 pub mod permission;
 pub mod query;
 
+pub const SUCCESS_MESSAGE: &'static str = "success";
+
 pub struct LoggedIn;
 
 #[async_trait::async_trait]

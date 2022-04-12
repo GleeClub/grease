@@ -45,7 +45,7 @@ pub struct GqlDateTime(pub OffsetDateTime);
 impl ScalarType for GqlDateTime {
     fn parse(value: Value) -> InputValueResult<Self> {
         if let Value::String(date_str) = &value {
-            if let Ok(date) = Date::parse(date_str, &Rfc3339) {
+            if let Ok(date) = OffsetDateTime::parse(date_str, &Rfc3339) {
                 return Ok(GqlDateTime(date));
             }
         }

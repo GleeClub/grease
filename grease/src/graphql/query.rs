@@ -27,7 +27,8 @@ impl QueryRoot {
 
     #[graphql(guard = "LoggedIn")]
     pub async fn member(&self, ctx: &Context<'_>, email: String) -> Result<Member> {
-        Member::with_email(&email, get_conn(ctx)).await
+        let mut conn = get_conn(ctx);
+        Member::with_email(&email, &mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
@@ -84,84 +85,84 @@ impl QueryRoot {
     #[graphql(guard = "LoggedIn.and(Permission::PROCESS_GIG_REQUESTS)")]
     pub async fn gig_request(&self, ctx: &Context<'_>, id: i32) -> Result<GigRequest> {
         let mut conn = get_conn(ctx);
-        GigRequest::with_id(id, conn).await
+        GigRequest::with_id(id, &mut conn).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::PROCESS_GIG_REQUESTS)")]
     pub async fn gig_requests(&self, ctx: &Context<'_>) -> Result<Vec<GigRequest>> {
         let mut conn = get_conn(ctx);
-        GigRequest::all(conn).await
+        GigRequest::all(&mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn meeting_minutes(&self, ctx: &Context<'_>, id: i32) -> Result<Minutes> {
         let mut conn = get_conn(ctx);
-        Minutes::with_id(id, conn).await
+        Minutes::with_id(id, &mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn all_meeting_minutes(&self, ctx: &Context<'_>) -> Result<Vec<Minutes>> {
         let mut conn = get_conn(ctx);
-        Minutes::all(conn).await
+        Minutes::all(&mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn current_semester(&self, ctx: &Context<'_>) -> Result<Semester> {
         let mut conn = get_conn(ctx);
-        Semester::get_current(conn).await
+        Semester::get_current(&mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn semester(&self, ctx: &Context<'_>, name: String) -> Result<Semester> {
         let mut conn = get_conn(ctx);
-        Semester::with_name(&name, conn).await
+        Semester::with_name(&name, &mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn semesters(&self, ctx: &Context<'_>) -> Result<Vec<Semester>> {
         let mut conn = get_conn(ctx);
-        Semester::all(conn).await
+        Semester::all(&mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn uniform(&self, ctx: &Context<'_>, id: i32) -> Result<Uniform> {
         let mut conn = get_conn(ctx);
-        Uniform::with_id(id, conn).await
+        Uniform::with_id(id, &mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn uniforms(&self, ctx: &Context<'_>) -> Result<Vec<Uniform>> {
         let mut conn = get_conn(ctx);
-        Uniform::all(conn).await
+        Uniform::all(&mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn documents(&self, ctx: &Context<'_>) -> Result<Vec<Document>> {
         let mut conn = get_conn(ctx);
-        Document::all(conn).await
+        Document::all(&mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn song(&self, ctx: &Context<'_>, id: i32) -> Result<Song> {
         let mut conn = get_conn(ctx);
-        Song::with_id(id, conn).await
+        Song::with_id(id, &mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn songs(&self, ctx: &Context<'_>) -> Result<Vec<Song>> {
         let mut conn = get_conn(ctx);
-        Song::all(conn).await
+        Song::all(&mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn song_link(&self, ctx: &Context<'_>, id: i32) -> Result<SongLink> {
         let mut conn = get_conn(ctx);
-        SongLink::with_id(id, conn).await
+        SongLink::with_id(id, &mut conn).await
     }
 
     pub async fn public_songs(&self, ctx: &Context<'_>) -> Result<Vec<PublicSong>> {
         let mut conn = get_conn(ctx);
-        PublicSong::all(conn).await
+        PublicSong::all(&mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]
@@ -173,25 +174,25 @@ impl QueryRoot {
     pub async fn transactions(&self, ctx: &Context<'_>) -> Result<Vec<ClubTransaction>> {
         let mut conn = get_conn(ctx);
         let current_semester = Semester::get_current(conn).await?;
-        ClubTransaction::for_semester(&current_semester.name, conn).await
+        ClubTransaction::for_semester(&current_semester.name, &mut conn).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::VIEW_TRANSACTIONS)")]
     pub async fn fees(&self, ctx: &Context<'_>) -> Result<SongLink> {
         let mut conn = get_conn(ctx);
-        Fee::all(conn).await
+        Fee::all(&mut conn).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
     pub async fn officers(&self, ctx: &Context<'_>) -> Result<Vec<MemberRole>> {
         let mut conn = get_conn(ctx);
-        MemberRole::current_officers(conn).await
+        MemberRole::current_officers(&mut conn).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
     pub async fn current_permissions(&self, ctx: &Context<'_>) -> Result<Vec<RolePermission>> {
         let mut conn = get_conn(ctx);
-        RolePermission::all(conn).await
+        RolePermission::all(&mut conn).await
     }
 
     #[graphql(guard = "LoggedIn")]

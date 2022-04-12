@@ -23,7 +23,7 @@ impl Permission {
         }
     }
 
-    pub async fn granted_to(&self, member: &str, conn: DbConn<'_>) -> bool {
+    pub async fn granted_to(&self, member: &str, mut conn: DbConn<'_>) -> bool {
         let permissions = MemberPermission::for_member(member, conn).await?;
         permissions.iter().any(|permission| {
             permission.name == self.name
@@ -75,7 +75,7 @@ impl Guard for Permission {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
         if let Some(user) = ctx.data_opt::<Member>() {
             let mut conn = get_conn(ctx);
-            if self.granted_to(&user, conn) {
+            if self.granted_to(&user.email, &mut conn).await {
                 return Ok(());
             }
         }

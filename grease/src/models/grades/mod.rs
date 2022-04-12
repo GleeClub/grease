@@ -1,8 +1,9 @@
 use async_graphql::{Result, SimpleObject};
 use time::{Duration, OffsetDateTime};
 
+use crate::util::now;
 use crate::db::DbConn;
-use crate::models::event::Event;
+use crate::models::event::{Event, EventType};
 use crate::models::grades::context::{AttendanceContext, GradesContext};
 use crate::models::grades::week::{EventWithAttendance, WeekOfAttendances};
 
@@ -38,8 +39,8 @@ pub struct GradeChange {
 }
 
 impl Grades {
-    pub async fn for_member(email: &str, semester: &str, conn: DbConn<'_>) -> Result<Grades> {
-        let context = GradesContext::for_member_during_semester(email, semester, conn).await?;
+    pub async fn for_member(email: &str, semester: &str, mut conn: DbConn<'_>) -> Result<Grades> {
+        let context = GradesContext::for_members_during_semester(&[email], semester, conn).await?;
         let mut grades = Grades {
             grade: 100.0,
             volunteer_gigs_attended: 0,
@@ -47,12 +48,12 @@ impl Grades {
         };
 
         for week in context.weeks_of_attendance(email) {
-            for event in &week {
+            for event in week.events.iter() {
                 let change = Self::calculate_grade_change(event, &week, grades.grade);
                 grades.grade = change.partial_score;
                 grades.events_with_changes.push(change);
 
-                if week.attended_volunteer_gig().is_some() {
+                if week.attended_volunteer_gig(event).is_some() {
                     grades.volunteer_gigs_attended += 1;
                 }
             }
@@ -63,27 +64,26 @@ impl Grades {
 
     fn calculate_grade_change(
         event: &EventWithAttendance<'_>,
-        context: &WeekOfAttendances<'_>,
-        grade: f32,
+        week: &WeekOfAttendances<'_>,
+        grade: f64,
     ) -> GradeChange {
-        let event = &member_attendance.event.event;
-        let is_bonus_event = Self::is_bonus_event(&member_attendance, &context);
+        let attended_first_sectional = week.events_of_type(EventType::SECTIONAL).next().map(|first_sectional| first_sectional.attendance.did_attend).unwrap_or(false);
+        let is_bonus_event = event.is_bonus_event(attended_first_sectional);
 
-        let now = OffsetDateTime::now_local().context("Failed to get current time")?;
-        let (change, reason) = if event.call_time > now {
+        let (change, reason) = if event.event.call_time > now() {
             Self::event_hasnt_happened_yet()
-        } else if member_attendance.did_attend() {
-            if context.missed_rehearsal && event.is_gig() {
-                Self::missed_rehearsal(&event)
-            } else if member_attendance.minutes_late() > 0 && event.type_ != Event::OMBUDS {
-                Self::late_for_event(&member_attendance, grade, is_bonus_event)
+        } else if event.attendance.did_attend {
+            if week.missed_event_of_type(EventType::REHEARSAL) && event.is_gig() {
+                Self::missed_rehearsal(&event.event)
+            } else if event.attendance.minutes_late > 0 && event.r#type != Event::OMBUDS {
+                Self::late_for_event(event, grade, is_bonus_event)
             } else if is_bonus_event {
-                Self::attended_bonus_event(&event, grade)
+                Self::attended_bonus_event(&event.event, grade)
             } else {
                 Self::attended_normal_event()
             }
-        } else if member_attendance.should_attend() {
-            Self::should_have_attended(&member_attendance, &context)
+        } else if event.attendance.should_attend {
+            Self::should_have_attended(event, week)
         } else {
             Self::didnt_need_to_attend()
         };
@@ -95,50 +95,50 @@ impl Grades {
         }
     }
 
-    fn attended_normal_event() -> (f32, String) {
+    fn attended_normal_event() -> (f64, String) {
         (
             0.0,
             "No point change for attending required event".to_owned(),
         )
     }
 
-    fn didnt_need_to_attend() -> (f32, String) {
+    fn didnt_need_to_attend() -> (f64, String) {
         (0.0, "Did not attend and not expected to".to_owned())
     }
 
-    fn event_hasnt_happened_yet() -> (f32, String) {
+    fn event_hasnt_happened_yet() -> (f64, String) {
         (0.0, "Event hasn't happened yet".to_owned())
     }
 
     fn late_for_event(
         event: EventWithAttendance<'_>,
-        grade: f32,
+        grade: f64,
         bonus_event: bool,
-    ) -> (f32, String) {
+    ) -> (f64, String) {
         let points_lost_for_lateness =
-            Self::points_lost_for_lateness(event, member_attendance.minutes_late());
+            Self::points_lost_for_lateness(event.event, event.attendance.minutes_late);
 
         if bonus_event {
-            if grade + event.points as f32 - points_lost_for_lateness > 100.0 {
+            if grade + event.event.points as f64 - points_lost_for_lateness > 100.0 {
                 (
                     100.0 - grade,
                     format!(
                         "Event would grant {}-point bonus, \
                          but {:.2} points deducted for lateness (capped at 100%)",
-                        event.points, points_lost_for_lateness
+                        event.event.points, points_lost_for_lateness
                     ),
                 )
             } else {
                 (
-                    event.points as f32 - points_lost_for_lateness,
+                    event.event.points as f64 - points_lost_for_lateness,
                     format!(
                         "Event would grant {}-point bonus, \
                          but {:.2} points deducted for lateness",
-                        event.points, points_lost_for_lateness
+                        event.event.points, points_lost_for_lateness
                     ),
                 )
             }
-        } else if event.should_attend() {
+        } else if event.attendance.should_attend {
             (
                 -points_lost_for_lateness,
                 format!(
@@ -154,24 +154,24 @@ impl Grades {
         }
     }
 
-    fn points_lost_for_lateness(event: &Event, minutes_late: i32) -> f32 {
+    fn points_lost_for_lateness(event: &Event, minutes_late: i32) -> f64 {
         // Lose points equal to the percentage of the event missed, if they should have attended
         let event_duration = if let Some(release_time) = event.release_time {
             if release_time <= event.call_time {
                 60.0
             } else {
-                (release_time - event.call_time).num_minutes() as f32
+                (release_time.0 - event.call_time.0).whole_minutes() as f64
             }
         } else {
             60.0
         };
 
-        (minutes_late as f32 / event_duration) * (event.points as f32)
+        (minutes_late as f64 / event_duration) * (event.points as f64)
     }
 
-    fn missed_rehearsal(event: &Event) -> (f32, String) {
+    fn missed_rehearsal(event: &Event) -> (f64, String) {
         // If you haven't been to rehearsal this week, you can't get points or gig credit
-        if event.type_ == Event::VOLUNTEER_GIG {
+        if event.r#type == Event::VOLUNTEER_GIG {
             (
                 0.0,
                 format!(
@@ -181,15 +181,15 @@ impl Grades {
             )
         } else {
             (
-                -(event.points as f32),
+                -(event.points as f64),
                 "Full deduction for unexcused absence from this week's rehearsal".to_owned(),
             )
         }
     }
 
-    fn attended_bonus_event(event: &Event, grade: f32) -> (f32, String) {
+    fn attended_bonus_event(event: &Event, grade: f64) -> (f64, String) {
         // Get back points for volunteer gigs and and extra sectionals and ombuds events
-        if grade + event.points as f32 > 100.0 {
+        if grade + event.points as f64 > 100.0 {
             let point_change = 100.0 - grade;
             (
                 point_change,
@@ -200,31 +200,29 @@ impl Grades {
             )
         } else {
             (
-                event.points as f32,
+                event.points as f64,
                 "Full bonus awarded for attending volunteer or extra event".to_owned(),
             )
         }
     }
 
     fn should_have_attended(
-        member_attendance: &MemberAttendance,
-        context: &WeeklyAttendanceContext,
-    ) -> (f32, String) {
-        let event = &member_attendance.event.event;
-
+        event: &EventWithAttendance,
+        week: &WeekOfAttendances,
+    ) -> (f64, String) {
         // Lose the full point value if did not attend
-        if event.type_ == Event::OMBUDS {
+        if event.event.r#type == EventType::OMBUDS {
             (
                 0.0,
                 "You do not lose points for missing an ombuds event".to_owned(),
             )
-        } else if event.type_ == Event::SECTIONAL && context.attended_sectionals {
+        } else if event.r#type == EventType::SECTIONAL && week.events_of_type(EventType::SECTIONAL).any(|event| event.attendance.did_attend) {
             (
                 0.0,
                 "No deduction because you attended a different sectional this week".to_owned(),
             )
-        } else if event.type_ == Event::SECTIONAL
-            && context
+        } else if event.event.r#type == EventType::SECTIONAL
+            && week
                 .missed_sectional
                 .map(|call_time| call_time < event.call_time)
                 .unwrap_or(false)
@@ -234,13 +232,12 @@ impl Grades {
                 "No deduction because you already lost points for one sectional this week"
                     .to_owned(),
             )
-        } else if event.type_ == Event::SECTIONAL
-            && context
-                .last_sectional
-                .as_ref()
-                .map(|last_call_time| {
-                    let now = Local::now().naive_utc();
-                    last_call_time > &event.call_time && last_call_time > &now
+        } else if event.event.r#type == EventType::SECTIONAL
+            && week
+                .events_of_type(EventType::SECTIONAL)
+                .last()
+                .map(|last_sectional| {
+                    last_sectional.event.call_time > &event.event.call_time && last_sectional.event.call_time > now()
                 })
                 .unwrap_or(false)
         {
@@ -248,14 +245,14 @@ impl Grades {
                 0.0,
                 "No deduction because not all sectionals occurred yet".to_owned(),
             )
-        } else if member_attendance.approved_absence() {
+        } else if event.approved_absence() {
             (
                 0.0,
                 "No deduction because an absence request was submitted and approved".to_owned(),
             )
         } else {
             (
-                -(event.points as f32),
+                -(event.points as f64),
                 "Full deduction for unexcused absence from event".to_owned(),
             )
         }

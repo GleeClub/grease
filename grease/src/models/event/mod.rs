@@ -1,5 +1,6 @@
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
 use time::{OffsetDateTime, Duration};
+use crate::util::now;
 use crate::models::GqlDateTime;
 use crate::db::DbConn;
 use crate::models::event::attendance::Attendance;
@@ -42,7 +43,7 @@ impl EventType {
     pub const OMBUDS: &'static str = "Ombuds";
     pub const OTHER: &'static str = "Other";
 
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM event_type ORDER BY name")
             .fetch_all(&mut **conn)
             .await
@@ -80,55 +81,55 @@ pub struct Event {
 impl Event {
     /// The gig for this event, if it is a gig
     pub async fn gig(&self, ctx: &Context<'_>) -> Result<Option<Gig>> {
-        let conn = ctx.data_unchecked::<DbConn>();
-        Gig::for_event(self.id, conn)
+        let mut conn = get_conn(ctx);
+        Gig::for_event(self.id, &mut conn)
     }
 
     /// The attendance for the current user at this event
     pub async fn user_attendance(&self, ctx: &Context<'_>) -> Result<Attendance> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         let user = ctx.data_opt::<Member>();
 
-        Attendance::for_member_at_event(user.email, self.id, conn).await
+        Attendance::for_member_at_event(user.email, self.id, &mut conn).await
     }
 
     /// The attendance for a specific member at this event
     pub async fn attendance(&self, ctx: &Context<'_>, member: String) -> Result<Attendance> {
-        let conn = ctx.data_unchecked::<DbConn>();
-        Attendance::for_member_at_event(&member, self.id, conn).await
+        let mut conn = get_conn(ctx);
+        Attendance::for_member_at_event(&member, self.id, &mut conn).await
     }
 
     pub async fn all_attendance(&self, ctx: &Context<'_>) -> Result<Vec<Attendance>> {
-        let conn = ctx.data_unchecked::<DbConn>();
-        Attendance::for_event(self.id, conn).await
+        let mut conn = get_conn(ctx);
+        Attendance::for_event(self.id, &mut conn).await
     }
 
     pub async fn carpools(&self, ctx: &Context<'_>) -> Result<Vec<Carpool>> {
-        let conn = ctx.data_unchecked::<DbConn>();
-        Carpool::for_event(self.id, conn).await
+        let mut conn = get_conn(ctx);
+        Carpool::for_event(self.id, &mut conn).await
     }
 
     pub async fn setlist(&self, ctx: &Context<'_>) -> Result<Vec<Song>> {
-        let conn = ctx.data_unchecked::<DbConn>();
-        Song::setlist_for_event(self.id, conn).await
+        let mut conn = get_conn(ctx);
+        Song::setlist_for_event(self.id, &mut conn).await
     }
 }
 
 impl Event {
-    pub async fn with_id(id: i32, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_id(id: i32, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_id_opt(id, conn)
             .await?
             .ok_or_else(|| format!("No event with id {}", id))
             .into()
     }
 
-    pub async fn with_id_opt(id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM event WHERE id = ?", id)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn for_semester(semester: &str, conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester: &str, mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         Semester::verify_exists(semester, conn).await?;
 
         sqlx::query_as!(
@@ -141,7 +142,7 @@ impl Event {
     }
 
     pub fn is_gig(&self) -> bool {
-        self.event_type == Event::TUTTI_GIG || self.event_type == Event::VOLUNTEER_GIG
+        self.r#type == EventType::TUTTI_GIG || self.r#type == EventType::VOLUNTEER_GIG
     }
 
     pub fn ensure_no_rsvp_issue(
@@ -165,7 +166,7 @@ impl Event {
             Some("Member must be active to RSVP to events.".to_owned())
         } else if !attendance.map(|a| a.should_attend).unwrap_or(true) {
             None
-        } else if OffsetDateTime::now_local() + Duration::days(1) > self.call_time {
+        } else if now() + Duration::days(1) > self.call_time {
             Some("Responses are closed for this event.".to_owned())
         } else if ["Tutti Gig", "Sectional", "Rehearsal"].contains(self.r#type) {
             // TODO: update event types to constants
@@ -178,7 +179,7 @@ impl Event {
     pub async fn create(
         new_event: NewEvent,
         from_request: Option<GigRequest>,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<i32> {
         if let Some(release_time) = new_event.event.release_time {
             if release_time <= new_event.event.call_time {
@@ -277,7 +278,7 @@ impl Event {
             .ok_or_else(|| "Failed to find latest event ID")
     }
 
-    pub async fn update(id: i32, update: NewEvent, conn: DbConn<'_>) -> Result<()> {
+    pub async fn update(id: i32, update: NewEvent, mut conn: DbConn<'_>) -> Result<()> {
         let event = Self::with_id(id, conn).await?;
 
         sqlx::query!(
@@ -312,7 +313,7 @@ impl Event {
         Ok(())
     }
 
-    pub async fn delete(id: i32, conn: DbConn<'_>) -> Result<()> {
+    pub async fn delete(id: i32, mut conn: DbConn<'_>) -> Result<()> {
         // TODO: verify exists?
         Event::with_id(id, conn).await?;
 

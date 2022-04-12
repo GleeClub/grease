@@ -11,7 +11,7 @@ pub async fn send_event_emails(events_since: Option<OffsetDateTime>) -> Result<(
     let all_events = Event::load_all_for_current_semester(&conn)?;
     let since = events_since.unwrap_or_else(|| OffsetDateTime::now_local() - Duration::hours(1));
 
-    two_days_out::send_emails(&all_events, &since, &conn)
+    two_days_out::send_emails(&all_events, &since, &mut conn)
 }
 
 mod two_days_out {
@@ -26,7 +26,7 @@ mod two_days_out {
     pub fn send_emails(
         all_events: &[Event],
         since: &OffsetDateTime,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<()> {
         for event in filter_unaddressed_events(all_events, since)? {
             Email {

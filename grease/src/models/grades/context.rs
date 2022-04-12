@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
+use std::collections::{HashSet, HashMap};
 use async_graphql::Result;
 use time::Duration;
-
 use crate::db::DbConn;
 use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestState};
 use crate::models::event::attendance::Attendance;
@@ -39,10 +37,10 @@ pub struct GradesContext {
 }
 
 impl GradesContext {
-    pub async fn for_member_during_semester(
-        email: &str,
+    pub async fn for_members_during_semester(
+        emails: &[&str],
         semester: &str,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<Self> {
         let semester = Semester::with_name(semester, conn).await?;
         let events = Event::for_semester(semester, conn).await?;
@@ -52,7 +50,7 @@ impl GradesContext {
             .map(|event| (event.id, &event.r#type))
             .collect();
         let attendance =
-            AttendanceContext::for_member_during_semester(email, semester, &event_types, conn)
+            AttendanceContext::for_members_during_semester(emails, semester, &event_types, conn)
                 .await?;
 
         Ok(Self {
@@ -106,22 +104,23 @@ impl GradesContext {
 }
 
 impl AttendanceContext {
-    async fn for_member_during_semester(
-        email: &str,
+    async fn for_members_during_semester(
+        emails: &[&str],
         semester: &str,
         event_types: &HashMap<i32, &str>,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<HashMap<i32, HashMap<String, Self>>> {
-        let is_active = sqlx::query!(
-            "SELECT member FROM active_semester WHERE member = ? AND semester = ?",
+        let active_members: HashSet<String> = sqlx::query!(
+            "SELECT member FROM active_semester WHERE member IN ? AND semester = ?",
             email,
             semester
         )
-        .fetch_optional(conn)
+        .fetch_all(conn)
         .await?
-        .is_some();
+        .into_iter()
+        .collect();
         let attendances: Vec<Attendance> = sqlx::query!(
-            "SELECT * FROM attendance WHERE member = ? AND event IN
+            "SELECT * FROM attendance WHERE event IN
              (SELECT id FROM event WHERE semester = ?)",
             email,
             semester
@@ -129,7 +128,7 @@ impl AttendanceContext {
         .fetch_all(conn)
         .await?;
         let absence_requests: Vec<AbsenceRequest> = sqlx::query!(
-            "SELECT * FROM absence_request WHERE member = ? AND event IN
+            "SELECT * FROM absence_request WHERE event IN
              (SELECT id FROM event WHERE semester = ?)",
             email,
             semester

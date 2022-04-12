@@ -64,26 +64,26 @@ impl Member {
 
     /// The semester TODO
     pub async fn semester(&self, ctx: &Context<'_>) -> Result<Option<ActiveSemester>> {
-        let conn = ctx.data_unchecked::<DbConn>();
-        let current_semester = Semester::current(conn).await?;
+        let mut conn = get_conn(ctx);
+        let current_semester = Semester::get_current(conn).await?;
         ActiveSemester::for_member_during_semester(&self.email, &current_semester.name, conn).await
     }
 
     /// The officer positions currently held by the member
     pub async fn positions(&self, ctx: &Context<'_>) -> Result<Vec<Role>> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         Role::for_member(&self.email, conn).await
     }
 
     /// The permissions currently held by the member
     pub async fn permissions(&self, ctx: &Context<'_>) -> Result<Vec<MemberPermission>> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         MemberPermission::for_member(&self.email, conn).await
     }
 
     /// The semester TODO
     pub async fn semesters(&self, ctx: &Context<'_>) -> Result<Vec<ActiveSemester>> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         ActiveSemester::all_for_member(&self.email, conn).await
     }
 
@@ -113,31 +113,31 @@ impl Member {
 }
 
 impl Member {
-    pub async fn with_email(email: &str, conn: DbConn<'_>) -> Result<Member> {
+    pub async fn with_email(email: &str, mut conn: DbConn<'_>) -> Result<Member> {
         Self::with_email_opt(email, conn)
             .and_then(|res| res.ok_or_else(|| format!("No member with email {}", email)))
     }
 
-    pub async fn with_email_opt(email: &str, conn: DbConn<'_>) -> Result<Option<Member>> {
+    pub async fn with_email_opt(email: &str, mut conn: DbConn<'_>) -> Result<Option<Member>> {
         sqlx::query_as!(Member, "SELECT * FROM member WHERE email = ?", email)
             .fetch_optional(&mut *conn)
             .await
             .into()
     }
 
-    pub async fn with_token(token: &str, conn: DbConn<'_>) -> Result<Member> {
+    pub async fn with_token(token: &str, mut conn: DbConn<'_>) -> Result<Member> {
         let session = Session::with_token(token, conn).await?;
         Self::with_email(&session.member, conn).await
     }
 
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM member ORDER BY last_name, first_name")
             .fetch_all(conn)
             .await
     }
 
     /// The members that were active during the given semester
-    pub async fn active_during(semester: &str, conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn active_during(semester: &str, mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT * FROM member WHERE email IN
@@ -148,7 +148,7 @@ impl Member {
         .await
     }
 
-    pub async fn login_is_valid(email: &str, pass_hash: &str, conn: DbConn<'_>) -> Result<bool> {
+    pub async fn login_is_valid(email: &str, pass_hash: &str, mut conn: DbConn<'_>) -> Result<bool> {
         if let Some(hash) = sqlx::query!("SELECT pass_hash FROM member WHERE email = ?", email)
             .fetch_optional(conn)
             .await?
@@ -159,12 +159,12 @@ impl Member {
         }
     }
 
-    pub async fn is_active(&self, email: &str, conn: DbConn<'_>) -> Result<bool> {
-        let current_semester = Semester::current(conn).await?;
+    pub async fn is_active(&self, email: &str, mut conn: DbConn<'_>) -> Result<bool> {
+        let current_semester = Semester::get_current(conn).await?;
         Ok(self.semester(current_semester.name).await?.is_some())
     }
 
-    pub async fn register(new_member: NewMember, conn: DbConn<'_>) -> Result<()> {
+    pub async fn register(new_member: NewMember, mut conn: DbConn<'_>) -> Result<()> {
         if sqlx::query!("SELECT email FROM member WHERE email = ?", new_member.email)
             .fetch_optional(conn)
             .await?
@@ -207,16 +207,17 @@ impl Member {
         .execute(conn)
         .await?;
 
-        Attendance::create_for_new_member(new_member.email, conn).await
+        let current_semester = Semester::get_current(conn).await?;
+        Attendance::create_for_new_member(&new_member.email, semester, conn).await
     }
 
-    pub async fn register_for_semester(
-        email: &str,
-        semester: &str,
+    pub async fn register_for_current_semester(
+        email: String,
         form: RegisterForSemesterForm,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<()> {
-        ActiveSemester::create_for_member(email, semester, form, conn).await?;
+        let current_semester = Semester::get_current(conn).await?;
+        ActiveSemester::create_for_member(form.active_semester(email.clone(), current_semester.name.clone()), conn).await?;
 
         sqlx::query!(
             "UPDATE member SET location = ?, on_campus = ?, conflicts = ?, dietary_restrictions = ?
@@ -230,14 +231,14 @@ impl Member {
         .execute(conn)
         .await?;
 
-        Attendance::create_for_new_member(email, semester, conn).await
+        Attendance::create_for_new_member(&email, semester, conn).await
     }
 
     pub async fn update(
         email: &str,
         update: MemberUpdate,
         as_self: bool,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<()> {
         if email != update.email {
             if sqlx::query!("SELECT email FROM member WHERE email = ?", update.email)
@@ -291,7 +292,7 @@ impl Member {
         .execute(conn)
         .await?;
 
-        let current_semester = Semester::current(conn).await?;
+        let current_semester = Semester::get_current(conn).await?;
         let active_semester_update = NewActiveSemester {
             member: email.to_owned(),
             semester: current_semester.name,
@@ -301,7 +302,7 @@ impl Member {
         ActiveSemester::update(active_semester_update, conn).await
     }
 
-    pub async fn delete(email: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn delete(email: &str, mut conn: DbConn<'_>) -> Result<()> {
         sqlx::query!("DELETE FROM member WHERE email = ?", email)
             .execute(conn)
             .await
@@ -315,7 +316,7 @@ pub struct SectionType {
 }
 
 impl SectionType {
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM section_type ORDER BY name")
             .fetch_all(conn)
             .await
@@ -345,6 +346,7 @@ pub struct NewMember {
     pub enrollment: Enrollment,
     pub section: Option<String>,
 }
+
 #[derive(InputObject)]
 pub struct MemberUpdate {
     pub email: String,
@@ -365,7 +367,7 @@ pub struct MemberUpdate {
     pub gateway_drug: Option<String>,
     pub conflicts: Option<String>,
     pub dietary_restrictions: Option<String>,
-    pub enrollment: Enrollment,
+    pub enrollment: Option<Enrollment>,
     pub section: Option<String>,
 }
 
@@ -377,4 +379,15 @@ pub struct RegisterForSemesterForm {
     pub dietary_restrictions: String,
     pub enrollment: Enrollment,
     pub section: String,
+}
+
+impl RegisterForSemesterForm {
+    pub fn active_semester(&self, member: String, semester: String) -> NewActiveSemester {
+        NewActiveSemester {
+            member,
+            semester,
+            enrollment: Some(self.enrollment),
+            section: Some(self.section),
+        }
+    }
 }

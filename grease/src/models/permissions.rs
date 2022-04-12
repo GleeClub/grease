@@ -16,14 +16,14 @@ pub struct Role {
 }
 
 impl Role {
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM role ORDER BY rank")
             .fetch_all(conn)
             .await
             .into()
     }
 
-    pub async fn for_member(email: &str, conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn for_member(email: &str, mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
                 "SELECT * FROM role WHERE name IN (SELECT rank FROM member_role WHERE member = ?) ORDER BY rank", email)
@@ -46,19 +46,19 @@ pub struct MemberRole {
 impl MemberRole {
     /// The member holding the role
     pub async fn member(&self, ctx: &Context<'_>) -> Result<Member> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         Member::load(&self.member, conn).await
     }
 }
 
 impl MemberRole {
-    pub async fn current_officers(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn current_officers(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM member_role")
             .fetch_all(conn)
             .await
     }
 
-    pub async fn member_has_role(member: &str, role: &str, conn: DbConn<'_>) -> Result<bool> {
+    pub async fn member_has_role(member: &str, role: &str, mut conn: DbConn<'_>) -> Result<bool> {
         sqlx::query!(
             "SELECT * FROM member_role WHERE member = ? AND role = ?",
             member,
@@ -69,7 +69,7 @@ impl MemberRole {
         .map(|r| r.is_some())
     }
 
-    pub async fn add(member: &str, role: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn add(member: &str, role: &str, mut conn: DbConn<'_>) -> Result<()> {
         if Self::member_has_role(member, role, conn).await? {
             return Err("Member already has that role".to_owned());
         }
@@ -83,7 +83,7 @@ impl MemberRole {
         .await
     }
 
-    pub async fn remove(member: &str, role: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn remove(member: &str, role: &str, mut conn: DbConn<'_>) -> Result<()> {
         if !Self::member_has_role(member, role, conn).await? {
             return Err("Member does not have that role".to_owned());
         }
@@ -115,7 +115,7 @@ pub struct Permission {
 }
 
 impl Permission {
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM permission ORDER BY name")
             .fetch_all(conn)
             .await
@@ -145,13 +145,13 @@ pub struct RolePermission {
 }
 
 impl RolePermission {
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM role_permission")
             .fetch_all(conn)
             .await
     }
 
-    pub async fn add(role_permission: NewRolePermission, conn: DbConn<'_>) -> Result<()> {
+    pub async fn add(role_permission: NewRolePermission, mut conn: DbConn<'_>) -> Result<()> {
         sqlx::query_as!(
             Self,
             "INSERT IGNORE INTO role_permission (role, permission, event_type) VALUES (?, ?, ?)",
@@ -163,7 +163,7 @@ impl RolePermission {
         .await
     }
 
-    pub async fn remove(role_permission: NewRolePermission, conn: DbConn<'_>) -> Result<()> {
+    pub async fn remove(role_permission: NewRolePermission, mut conn: DbConn<'_>) -> Result<()> {
         sqlx::query_as!(
             Self,
             "DELETE FROM role_permission WHERE role = ? AND permission = ? AND event_type = ?",
@@ -185,7 +185,7 @@ pub struct MemberPermission {
 }
 
 impl MemberPermission {
-    pub async fn for_member(member: &str, conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn for_member(member: &str, mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT permission as name, event_type FROM role_permission

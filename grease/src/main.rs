@@ -5,6 +5,7 @@
 #![feature(drain_filter, path_try_exists, once_cell)]
 
 mod cron;
+mod util;
 mod db;
 mod email;
 mod file;

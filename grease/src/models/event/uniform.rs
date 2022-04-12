@@ -1,9 +1,7 @@
 use async_graphql::{
-    InputObject, InputValueError, InputValueResult, Scalar, ScalarType, SimpleObject,
+    Value, InputObject, InputValueError, InputValueResult, Scalar, ScalarType, SimpleObject,
 };
 use regex::Regex;
-use serde_json::Value;
-
 use crate::db::DbConn;
 
 #[derive(SimpleObject)]
@@ -44,32 +42,32 @@ impl ScalarType for UniformColor {
 }
 
 impl Uniform {
-    pub async fn with_id(id: i32, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_id(id: i32, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_id_opt(id, conn)
             .await?
             .ok_or_else(|| format!("No uniform with id {}", id))
     }
 
-    pub async fn with_id_opt(id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM uniform WHERE id = ?", id)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM uniform ORDER BY name")
             .fetch_all(conn)
             .await
     }
 
-    pub async fn get_default(conn: DbConn<'_>) -> Result<Self> {
+    pub async fn get_default(mut conn: DbConn<'_>) -> Result<Self> {
         let uniform = sqlx::query_as!(Self, "SELECT * FROM uniform ORDER BY NAME")
             .fetch_optional(conn)
             .await?;
         uniform.ok_or_else(|| "There are currently no uniforms")
     }
 
-    pub async fn create(new_uniform: NewUniform, conn: DbConn<'_>) -> Result<i32> {
+    pub async fn create(new_uniform: NewUniform, mut conn: DbConn<'_>) -> Result<i32> {
         sqlx::query!(
             "INSERT INTO uniform (name, color, description) VALUES (?, ?, ?)",
             new_uniform.name,
@@ -84,7 +82,7 @@ impl Uniform {
             .await
     }
 
-    pub async fn update(id: i32, update: NewUniform, conn: DbConn<'_>) -> Result<()> {
+    pub async fn update(id: i32, update: NewUniform, mut conn: DbConn<'_>) -> Result<()> {
         // TODO: verify exists?
         // TODO: mutation?
         sqlx::query!(
@@ -98,7 +96,7 @@ impl Uniform {
         .await
     }
 
-    pub async fn delete(id: i32, conn: DbConn<'_>) -> Result<()> {
+    pub async fn delete(id: i32, mut conn: DbConn<'_>) -> Result<()> {
         sqlx::query!("DELETE FROM uniform WHERE id = ?", id)
             .execute(conn)
             .await

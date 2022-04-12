@@ -1,5 +1,5 @@
 use crate::models::event::gig::Gig;
-use crate::models::event::Event;
+use crate::models::event::{EventType, Event};
 use crate::models::grades::context::AttendanceContext;
 
 pub struct EventWithAttendance<'a> {
@@ -10,10 +10,10 @@ pub struct EventWithAttendance<'a> {
 
 impl<'a> EventWithAttendance<'a> {
     pub fn is_bonus_event(&self, attended_first_sectional: bool) -> bool {
-        self.event.r#type == Event::VOLUNTEER_GIG
-            || self.event.r#type == Event::OMBUDS
-            || (self.event.r#type == Event::OTHER && !self.attendance.should_attend)
-            || (self.event.r#type == Event::SECTIONAL && attended_first_sectional)
+        self.event.r#type == EventType::VOLUNTEER_GIG
+            || self.event.r#type == EventType::OMBUDS
+            || (self.event.r#type == EventType::OTHER && !self.attendance.should_attend)
+            || (self.event.r#type == EventType::SECTIONAL && attended_first_sectional)
     }
 }
 
@@ -43,11 +43,11 @@ impl<'a> WeekOfAttendances<'a> {
     }
 
     pub fn attended_volunteer_gig(&self, event: EventWithAttendance<'a>) -> bool {
-        if self.missed_event_of_type(Event::REHEARSAL) {
+        if self.missed_event_of_type(EventType::REHEARSAL) {
             return None;
         }
 
-        event.event.r#type == Event::VOLUNTEER_GIG
+        event.event.r#type == EventType::VOLUNTEER_GIG
             && event.event.gig_count
             && event.attendance.map(|a| a.did_attend).unwrap_or(false)
     }

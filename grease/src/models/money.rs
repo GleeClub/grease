@@ -1,5 +1,6 @@
 use async_graphql::{InputObject, Result, SimpleObject};
 use time::OffsetDateTime;
+use crate::models::GqlDateTime;
 
 use crate::db::DbConn;
 use crate::models::semester::Semester;
@@ -22,33 +23,37 @@ impl Fee {
     pub const DUES_DESCRIPTION: &'static str = "Semesterly Dues";
     pub const LATE_DUES_DESCRIPTION: &'static str = "Late Dues";
 
-    pub async fn with_name(name: &str, conn: DbConn<'_>) -> Result<Self> {
-        Self::load_opt(name, conn)
+    pub async fn with_name(name: &str, mut conn: DbConn<'_>) -> Result<Self> {
+        Self::with_name_opt(name, conn)
             .await?
             .ok_or_else(|| format!("No fee named {}", name))
+            .into()
     }
 
-    pub async fn with_name_opt(name: &str, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM fee WHERE name = ?", name)
             .fetch_optional(conn)
             .await
+            .into()
     }
 
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM fee ORDER BY NAME")
             .fetch_all(conn)
             .await
+            .into()
     }
 
-    pub async fn set_amount(name: &str, new_amount: i32, conn: DbConn<'_>) -> Result<()> {
+    pub async fn set_amount(name: &str, new_amount: i32, mut conn: DbConn<'_>) -> Result<()> {
         sqlx::query!("UPDATE fee SET amount = ? WHERE name = ?", new_amount, name)
-            .exec(conn)
+            .execute(conn)
             .await
+            .into()
     }
 
-    pub async fn charge_dues_for_semester(conn: DbConn<'_>) -> Result<()> {
+    pub async fn charge_dues_for_semester(mut conn: DbConn<'_>) -> Result<()> {
         let dues = Self::load(Self::DUES, conn).await?;
-        let current_semester = Semester::current(conn).await?;
+        let current_semester = Semester::get_current(conn).await?;
 
         let members_who_havent_paid = sqlx::query!(
             "SELECT member FROM active_semester WHERE semester = ? AND member NOT IN \
@@ -70,16 +75,16 @@ impl Fee {
                 Self::DUES_DESCRIPTION,
                 current_semester.name,
             )
-            .execute()
+            .execute(conn)
             .await?
         }
 
         Ok(())
     }
 
-    pub async fn charge_late_dues_for_semester(conn: DbConn<'_>) -> Result<()> {
+    pub async fn charge_late_dues_for_semester(mut conn: DbConn<'_>) -> Result<()> {
         let late_dues = Self::load(Self::LATE_DUES, conn).await?;
-        let current_semester = Semester::current(conn).await?;
+        let current_semester = Semester::get_current(conn).await?;
 
         let members_who_havent_paid = sqlx::query!(
             "SELECT member FROM active_semester WHERE semester = ? AND member NOT IN \
@@ -115,33 +120,34 @@ pub struct TransactionType {
 }
 
 impl TransactionType {
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM transaction_type ORDER BY name")
             .fetch_all(conn)
             .await
     }
 
-    pub async fn with_name(name: &str, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_name(name: &str, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_name_opt(name, conn)
             .await?
             .ok_or_else(|| format!("No transaction type named {}", name))
             .into()
     }
 
-    pub async fn with_name_opt(name: &str, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM transaction_type WHERE name = ?", name)
             .fetch_optional(conn)
             .await
     }
 }
 
+#[derive(SimpleObject)]
 pub struct ClubTransaction {
     /// The ID of the transaction
     pub id: i32,
     /// The member this transaction was charged to
     pub member: String,
     /// When this transaction was charged
-    pub time: OffsetDateTime,
+    pub time: GqlDateTime,
     /// How much this transaction was for
     pub amount: i32,
     /// A description of what the member was charged for specifically
@@ -155,19 +161,19 @@ pub struct ClubTransaction {
 }
 
 impl ClubTransaction {
-    pub async fn with_id(id: i32, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_id(id: i32, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_id_opt(id, conn)
             .await?
             .ok_or_else(|| anyhow::anyhow!("No transaction with id {}", id))
     }
 
-    pub async fn with_id_opt(id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM transaction WHERE id = ?", id)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn for_semester(semester: &str, conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester: &str, mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT * FROM transaction WHERE semester = ? ORDER BY time",
@@ -180,7 +186,7 @@ impl ClubTransaction {
     pub async fn for_member_during_semester(
         member: &str,
         semester: &str,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
@@ -192,9 +198,9 @@ impl ClubTransaction {
         .await
     }
 
-    pub async fn add_batch(batch: TransactionBatch, conn: DbConn<'_>) -> Result<()> {
-        let current_semester = Semester::current(conn).await?;
-        let transaction_type = TransactionType::with_name(batch.r#type, conn).await?;
+    pub async fn add_batch(batch: TransactionBatch, mut conn: DbConn<'_>) -> Result<()> {
+        let current_semester = Semester::get_current(conn).await?;
+        let transaction_type = TransactionType::with_name(&batch.r#type, conn).await?;
 
         for member in batch.members {
             sqlx::query!(
@@ -206,7 +212,7 @@ impl ClubTransaction {
         Ok(())
     }
 
-    pub async fn resolve(id: i32, resolved: bool, conn: DbConn<'_>) -> Result<()> {
+    pub async fn resolve(id: i32, resolved: bool, mut conn: DbConn<'_>) -> Result<()> {
         sqlx::query!(
             "UPDATE transaction SET resolved = ? WHERE id = ?",
             resolved,

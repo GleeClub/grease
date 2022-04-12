@@ -1,4 +1,4 @@
-use async_graphql::{ComplexObject, Context, InputObject, SimpleObject};
+use async_graphql::{ComplexObject, Context, InputObject, SimpleObject, Result};
 
 use crate::db::DbConn;
 use crate::models::event::Event;
@@ -19,26 +19,27 @@ pub struct Carpool {
 impl Carpool {
     /// The driver of the carpool
     pub async fn driver(&self, ctx: &Context<'_>) -> Result<Member> {
-        let conn = ctx.data_unchecked::<DbConn>();
-        Member::with_email(self.driver, conn).await
+        let mut conn = get_conn(ctx);
+        Member::with_email(&self.driver, &mut conn).await
     }
 
     /// The passengers of the carpool
     pub async fn passengers(&self, ctx: &Context<'_>) -> Result<Vec<Member>> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         sqlx::query_as!(
             Member,
             "SELECT * FROM member WHERE email IN
-             (SELECT member FROM rides_in WHERE carpool = ?)",
+             (SELECT member FROM rides_in WHERE carpool = ?)
+             ORDER BY last_name, first_name",
             self.id
         )
-        .fetch_all(conn)
+        .fetch_all(&mut conn)
         .await
     }
 }
 
 impl Carpool {
-    pub async fn for_event(event_id: i32, conn: DbConn<'_>) -> Result<Vec<Carpool>> {
+    pub async fn for_event(event_id: i32, mut conn: DbConn<'_>) -> Result<Vec<Carpool>> {
         sqlx::query_as!(Self, "SELECT * FROM carpool WHERE event = ?", event_id)
             .fetch_all(conn)
             .await
@@ -47,7 +48,7 @@ impl Carpool {
     pub async fn update(
         event_id: i32,
         updated_carpools: Vec<Carpool>,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<()> {
         Event::verify_exists(event_id).await?;
 

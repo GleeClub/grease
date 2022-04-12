@@ -34,19 +34,19 @@ pub struct Gig {
 impl Gig {
     /// The uniform for this gig
     pub async fn uniform(&self, ctx: &Context<'_>) -> Result<Uniform> {
-        let conn = ctx.data_unchecked::<DbConn>();
+        let mut conn = get_conn(ctx);
         Uniform::with_id(self.uniform, conn).await
     }
 }
 
 impl Gig {
-    pub async fn for_event(event_id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn for_event(event_id: i32, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM gig WHERE event = ?", event_id)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn for_semester(semester: &str, conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester: &str, mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT * FROM gig WHERE event in
@@ -99,8 +99,8 @@ impl GigRequest {
     /// If and when an event is created from a request, this is the event
     pub async fn event(&self, ctx: &Context<'_>) -> Result<Option<Event>> {
         if let Some(event_id) = self.event {
-            let conn = ctx.data_unchecked::<DbConn>();
-            Ok(Some(Event::with_id(event_id, conn).await?))
+            let mut conn = get_conn(ctx);
+            Ok(Some(Event::with_id(event_id, &mut conn).await?))
         } else {
             Ok(None)
         }
@@ -108,28 +108,28 @@ impl GigRequest {
 }
 
 impl GigRequest {
-    pub async fn with_id(id: i32, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_id(id: i32, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_id_opt(id, conn)
             .await?
             .ok_or_else(|| format!("No gig request with ID {}", id))
             .into()
     }
 
-    pub async fn with_id_opt(id: i32, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM gig_request WHERE id = ?", id)
             .fetch_optional(conn)
             .await
             .into()
     }
 
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM gig_request ORDER BY time")
             .fetch_all(conn)
             .await
             .into()
     }
 
-    pub async fn submit(new_request: NewGigRequest, conn: DbConn<'_>) -> Result<i32> {
+    pub async fn submit(new_request: NewGigRequest, mut conn: DbConn<'_>) -> Result<i32> {
         sqlx::query!(
             "INSERT INTO gig_request (
                 name, organization, contact_name, contact_phone,
@@ -153,7 +153,7 @@ impl GigRequest {
             .into()
     }
 
-    pub async fn set_status(id: i32, status: GigRequestStatus, conn: DbConn<'_>) -> Result<()> {
+    pub async fn set_status(id: i32, status: GigRequestStatus, mut conn: DbConn<'_>) -> Result<()> {
         let request = Self::with_id(id, conn).await?;
 
         if request.status == status {

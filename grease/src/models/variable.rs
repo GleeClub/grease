@@ -13,19 +13,19 @@ pub struct Variable {
 }
 
 impl Variable {
-    pub async fn with_key(key: &str, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_key(key: &str, mut conn: DbConn<'_>) -> Result<Self> {
         Self::load_opt(key, conn)
             .await?
             .ok_or_else(|| format!("No variable with key {}", key))
     }
 
-    pub async fn with_key_opt(key: &str, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_key_opt(key: &str, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM variable WHERE `key` = ?", key)
             .fetch_optional(conn)
             .await
     }
 
-    pub async fn set(key: &str, value: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn set(key: &str, value: &str, mut conn: DbConn<'_>) -> Result<()> {
         if Self::load_opt(key, conn).await?.is_some() {
             sqlx::query!("UPDATE variable SET value = ? WHERE `key` = ?", value, key)
                 .execute(conn)
@@ -41,7 +41,7 @@ impl Variable {
         }
     }
 
-    pub async fn unset(key: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn unset(key: &str, mut conn: DbConn<'_>) -> Result<()> {
         sqlx::query!("DELETE FROM variable WHERE `key` = ?", key)
             .execute(conn)
             .await

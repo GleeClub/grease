@@ -1,6 +1,8 @@
 use async_graphql::{ComplexObject, Result, SimpleObject};
+use crate::models::GqlDateTime;
 use time::OffsetDateTime;
 use uuid::Uuid;
+use crate::util::now;
 
 use crate::db::DbConn;
 
@@ -8,8 +10,8 @@ use crate::db::DbConn;
 pub struct PublicEvent {
     pub id: i32,
     pub name: String,
-    pub start_time: OffsetDateTime,
-    pub end_time: Option<OffsetDateTime>,
+    pub start_time: GqlDateTime,
+    pub end_time: Option<GqlDateTime>,
     // needs default
     pub location: String,
     // needs default
@@ -23,8 +25,6 @@ impl PublicEvent {
     const DATETIME_FORMAT: &'static str = "%Y%m%dT%H%M%SZ";
 
     pub async fn invite(&self) -> Result<String> {
-        let now = OffsetDateTime::now_local()
-            .map_err(|err| format!("Failed to get current time in local time zone: {}", err));
         let details = format!(
             "VERSION:2.0\n\
              PRODID:ICALENDAR-RS\n\
@@ -40,7 +40,7 @@ impl PublicEvent {
              END:VEVENT\n\
              END:VCALENDAR\n\
             ",
-            now,
+            now(),
             self.summary,
             self.end_time,
             self.start_time,
@@ -57,7 +57,7 @@ impl PublicEvent {
 }
 
 impl PublicEvent {
-    pub async fn all_for_current_semester(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all_for_current_semester(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT event.id, event.name, gig.performance_time as start_time,
@@ -68,5 +68,6 @@ impl PublicEvent {
         )
         .fetch_all(conn)
         .await
+        .into()
     }
 }

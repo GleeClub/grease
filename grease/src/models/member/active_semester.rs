@@ -19,8 +19,8 @@ pub struct ActiveSemester {
 impl ActiveSemester {
     /// The grades for the member in the given semester
     pub async fn grades(&self, ctx: &Context<'_>) -> Result<Grades> {
-        let conn = ctx.data_unchecked::<DbConn>();
-        Grades::for_member(&self.member, &self.semester, conn).await
+        let mut conn = get_conn(ctx);
+        Grades::for_member(&self.member, &self.semester, &mut conn).await
     }
 }
 
@@ -31,7 +31,7 @@ pub enum Enrollment {
 }
 
 impl ActiveSemester {
-    pub async fn all_for_member(member: &str, conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all_for_member(member: &str, mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT a.* FROM active_semester a
@@ -47,7 +47,7 @@ impl ActiveSemester {
     pub async fn for_member_during_semester(
         member: &str,
         semester: &str,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
@@ -61,7 +61,7 @@ impl ActiveSemester {
 
     pub async fn create_for_member(
         new_semester: NewActiveSemester,
-        conn: DbConn<'_>,
+        mut conn: DbConn<'_>,
     ) -> Result<()> {
         if Self::for_member_during_semester(&new_semester.member, &new_semester.semester, conn)
             .await?
@@ -78,7 +78,7 @@ impl ActiveSemester {
         ).execute(conn).await
     }
 
-    pub async fn update(update: NewActiveSemester, conn: DbConn<'_>) -> Result<()> {
+    pub async fn update(update: NewActiveSemester, mut conn: DbConn<'_>) -> Result<()> {
         let active_semester = Self::for_semester(&update.member, &update.semester, conn).await?;
 
         match (update.enrollment, active_semester) {

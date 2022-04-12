@@ -12,28 +12,28 @@ pub struct Document {
 }
 
 impl Document {
-    pub async fn with_name(name: &str, conn: DbConn<'_>) -> Result<Self> {
+    pub async fn with_name(name: &str, mut conn: DbConn<'_>) -> Result<Self> {
         Self::with_name_opt(name, conn)
             .await?
             .ok_or_else(|| format!("No document named {}", name))
             .into()
     }
 
-    pub async fn with_name_opt(name: &str, conn: DbConn<'_>) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, mut conn: DbConn<'_>) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM google_docs WHERE name = ?", name)
             .fetch_optional(conn)
             .await
             .into()
     }
 
-    pub async fn all(conn: DbConn<'_>) -> Result<Vec<Self>> {
+    pub async fn all(mut conn: DbConn<'_>) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM google_docs ORDER BY name")
             .fetch_all(*conn)
             .await
             .into()
     }
 
-    pub async fn create(name: &str, url: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn create(name: &str, url: &str, mut conn: DbConn<'_>) -> Result<()> {
         if Self::with_name_opt(name, conn).await?.is_some() {
             return Err(format!("A document named {} already exists", name).into());
         }
@@ -48,7 +48,7 @@ impl Document {
         .into()
     }
 
-    pub async fn set_url(name: &str, url: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn set_url(name: &str, url: &str, mut conn: DbConn<'_>) -> Result<()> {
         // TODO: verify exists
         Self::with_name(name, conn).await?;
 
@@ -58,7 +58,7 @@ impl Document {
             .into()
     }
 
-    pub async fn delete(name: &str, conn: DbConn<'_>) -> Result<()> {
+    pub async fn delete(name: &str, mut conn: DbConn<'_>) -> Result<()> {
         // TODO: verify exists
         Self::with_name(name, conn).await?;
 
