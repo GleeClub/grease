@@ -1,5 +1,28 @@
-[workspace]
-members = [
-  "grease",
-  "tools/*"
-]
+[package]
+name = "grease"
+version = "0.1.0"
+authors = ["Sam Mohr <sam.mohr@protonmail.com>"]
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+async-graphql = { version = "3", features = ["dataloader"] }
+async-trait = "0.1"
+base64 = "0.10"
+bcrypt = "0.12"
+cgi = "0.6"
+dotenv = "0.15"
+either = "1.6"
+futures-core = { version = "0.3", default-features = false }
+futures-util = { version = "0.3", default-features = false, features = ["alloc", "sink"] }
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.5", features = ["runtime-tokio-rustls", "mysql", "time", "offline"] }
+time = { version = "0.2", features = ["serde"] }
+# TODO: figure out which features we want
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "0.8", features = ["v4"] }
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
