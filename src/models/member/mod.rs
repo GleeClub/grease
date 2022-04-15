@@ -128,7 +128,7 @@ impl Member {
              FROM member WHERE email = ?",
             email
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -146,7 +146,7 @@ impl Member {
                  arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash
              FROM member ORDER BY last_name, first_name"
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -162,7 +162,7 @@ impl Member {
              (SELECT member FROM active_semester WHERE semester = ?)",
             semester
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -170,7 +170,7 @@ impl Member {
     pub async fn login_is_valid(email: &str, pass_hash: &str, conn: &DbConn) -> Result<bool> {
         if let Some(hash) =
             sqlx::query_scalar!("SELECT pass_hash FROM member WHERE email = ?", email)
-                .fetch_optional(conn)
+                .fetch_optional(&mut *conn.get().await)
                 .await?
         {
             bcrypt::verify(&hash, pass_hash)
@@ -191,7 +191,7 @@ impl Member {
 
     pub async fn register(new_member: NewMember, conn: &DbConn) -> Result<()> {
         if sqlx::query!("SELECT email FROM member WHERE email = ?", new_member.email)
-            .fetch_optional(conn)
+            .fetch_optional(&mut *conn.get().await)
             .await?
             .is_some()
         {
@@ -228,7 +228,7 @@ impl Member {
             new_member.conflicts,
             new_member.dietary_restrictions
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         let current_semester = Semester::get_current(conn).await?;
@@ -256,7 +256,7 @@ impl Member {
             form.dietary_restrictions,
             email
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Attendance::create_for_new_member(&email, &current_semester.name, conn).await
@@ -270,7 +270,7 @@ impl Member {
     ) -> Result<()> {
         if email != &update.email {
             if sqlx::query!("SELECT email FROM member WHERE email = ?", update.email)
-                .fetch_optional(conn)
+                .fetch_optional(&mut *conn.get().await)
                 .await?
                 .is_some()
             {
@@ -290,7 +290,7 @@ impl Member {
             }
         } else {
             sqlx::query_scalar!("SELECT pass_hash FROM member WHERE email = ?", email)
-                .fetch_one(conn)
+                .fetch_one(&mut *conn.get().await)
                 .await?
         };
 
@@ -318,7 +318,7 @@ impl Member {
             update.dietary_restrictions,
             pass_hash
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         let current_semester = Semester::get_current(conn).await?;
@@ -333,7 +333,7 @@ impl Member {
 
     pub async fn delete(email: &str, conn: &DbConn) -> Result<()> {
         sqlx::query!("DELETE FROM member WHERE email = ?", email)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         Ok(())
@@ -349,7 +349,7 @@ pub struct SectionType {
 impl SectionType {
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM section_type ORDER BY name")
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }

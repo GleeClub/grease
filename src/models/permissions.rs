@@ -18,7 +18,7 @@ pub struct Role {
 impl Role {
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM role ORDER BY rank")
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -27,7 +27,7 @@ impl Role {
         sqlx::query_as!(
             Self,
                 "SELECT * FROM role WHERE name IN (SELECT rank FROM member_role WHERE member = ?) ORDER BY rank", email)
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -54,7 +54,7 @@ impl MemberRole {
 impl MemberRole {
     pub async fn current_officers(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM member_role ORDER BY role, member")
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -65,7 +65,7 @@ impl MemberRole {
             member,
             role
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await?;
 
         Ok(member_role.is_some())
@@ -81,7 +81,7 @@ impl MemberRole {
             member,
             role
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -97,7 +97,7 @@ impl MemberRole {
             member,
             role
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -128,7 +128,7 @@ impl Permission {
             "SELECT name, description, `type` as \"type: _\"
              FROM permission ORDER BY name"
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -159,7 +159,7 @@ pub struct RolePermission {
 impl RolePermission {
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM role_permission")
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -172,7 +172,7 @@ impl RolePermission {
             role_permission.permission,
             role_permission.event_type
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -186,7 +186,7 @@ impl RolePermission {
             role_permission.permission,
             role_permission.event_type
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -210,7 +210,7 @@ impl MemberPermission {
              WHERE member_role.member = ?",
             member
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }

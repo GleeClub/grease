@@ -1,0 +1,5938 @@
+{
+  "db": "MySQL",
+  "0140f6ea3459ba48dc329731b746822b148a72e99dc3e519d0a8ce2afe79881c": {
+    "query": "SELECT id, `time` as \"time: _\", name, organization, contact_name, contact_phone, contact_email,\n                 start_time as \"start_time: _\", location, comments, status as \"status: _\", event\n             FROM gig_request WHERE id = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 1185
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "organization",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "contact_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "contact_phone",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 64
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "contact_email",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "start_time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 161
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 8,
+          "name": "location",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 9,
+          "name": "comments",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 10,
+          "name": "status: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 257
+            },
+            "char_set": 224,
+            "max_size": 36
+          }
+        },
+        {
+          "ordinal": 11,
+          "name": "event",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 8
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true
+      ]
+    }
+  },
+  "014211d56c08f30ec4456fcf13d038f672eccc3d977f80fc7ebcd010e3db9848": {
+    "query": "SELECT id, name, color as \"color: _\", description\n             FROM uniform WHERE id = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "color: _",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 16
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "description",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        true
+      ]
+    }
+  },
+  "0471122fe0091d8c54f1b89c74d589a33407565925ffdb8a3bdaf7c5f08a5054": {
+    "query": "SELECT * FROM section_type ORDER BY name",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 80
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "05981ce750f4bcb4ec51cdca3949ec6dd3f70220c38e0cc74c6aa9b1362b902a": {
+    "query": "SELECT name, target, song FROM song_link WHERE `type` = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 512
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "target",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "song",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "068aa802b9272b2cc1596dbdb97d7500ca5671575fd516be61096f12f5765f2f": {
+    "query": "UPDATE attendance SET should_attend = ?, confirmed = true WHERE event = ? AND member = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 3
+      },
+      "nullable": []
+    }
+  },
+  "0859b348fd06eaa4e19d0eb88393b20073b67b5a1bc1463bc7d168e79ae57c63": {
+    "query": "SELECT email FROM member WHERE email = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "email",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "0e405b76419b2d48298b65e70a16362782db8f4865429fdee74a18469640af2f": {
+    "query": "UPDATE google_docs SET url = ? WHERE name = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "0e53501a83b6c20b81d6707b97f93f30243d503cb34423e245e697d7358e24ac": {
+    "query": "DELETE FROM session WHERE member = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "100d7ffdcfe95cd5e5e5719dbd76132c50af21c3d77e8a96b16e846f0d07c6d4": {
+    "query": "INSERT INTO event\n                     (name, semester, `type`, call_time, release_time, points,\n                      comments, location, gig_count, default_attend)\n                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 10
+      },
+      "nullable": []
+    }
+  },
+  "105914b03f08e039c01c9eb8a5dd9a45a1935f1b3aad09d7169c2e394259c7fc": {
+    "query": "SELECT * FROM role_permission",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "role",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 80
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "permission",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "event_type",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 8
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        true
+      ]
+    }
+  },
+  "105e1fdc330ce51e55d68bf54ead67e76916f884c273e47b3b0bc801059e5d98": {
+    "query": "SELECT * FROM song_link WHERE song = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "song",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "type",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 512
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "target",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "12855ff2fac82c1cbd37f648982a0b4bdb45451f03915279a2d04dfdda3737f8": {
+    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                 gig_requirement, current as \"current: bool\"\n             FROM semester WHERE name = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "start_date: _",
+          "type_info": {
+            "type": "Date",
+            "flags": {
+              "bits": 4225
+            },
+            "char_set": 63,
+            "max_size": 10
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "end_date: _",
+          "type_info": {
+            "type": "Date",
+            "flags": {
+              "bits": 4225
+            },
+            "char_set": 63,
+            "max_size": 10
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "gig_requirement",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "current: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "142d600e2619fef9acd1d62af190105899fc2e5cbf59c5c4536e14548c92a452": {
+    "query": "INSERT INTO transaction (member, amount, type, description, semester)\n                     VALUES (?, ?, ?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 5
+      },
+      "nullable": []
+    }
+  },
+  "14c60d26e9927e76294f3d50b67b8e6d6946bf4116d80396f27da4330cbfdc4f": {
+    "query": "UPDATE absence_request SET state = ? WHERE event = ? AND member = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 3
+      },
+      "nullable": []
+    }
+  },
+  "1615dcbfb9b64021581c8ad6e6f28ff3e7c8f7324ec46d602c74759dbfdb11bd": {
+    "query": "SELECT id, `time` as \"time: _\", name, organization, contact_name, contact_phone, contact_email,\n                 start_time as \"start_time: _\", location, comments, status as \"status: _\", event\n             FROM gig_request ORDER BY time",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 1185
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "organization",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "contact_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "contact_phone",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 64
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "contact_email",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "start_time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 161
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 8,
+          "name": "location",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 9,
+          "name": "comments",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 10,
+          "name": "status: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 257
+            },
+            "char_set": 224,
+            "max_size": 36
+          }
+        },
+        {
+          "ordinal": 11,
+          "name": "event",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 8
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true
+      ]
+    }
+  },
+  "1803c4c4bf8e82bd64a661741862750247fb4b230a2cfa494b15c49d8e31906c": {
+    "query": "UPDATE attendance SET should_attend = ?, did_attend = ?, confirmed = ?, minutes_late = ? WHERE member = ? AND event = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 6
+      },
+      "nullable": []
+    }
+  },
+  "1c36a9e07ba018ec656453e4da75e0dfc69f6abc08f0c04f8ffb97913d06e6d4": {
+    "query": "UPDATE uniform SET name = ?, color = ?, description = ? WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 4
+      },
+      "nullable": []
+    }
+  },
+  "1cbcedf12619bea2e9915c9582c7cd478a748fb8885da58ee82612cb3dae2afd": {
+    "query": "INSERT INTO attendance (event, should_attend, member) VALUES (?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 3
+      },
+      "nullable": []
+    }
+  },
+  "1ea953d46960b33a50649352b534aa94318060d1c043467533fd4715b175b8d3": {
+    "query": "UPDATE fee SET amount = ? WHERE name = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "1f057d734dd1a9096854cefdb662fb6467a32803900b48998d5e9b71835d9f60": {
+    "query": "SELECT id, title, info, current as \"current: bool\", `key` as \"key: _\",\n                 starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"\n             FROM song ORDER BY title",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "title",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 512
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "info",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "current: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "key: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 256
+            },
+            "char_set": 224,
+            "max_size": 28
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "starting_pitch: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 256
+            },
+            "char_set": 224,
+            "max_size": 28
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "mode: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 256
+            },
+            "char_set": 224,
+            "max_size": 20
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        true
+      ]
+    }
+  },
+  "20f413ea6cf7e73c317110467aa73518a74af6b79cbdd9637fa436816963a597": {
+    "query": "UPDATE semester SET current = false",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": []
+    }
+  },
+  "22406295aeb5c1f82cab4c0a4214a752a03a94f6437359c94a0928e863ed0962": {
+    "query": "SELECT a.member, a.semester, a.enrollment as \"enrollment: _\", a.section\n             FROM active_semester a\n             JOIN semester s ON a.semester = s.name\n             WHERE member = ?\n             ORDER BY s.start_date",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "semester",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4107
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "enrollment: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 257
+            },
+            "char_set": 224,
+            "max_size": 20
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "section",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 8
+            },
+            "char_set": 224,
+            "max_size": 80
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        true
+      ]
+    }
+  },
+  "240c9ec6ea868ca637d70e89ebabf85836c2c3b2ea5ed613b98e39237c0d2f62": {
+    "query": "SELECT * FROM transaction_type ORDER BY name",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "24b5bfb87cdd9eaf738a51359f2f0f6a19615430a43a8885ed48ce92eacef429": {
+    "query": "SELECT id FROM gig_request ORDER BY id DESC",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "2811057975024ecec95b1a01c0dcbbfbfefd72dc4fbd3f7eaa2b99f9c5454806": {
+    "query": "UPDATE semester SET\n             name = ?, start_date = ?, end_date = ?, gig_requirement = ?\n             WHERE name = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 5
+      },
+      "nullable": []
+    }
+  },
+  "2c707ddc7dd6b9683d1d903dde5dfc9c40ce08362f157a36250e4efd702b5734": {
+    "query": "UPDATE minutes SET name = ?, private = ?, public = ? WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 4
+      },
+      "nullable": []
+    }
+  },
+  "2ca8ce3b9cc2330f213b93913902106b5ed228296bb93bd23a3d8f6e345f3a60": {
+    "query": "SELECT id FROM carpool ORDER BY id DESC",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "2f3620a6ecc4ce74eb92d7b0cc11948a45350fdcdbb6935e437c45adec001385": {
+    "query": "UPDATE gig_request SET status = ? WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "313cff815654a8d322d9ecec61b250b6497b11f3b778fe269dd1b61f60c3d16e": {
+    "query": "SELECT should_attend as \"should_attend: bool\", did_attend as \"did_attend: bool\",\n                 confirmed as \"confirmed: bool\", minutes_late, member, event\n             FROM attendance WHERE event = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "should_attend: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "did_attend: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "confirmed: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "minutes_late",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "event",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4107
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "32bbebd27baa5180c4ddba5e44d26c77b98c604062ca5118e7fbf61434dd58b3": {
+    "query": "INSERT IGNORE INTO role_permission (role, permission, event_type) VALUES (?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 3
+      },
+      "nullable": []
+    }
+  },
+  "3361278e0bddde4cc556f62fd00f88691b5872b0ff05e3f3b13ef5e774161002": {
+    "query": "SELECT id, member, `time` as \"time: _\", amount,\n                 description, semester, `type`, resolved as \"resolved: bool\"\n             FROM transaction WHERE id = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 1185
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "amount",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "description",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "semester",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 8
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "type",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "resolved: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    }
+  },
+  "37ca02ff61cab9bf9e88f4a0735bc60d659b61fc7b39f8341d83f8fa92b6fd7e": {
+    "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus as \"on_campus: bool\", about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM member WHERE email = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "email",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "first_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "preferred_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "last_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "phone_number",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 64
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "picture",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "passengers",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "location",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 8,
+          "name": "on_campus: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 9,
+          "name": "about",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 10,
+          "name": "major",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 11,
+          "name": "minor",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 12,
+          "name": "hometown",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 13,
+          "name": "arrived_at_tech",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 14,
+          "name": "gateway_drug",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 15,
+          "name": "conflicts",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 16,
+          "name": "dietary_restrictions",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 17,
+          "name": "pass_hash",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false
+      ]
+    }
+  },
+  "392e26b94b6580b479f517880041090ec118232d3c4b8ad380b82dc7ae9f315e": {
+    "query": "INSERT INTO minutes (name) VALUES (?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "39c0e56e3dbc7c78f01308795acc6bbaa351b907ea0f85a4977f9cc8ad930ac8": {
+    "query": "SELECT id, name, date as \"date: _\", public, private\n             FROM minutes WHERE id = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 400
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "date: _",
+          "type_info": {
+            "type": "Date",
+            "flags": {
+              "bits": 4225
+            },
+            "char_set": 63,
+            "max_size": 10
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "public",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 4294967295
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "private",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 4294967295
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true
+      ]
+    }
+  },
+  "3bebe2809674768e444c49b726054a519f53ccb5f52d705daeb65b8b7b12b64f": {
+    "query": "DELETE FROM active_semester WHERE member = ? AND semester = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "3c419e1bcc971742de827eeb086a0a8f0ae7acdd144a0654b2e50d5014d35da0": {
+    "query": "SELECT pass_hash FROM member WHERE email = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "pass_hash",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "3f92fe9b2cf288ed26a19e87c7c56578374a8d167a2404f73c4aa1fa4fec913a": {
+    "query": "SELECT id, name, semester, `type`, call_time as \"call_time: _\",\n                  release_time as \"release_time: _\", points, comments, location,\n                  gig_count as \"gig_count: bool\", default_attend as \"default_attend: bool\"\n             FROM event WHERE semester = ? ORDER BY call_time",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 256
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "semester",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "type",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "call_time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 9377
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "release_time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 160
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "points",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "comments",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 8,
+          "name": "location",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 9,
+          "name": "gig_count: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 10,
+          "name": "default_attend: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false
+      ]
+    }
+  },
+  "4058e56306a46cced1532402546f8b65876cf39353fdb4002b315aaeecd0ad7a": {
+    "query": "INSERT INTO session (member, `key`) VALUES (?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "46631bc19563cf5d16e540bfa9416c081e5e08570e0ca7d91239ba52aca53cc7": {
+    "query": "INSERT INTO active_semester (member, semester, enrollment, section) VALUES (?, ?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 4
+      },
+      "nullable": []
+    }
+  },
+  "49652c462f20bbca796e780c16eb38ebe45a08786b5ee61a02758e3554e98bbe": {
+    "query": "SELECT should_attend as \"should_attend: bool\", did_attend as \"did_attend: bool\",\n                 confirmed as \"confirmed: bool\", minutes_late, member, event\n             FROM attendance\n             WHERE find_in_set(member, ?) AND event IN\n             (SELECT id FROM event WHERE semester = ?)",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "should_attend: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "did_attend: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "confirmed: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "minutes_late",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "event",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4107
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "4a7bb5310b8452651f3e2ba484cc626873a87b2c34808ee70fb6bef6319a73e8": {
+    "query": "SELECT * FROM member_role WHERE member = ? AND role = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "role",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4107
+            },
+            "char_set": 224,
+            "max_size": 80
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": [
+        false,
+        false
+      ]
+    }
+  },
+  "4c0be52923f32617bd745fcce02ab720a8ed6be9cda8f1393450fece7fff5f61": {
+    "query": "SELECT id FROM song ORDER BY id DESC",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "4caa7aca0fb3540fc59dfc5f95f2651adf8b24df267d682d49e6049191040537": {
+    "query": "SELECT * FROM google_docs WHERE name = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "url",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false
+      ]
+    }
+  },
+  "4d4eb9d7eec9932e03702ff966ef4d604e1b27ee32c765c62d8bc20359d8e42b": {
+    "query": "DELETE FROM uniform WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "51ca27752046765b402f38547720ea7395fb2096d8350eedb66741d08c118212": {
+    "query": "INSERT INTO semester (name, start_date, end_date, gig_requirement)\n             VALUES (?, ?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 4
+      },
+      "nullable": []
+    }
+  },
+  "535f65f236e886f3f5a5577307ae0da7cc34ce22dd535af2cdf7d384011cefec": {
+    "query": "DELETE FROM carpool WHERE event = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "587fa628a9fe4642ac0e22825a97e81d388af674f7251a9fb699f96901dcb710": {
+    "query": "ROLLBACK",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": []
+    }
+  },
+  "5a1957e8f14230be77f4bebac805b22ca2c77171ebde2a0daf54bb83af09ce9d": {
+    "query": "SELECT `time` as \"time: _\", reason, state as \"state: _\", member, event\n             FROM absence_request\n             WHERE event IN (SELECT id FROM event WHERE semester = ?)\n             ORDER BY time",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 1185
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "reason",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "state: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 257
+            },
+            "char_set": 224,
+            "max_size": 32
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "event",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4107
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "5c8ed49e66afab58400b2dd5be195911e4bfbb1571b4d19b268ff7143eed328e": {
+    "query": "UPDATE transaction SET resolved = ? WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "5d97b24f566c4bdc2ba5acccc4f22c6f1fb3ecaca044a7cf864c760c3ca7adad": {
+    "query": "SELECT * FROM role ORDER BY rank",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 80
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "rank",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "max_quantity",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "5f49daa5c6ae9003e86078ff11d5b46627b478b68389efc15476696efdb72fd7": {
+    "query": "SELECT id, title, current as \"current: bool\" FROM song ORDER BY title",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "title",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 512
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "current: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "6228a11ecfef57b2698b88419e510dfb33972fa1905dc10016a3396bae629d04": {
+    "query": "SELECT name, description, `type` as \"type: _\"\n             FROM permission ORDER BY name",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "description",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "type: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 257
+            },
+            "char_set": 224,
+            "max_size": 24
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        true,
+        false
+      ]
+    }
+  },
+  "658ec446bd31ba6316bd69d19cfd1f94be7ebb7d771c85bb85a77ff148257af4": {
+    "query": "DELETE FROM google_docs WHERE name = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "65a0f6fb5c59c8cd67f2f6430d998cd815d3f7df5133939949bacf659092b676": {
+    "query": "UPDATE event SET name = ?, semester = ?, `type` = ?, call_time = ?, release_time = ?,\n                 points = ?, comments = ?, location = ?, gig_count = ?, default_attend = ?\n             WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 11
+      },
+      "nullable": []
+    }
+  },
+  "718f7d305ebfd1de3b176079d66980a6b291d2d6963545a06da91a25cab11a07": {
+    "query": "UPDATE song_link SET name = ?, target = ? WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 3
+      },
+      "nullable": []
+    }
+  },
+  "737818a15f8fa54e35603088444ec1db8934ce49084bc8cd41ace083944d0fe9": {
+    "query": "SELECT id FROM song_link ORDER BY id DESC",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "74a2f21384eea6415806108306dc3a615965a9584d95b096e27f477441af277d": {
+    "query": "INSERT INTO song (title, info) VALUES (?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "756712b2a4f76aa916638318b90cd3eedbb5be67fc91825b1b30f59076745e0d": {
+    "query": "UPDATE member SET pass_hash = ? WHERE email = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "78f3a2efeb47bd3b8a892734d1d529812d564ed166405e5fffb3dafcb54f6c67": {
+    "query": "SELECT * FROM carpool WHERE event = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "event",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "driver",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f": {
+    "query": "COMMIT",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": []
+    }
+  },
+  "7aff001a6ca7db9706ca76060c2c3b27e44072ed20fa1f4b8d4c933742065711": {
+    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                 gig_requirement, current as \"current: bool\"\n             FROM semester ORDER BY start_date",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "start_date: _",
+          "type_info": {
+            "type": "Date",
+            "flags": {
+              "bits": 4225
+            },
+            "char_set": 63,
+            "max_size": 10
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "end_date: _",
+          "type_info": {
+            "type": "Date",
+            "flags": {
+              "bits": 4225
+            },
+            "char_set": 63,
+            "max_size": 10
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "gig_requirement",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "current: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "7c847cccc9b085b6b37fd4ba4ce5ee0e3caf4120c6e56d6dd49d359ad1d87d07": {
+    "query": "INSERT INTO rides_in (member, carpool) VALUES (?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "7f6e13f72075e1ec20e96e3d708006431df1c5658c4333cce8bc413dde709b50": {
+    "query": "SELECT id FROM minutes ORDER BY id DESC",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "811c54b9780347875ec9df7820bcbbeda36004433e9df972f278c3a316395378": {
+    "query": "INSERT IGNORE INTO attendance (event, should_attend, member) VALUES (?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 3
+      },
+      "nullable": []
+    }
+  },
+  "84fca6b511ad91d62511115cb0c55376049160a0763308ba5c108301118be26e": {
+    "query": "SELECT id, member, `time` as \"time: _\", amount,\n                 description, semester, `type`, resolved as \"resolved: bool\"\n             FROM transaction WHERE semester = ? ORDER BY time",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 1185
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "amount",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "description",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "semester",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 8
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "type",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "resolved: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    }
+  },
+  "874f9730849eb751c8ae63dfac8c92b9d3f8b3a78a0343cabf741ec525022c8a": {
+    "query": "UPDATE member SET\n             email = ?, first_name = ?, preferred_name = ?, last_name = ?,\n             phone_number = ?, picture = ?, passengers = ?, location = ?,\n             about = ?, major = ?, minor = ?, hometown = ?, arrived_at_tech = ?,\n             gateway_drug = ?, conflicts = ?, dietary_restrictions = ?, pass_hash = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 17
+      },
+      "nullable": []
+    }
+  },
+  "87ec8f61b386436be900bee88c14086a8f3373ae85293bdee74ded4aa3bc6c18": {
+    "query": "SELECT name, `order`, storage as \"storage: _\"\n             FROM media_type WHERE name = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "order",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4101
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "storage: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 4353
+            },
+            "char_set": 224,
+            "max_size": 24
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "8c2735c5966259bbe7766103983859a14071a5c855f6672c8a3c27346f258ad3": {
+    "query": "SELECT member FROM active_semester\n             WHERE find_in_set(member, ?) AND semester = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "8c77a0856c2872e3469cc111b2a3b5e5d2a6b0b826e1835933717178da4e0122": {
+    "query": "DELETE FROM minutes WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "8d0a14fc31a217d1c28d2ef3be5266997fd38aec5daa8adee3a414f01d3f3d6c": {
+    "query": "UPDATE semester SET current = true WHERE name = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "8de44db0335fedc5d8f52a41a71e7654b7de4ba215cbfd6d0d11844102982432": {
+    "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus as \"on_campus: bool\", about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM member ORDER BY last_name, first_name",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "email",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "first_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "preferred_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "last_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "phone_number",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 64
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "picture",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "passengers",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "location",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 8,
+          "name": "on_campus: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 9,
+          "name": "about",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 10,
+          "name": "major",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 11,
+          "name": "minor",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 12,
+          "name": "hometown",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 13,
+          "name": "arrived_at_tech",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 14,
+          "name": "gateway_drug",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 15,
+          "name": "conflicts",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 16,
+          "name": "dietary_restrictions",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 17,
+          "name": "pass_hash",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false
+      ]
+    }
+  },
+  "8de8539135f07b86cf9f639c821fdf37bd96349e12b4b5e4f971b73a7aefe985": {
+    "query": "DELETE FROM member WHERE email = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "93f2bb60c6b8e8b1057b703877d2fb3f7da4edfff7abd4b54abbb992394af41b": {
+    "query": "INSERT INTO carpool (event, driver) VALUES (?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "944fbe60eb7d563c5a91f3d9beff502cf8bef0d987794a084fce8bc1272f26b7": {
+    "query": "SELECT `time` as \"time: _\", reason, state as \"state: _\", member, event\n             FROM absence_request WHERE member = ? AND event = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 1185
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "reason",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "state: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 257
+            },
+            "char_set": 224,
+            "max_size": 32
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "event",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4107
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "9458b10777fa7e1e5c481bb728df15faf6ca2246fe64d7eecb9e93f0d7fbb4f3": {
+    "query": "SELECT id FROM event ORDER BY id DESC LIMIT ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "95074cea1506d700b3dd721d2d0120aa22ccba9752528624185ebe81e5e33823": {
+    "query": "UPDATE active_semester SET enrollment = ?, section = ? WHERE member = ? AND semester = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 4
+      },
+      "nullable": []
+    }
+  },
+  "959690eadffce88a25268ff54972e1768cda91c005b019f295cc4e321b1b2e26": {
+    "query": "UPDATE gig SET performance_time = ?, uniform = ?, contact_name = ?, contact_email = ?,\n                     contact_phone = ?, price = ?, public = ?, summary = ?, description = ?\n                     WHERE event = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 10
+      },
+      "nullable": []
+    }
+  },
+  "985debe477d3332016620ffaaa14ca4ee89743a1d1043a98499a2be367aed471": {
+    "query": "INSERT INTO song_link (song, type, name, target) VALUES (?, ?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 4
+      },
+      "nullable": []
+    }
+  },
+  "99ff4e48872f8b6fc9b4add0db5a234d5f7240865222b0414c4a9c230cddecfb": {
+    "query": "SELECT * FROM google_docs ORDER BY name",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "url",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false
+      ]
+    }
+  },
+  "9afdb8534d562336431f448fe798fe8225e1e3ca2c740025d114ba2050cdc2a3": {
+    "query": "SELECT s.id, s.title, s.info, s.current as \"current: bool\", s.`key` as \"key: _\",\n                 starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"\n             FROM song s INNER JOIN gig_song ON s.id = gig_song.song\n             WHERE gig_song.event = ? ORDER BY gig_song.order ASC",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "title",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 512
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "info",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "current: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "key: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 256
+            },
+            "char_set": 224,
+            "max_size": 28
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "starting_pitch: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 256
+            },
+            "char_set": 224,
+            "max_size": 28
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "mode: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 256
+            },
+            "char_set": 224,
+            "max_size": 20
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        true
+      ]
+    }
+  },
+  "9cf273e11cf14814795bd0f7ca5dfbc5c22a4765385f919d03ad60501e7bc31e": {
+    "query": "SELECT * FROM session WHERE `key` = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "key",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 256
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false
+      ]
+    }
+  },
+  "9d901703125b843149aa3b1dd636ee65c098b9be9dcd95a3006eb085b46f7d3d": {
+    "query": "DELETE FROM event WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "9e043f19d3fe48e37bea9e8496bc3d4d6dbd19900062f35540d05b966a22eca2": {
+    "query": "DELETE FROM variable WHERE `key` = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "9ee0aad411b7fe5a4c5ef5b56f826e607cd85ec348d55ac8ab2a0982daf691c5": {
+    "query": "SELECT * FROM event_type ORDER BY name",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "weight",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false
+      ]
+    }
+  },
+  "9efa295f1018744028608b1f9d5008f37fa208079fc2781067670f1c3c23f449": {
+    "query": "SELECT id, title, info, current as \"current: bool\", `key` as \"key: _\",\n                 starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"\n             FROM song WHERE id = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "title",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 512
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "info",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "current: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "key: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 256
+            },
+            "char_set": 224,
+            "max_size": 28
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "starting_pitch: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 256
+            },
+            "char_set": 224,
+            "max_size": 28
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "mode: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 256
+            },
+            "char_set": 224,
+            "max_size": 20
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        true
+      ]
+    }
+  },
+  "a2a48d3afeb2f04d3a5a82219e43a25f477a28f18a47500ecad3da55095bee87": {
+    "query": "SELECT name FROM semester WHERE name = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "a2daa424ae4b10edcb5fb1d02f8330852a01772102d1a164b132910363de513d": {
+    "query": "SELECT event.id, event.name, gig.performance_time as \"start_time: _\",\n                 event.release_time as \"end_time: _\", event.location, gig.summary, gig.description\n             FROM event\n             INNER JOIN gig ON event.id = gig.event\n             WHERE gig.public = true AND event.semester =\n                 (SELECT name FROM semester WHERE current = true)",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 256
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "start_time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 9377
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "end_time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 160
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "location",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "summary",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "description",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  },
+  "a33ce975f8e24ccb33335e16382a7f9121ec034fdfe311f307567c9a5605c0de": {
+    "query": "SELECT id, name, date as \"date: _\", public, private\n             FROM minutes ORDER BY date",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 400
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "date: _",
+          "type_info": {
+            "type": "Date",
+            "flags": {
+              "bits": 4225
+            },
+            "char_set": 63,
+            "max_size": 10
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "public",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 4294967295
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "private",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 4294967295
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true
+      ]
+    }
+  },
+  "a39f2b5e1507301eb17a22c2a11d7bdd10e30d3f4c65b2189dd660ad3bb46d46": {
+    "query": "UPDATE variable SET value = ? WHERE `key` = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "a4dd509c85f3edab20a5ea73633248d94be7de7d851311a7829b54aa47d79669": {
+    "query": "UPDATE attendance SET should_attend = false WHERE event = ? AND confirmed = false",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "a9589e32d23b3bc7ac0c781d96c33e08e39f3126cab691a03a43fe76772791d2": {
+    "query": "DELETE FROM role_permission WHERE role = ? AND permission = ? AND event_type = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 3
+      },
+      "nullable": []
+    }
+  },
+  "ac5751e357d7ffe615cb0b82c952bffe444202f91d4af4c55949ade103139f6f": {
+    "query": "INSERT INTO transaction (member, amount, type, description, semester) VALUES (?, ?, ?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 5
+      },
+      "nullable": []
+    }
+  },
+  "adefc5e4adbd742af841c3ea335ca864fd36a272b73f405418abc1d8c8ab8807": {
+    "query": "SELECT name, `order`, storage as \"storage: _\"\n             FROM media_type ORDER BY `order`",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "order",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4101
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "storage: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 4353
+            },
+            "char_set": 224,
+            "max_size": 24
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "b0bdb5631a337552b227534a682baa0bd6dd2d6aeb881549e2b6b749155ece04": {
+    "query": "SELECT * FROM member_role ORDER BY role, member",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "role",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4107
+            },
+            "char_set": 224,
+            "max_size": 80
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false
+      ]
+    }
+  },
+  "b1e263e8494588cef6f7b3a9211205ab060f95a154fd6402ef1924b7a12df202": {
+    "query": "UPDATE member SET location = ?, on_campus = ?, conflicts = ?, dietary_restrictions = ?\n             WHERE email = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 5
+      },
+      "nullable": []
+    }
+  },
+  "b3f2f73acd6c12ee45b3a29f03839196012d2191fff36c12598974cb16c0a8a9": {
+    "query": "SELECT member, event, `time` as \"time: _\", reason, state as \"state: _\"\n             FROM absence_request\n             WHERE find_in_set(member, ?) AND event IN\n             (SELECT id FROM event WHERE semester = ?)",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "event",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4107
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 1185
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "reason",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "state: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 257
+            },
+            "char_set": 224,
+            "max_size": 32
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "b998297ac0e4adb37e136e4668ec8fbfc591f7689bf1de51ef5eaef801b73555": {
+    "query": "SELECT * FROM song_link WHERE id = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "song",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "type",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 512
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "target",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "b9c8ed95494e46bc473461a9846349984c0e3f348935dba953051db4b455cc43": {
+    "query": "SELECT * FROM variable WHERE `key` = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "key",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "value",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false
+      ]
+    }
+  },
+  "bb2a37da1adec84ad1bbe4c10ef805a6ad297e3fc0b66e63adc73f5f32b35c13": {
+    "query": "INSERT INTO absence_request (member, event, reason) VALUES (?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 3
+      },
+      "nullable": []
+    }
+  },
+  "bbac5d1d746c1fdf3a4bd66cd92934c7e9cec1917202816cb41c77dda59fd5fc": {
+    "query": "UPDATE attendance SET should_attend = true, confirmed = true WHERE event = ? AND member = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "bc2fa77fdd277f7f3d7ac6a71b8e2e9527074986fbdea7220d2a9c799830e0f1": {
+    "query": "SELECT * FROM song_link",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "song",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "type",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 512
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "target",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "c52e6887e6bbb7c73158b7d9e3f3eafb4341e8b3043f21cfb823a9c3013f4c43": {
+    "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus as \"on_campus: bool\", about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM member WHERE email IN\n             (SELECT member FROM active_semester WHERE semester = ?)",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "email",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "first_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "preferred_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "last_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "phone_number",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 64
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "picture",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "passengers",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "location",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 8,
+          "name": "on_campus: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 9,
+          "name": "about",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 10,
+          "name": "major",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 11,
+          "name": "minor",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 12,
+          "name": "hometown",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 13,
+          "name": "arrived_at_tech",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 14,
+          "name": "gateway_drug",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 15,
+          "name": "conflicts",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 16,
+          "name": "dietary_restrictions",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 17,
+          "name": "pass_hash",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false
+      ]
+    }
+  },
+  "c694dd4d8f76a81fe0ca5c11301c3b1d7c0ebeb4e5a7f996714ecbd1f282ab9a": {
+    "query": "START TRANSACTION",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": []
+    }
+  },
+  "c77f7ded7842914d43d4e9626c548216cf79084216bd25c3f97f22911100035c": {
+    "query": "SELECT id, member, `time` as \"time: _\", amount,\n                 description, semester, `type`, resolved as \"resolved: bool\"\n             FROM transaction WHERE semester = ? AND member = ? ORDER BY time",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 1185
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "amount",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "description",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "semester",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 8
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "type",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "resolved: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    }
+  },
+  "c7bfa9bee1fd200fa5b821e81f6bddbc750ed25b32f7f4a27e18b22e2f244f23": {
+    "query": "INSERT INTO variable (`key`, value) VALUES (?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "c887bd62d6a7185ae8189e6efaddcdbcdbb8bf1481d7562b9c0fbc22218ce346": {
+    "query": "SELECT member FROM active_semester WHERE semester = ? AND member NOT IN (SELECT member FROM transaction WHERE type = ? AND description = ?)",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 3
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "cab6262fae52c4b8c49acaa7c05b5e2c43a279c3bb1b91ac0e5db7df9042a8e7": {
+    "query": "SELECT member, semester, enrollment as \"enrollment: _\", section\n             FROM active_semester WHERE member = ? AND semester = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "semester",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4107
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "enrollment: _",
+          "type_info": {
+            "type": "String",
+            "flags": {
+              "bits": 257
+            },
+            "char_set": 224,
+            "max_size": 20
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "section",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 8
+            },
+            "char_set": 224,
+            "max_size": 80
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        true
+      ]
+    }
+  },
+  "ce4825706a5c1fda1a0d3b3dd3477b4e18e0cf125898bacce1f0e93f06a403a0": {
+    "query": "SELECT * FROM transaction_type WHERE name = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "ce6ca9b91a92bab4dd3a4794f1d0d8fa5657d2fd82cd1629d6ae01a69768b432": {
+    "query": "INSERT INTO member\n             (email, first_name, preferred_name, last_name, pass_hash, phone_number,\n              picture, passengers, location, on_campus, about, major, minor, hometown,\n              arrived_at_tech, gateway_drug, conflicts, dietary_restrictions)\n             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 18
+      },
+      "nullable": []
+    }
+  },
+  "d2ae65e4fbf1e0e1f5373ef3cf4cba77d27343c50f410e989844fad3a1b84684": {
+    "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus as \"on_campus: bool\", about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM member WHERE email IN\n             (SELECT member FROM rides_in WHERE carpool = ?)\n             ORDER BY last_name, preferred_name, first_name",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "email",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "first_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "preferred_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "last_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 100
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "phone_number",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 64
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "picture",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "passengers",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "location",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 8,
+          "name": "on_campus: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 9,
+          "name": "about",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 10,
+          "name": "major",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 11,
+          "name": "minor",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 12,
+          "name": "hometown",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 13,
+          "name": "arrived_at_tech",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 14,
+          "name": "gateway_drug",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 15,
+          "name": "conflicts",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 16,
+          "name": "dietary_restrictions",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 2000
+          }
+        },
+        {
+          "ordinal": 17,
+          "name": "pass_hash",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false
+      ]
+    }
+  },
+  "d5647207ee2d02c632decb0985160de4dc9448fd29f3fc3d389f4919b3ba4a4d": {
+    "query": "SELECT event, performance_time as \"performance_time: _\", contact_name, contact_email,\n                 contact_phone, price, public as \"public: bool\", summary, description, uniform\n             FROM gig WHERE event in\n                 (SELECT id FROM event WHERE semester = ?)",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "event",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "performance_time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 9377
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "contact_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "contact_email",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "contact_phone",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 64
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "price",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "public: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "summary",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 8,
+          "name": "description",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 9,
+          "name": "uniform",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        false
+      ]
+    }
+  },
+  "db6043bfa0f7b991d636aa06c04c135a47b8cd82ebbc056b0c087f203e55581d": {
+    "query": "SELECT permission as name, event_type FROM role_permission\n             INNER JOIN member_role ON role_permission.role = member_role.role\n             WHERE member_role.member = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "event_type",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 8
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        true
+      ]
+    }
+  },
+  "ddbfe56f1e7c5d331c996b64f52aa0e2acbfc7a81cdd48a4ad25a3f0d89c4424": {
+    "query": "INSERT INTO uniform (name, color, description) VALUES (?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 3
+      },
+      "nullable": []
+    }
+  },
+  "de996700a5590ac6dde8cf3f046477882fbf4f3caf3bd9cf15170b968f126369": {
+    "query": "SELECT id FROM uniform ORDER BY id DESC",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "dfc42f782d2fd3033c4ab4c7d12d4fe703cdcd38bc7e9c9dffaac63d510c6f72": {
+    "query": "SELECT * FROM fee WHERE name = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 64
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "description",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "amount",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "e0b3fdfd00a6ea57fa3b4bf61e31dd325335a1db52bdb5527ce71085674f0d91": {
+    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                 gig_requirement, current as \"current: bool\"\n             FROM semester WHERE current = true",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "start_date: _",
+          "type_info": {
+            "type": "Date",
+            "flags": {
+              "bits": 4225
+            },
+            "char_set": 63,
+            "max_size": 10
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "end_date: _",
+          "type_info": {
+            "type": "Date",
+            "flags": {
+              "bits": 4225
+            },
+            "char_set": 63,
+            "max_size": 10
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "gig_requirement",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "current: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "e1f77d0d7e184bf7b91d6309d913cd469cff01e6882ee120ea78eda5b813a607": {
+    "query": "SELECT id, name, color as \"color: _\", description\n             FROM uniform ORDER BY name",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "color: _",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 16
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "description",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        true
+      ]
+    }
+  },
+  "e279a02d067e157fb53bae2c489b24a806fdba45e4f4d23c032d48ebd368d3bc": {
+    "query": "INSERT INTO google_docs (name, url) VALUES (?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "e2f5c1a81ca5a466f8a504014a58fb6a2d30925117e0d35c051c3e3deef12595": {
+    "query": "SELECT should_attend as \"should_attend: bool\", did_attend as \"did_attend: bool\",\n                 confirmed as \"confirmed: bool\", minutes_late, member, event\n             FROM attendance WHERE member = ? && event = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "should_attend: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "did_attend: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "confirmed: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "minutes_late",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "member",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "event",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4107
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "e8191a06952fccc8374b7e7322660e328b76d82a91768932b76f1df0c2adcebe": {
+    "query": "SELECT * FROM fee ORDER BY NAME",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 64
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "description",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 160
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "amount",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "ea0a4a51cdee44c9460a93fc2475846993302b56e4de32118128fc51c3e0c73e": {
+    "query": "SELECT event, performance_time as \"performance_time: _\", contact_name, contact_email,\n                 contact_phone, price, public as \"public: bool\", summary, description, uniform\n             FROM gig WHERE event = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "event",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "performance_time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 9377
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "contact_name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "contact_email",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 200
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "contact_phone",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 64
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "price",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "public: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "summary",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 8,
+          "name": "description",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 9,
+          "name": "uniform",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        false
+      ]
+    }
+  },
+  "eb9af4a297ed5c6dec8f35904b36da43135bb6580b57c0353e7bbefde1eb5d8c": {
+    "query": "DELETE FROM song_link WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "ec1c079b437e48fbbd9cdba4fdf5587cabdca84ba4c0aa98a2f5268810f6d4d9": {
+    "query": "UPDATE song SET title = ?, current = ?, info = ?, `key` = ?, starting_pitch = ?, mode = ? WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 7
+      },
+      "nullable": []
+    }
+  },
+  "ec5ff38778cf5f67dd5ff3da758e782cde60d2c915b6db0ebad6903dc7d824fb": {
+    "query": "SELECT `key` FROM session WHERE member = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "key",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 256
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "ef40c7e6926dfe8f8156e2bd590d04ba1ed015ee72fadc454d1fd8ec1a68ca57": {
+    "query": "SELECT id, name, semester, `type`, call_time as \"call_time: _\",\n                  release_time as \"release_time: _\", points, comments, location,\n                  gig_count as \"gig_count: bool\", default_attend as \"default_attend: bool\"\n             FROM event WHERE id = ?",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 515
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 224,
+            "max_size": 256
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "semester",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 3,
+          "name": "type",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4105
+            },
+            "char_set": 224,
+            "max_size": 128
+          }
+        },
+        {
+          "ordinal": 4,
+          "name": "call_time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 9377
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 5,
+          "name": "release_time: _",
+          "type_info": {
+            "type": "Timestamp",
+            "flags": {
+              "bits": 160
+            },
+            "char_set": 63,
+            "max_size": 19
+          }
+        },
+        {
+          "ordinal": 6,
+          "name": "points",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 7,
+          "name": "comments",
+          "type_info": {
+            "type": "Blob",
+            "flags": {
+              "bits": 16
+            },
+            "char_set": 224,
+            "max_size": 262140
+          }
+        },
+        {
+          "ordinal": 8,
+          "name": "location",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 0
+            },
+            "char_set": 224,
+            "max_size": 1020
+          }
+        },
+        {
+          "ordinal": 9,
+          "name": "gig_count: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        },
+        {
+          "ordinal": 10,
+          "name": "default_attend: bool",
+          "type_info": {
+            "type": "Tiny",
+            "flags": {
+              "bits": 1
+            },
+            "char_set": 63,
+            "max_size": 1
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false
+      ]
+    }
+  },
+  "f40a6d8bc304a323fdaa34e8c5f02c0626baf50dd4e4b835d0d1927b34e0cac9": {
+    "query": "DELETE FROM member_role WHERE member = ? AND role = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "f477588473bcad2fe3b4d0235e12a74ef43af96af72758b61bf7ac8c28cdd790": {
+    "query": "INSERT INTO gig\n                        (event, performance_time, uniform, contact_name, contact_email,\n                         contact_phone, price, `public`, summary, description)\n                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 10
+      },
+      "nullable": []
+    }
+  },
+  "f73821cc4b18b850537f1db9a5dab7585bd332dbd52c39c52d21d3ce34f9826f": {
+    "query": "INSERT INTO member_role (member, role) VALUES (?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 2
+      },
+      "nullable": []
+    }
+  },
+  "fb5dc9697d365aaa43031f6225c5c21c992c66ef293fa12f00825256aa785462": {
+    "query": "DELETE FROM song WHERE id = ?",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": []
+    }
+  },
+  "fea09f7a006b6bfbe694ebc2898e178631155b4d1afde17c2e7789a3fbc7c6bb": {
+    "query": "SELECT * FROM role WHERE name IN (SELECT rank FROM member_role WHERE member = ?) ORDER BY rank",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "name",
+          "type_info": {
+            "type": "VarString",
+            "flags": {
+              "bits": 4099
+            },
+            "char_set": 224,
+            "max_size": 80
+          }
+        },
+        {
+          "ordinal": 1,
+          "name": "rank",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        },
+        {
+          "ordinal": 2,
+          "name": "max_quantity",
+          "type_info": {
+            "type": "Long",
+            "flags": {
+              "bits": 4097
+            },
+            "char_set": 63,
+            "max_size": 11
+          }
+        }
+      ],
+      "parameters": {
+        "Right": 1
+      },
+      "nullable": [
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "fef4626f348cc91f7e575b5952cd7f34502c9768d350829d885b2cee5c180c9b": {
+    "query": "INSERT INTO gig_request (\n                name, organization, contact_name, contact_phone,\n                contact_email, start_time, location, comments)\n             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 8
+      },
+      "nullable": []
+    }
+  }
+}

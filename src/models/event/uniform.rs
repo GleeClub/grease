@@ -20,7 +20,7 @@ pub struct Uniform {
 /// A color for a uniform when rendered on the site
 #[derive(sqlx::Type)]
 #[sqlx(transparent)]
-struct UniformColor(String);
+pub struct UniformColor(String);
 
 #[Scalar]
 impl ScalarType for UniformColor {
@@ -58,7 +58,7 @@ impl Uniform {
              FROM uniform WHERE id = ?",
             id
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -69,7 +69,7 @@ impl Uniform {
             "SELECT id, name, color as \"color: _\", description
              FROM uniform ORDER BY name"
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -80,7 +80,7 @@ impl Uniform {
             "SELECT id, name, color as \"color: _\", description
              FROM uniform ORDER BY name"
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await?
         .ok_or_else(|| "There are currently no uniforms".into())
     }
@@ -92,11 +92,11 @@ impl Uniform {
             new_uniform.color,
             new_uniform.description
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         sqlx::query_scalar!("SELECT id FROM uniform ORDER BY id DESC")
-            .fetch_one(conn)
+            .fetch_one(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -111,7 +111,7 @@ impl Uniform {
             update.description,
             id
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -119,7 +119,7 @@ impl Uniform {
 
     pub async fn delete(id: i32, conn: &DbConn) -> Result<()> {
         sqlx::query!("DELETE FROM uniform WHERE id = ?", id)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         Ok(())

@@ -21,7 +21,7 @@ impl Session {
 
     pub async fn with_token_opt(token: &str, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM session WHERE `key` = ?", token)
-            .fetch_optional(conn)
+            .fetch_optional(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -49,7 +49,7 @@ impl Session {
         Member::with_email(email, conn).await?; // ensure that member exists
 
         let session = sqlx::query_scalar!("SELECT `key` FROM session WHERE member = ?", email)
-            .fetch_optional(conn)
+            .fetch_optional(&mut *conn.get().await)
             .await?;
         if let Some(session_key) = session {
             return Ok(session_key);
@@ -61,7 +61,7 @@ impl Session {
             email,
             token
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(token)
@@ -69,7 +69,7 @@ impl Session {
 
     pub async fn remove(email: &str, conn: &DbConn) -> Result<()> {
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         Ok(())
@@ -79,7 +79,7 @@ impl Session {
         Member::with_email(email, conn).await?; // ensure that member exists
 
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
         let new_token = format!("{}X{}", Uuid::new_v4(), now().unix_timestamp());
         sqlx::query!(
@@ -87,7 +87,7 @@ impl Session {
             email,
             new_token
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         // TODO: fix emails
@@ -117,7 +117,7 @@ impl Session {
             hash,
             session.member
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())

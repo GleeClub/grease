@@ -45,7 +45,7 @@ impl EventType {
 
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM event_type ORDER BY name")
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -135,7 +135,7 @@ impl Event {
              FROM event WHERE id = ?",
             id
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -152,7 +152,7 @@ impl Event {
              FROM event WHERE semester = ? ORDER BY call_time",
             semester
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -238,7 +238,7 @@ impl Event {
                 new_event.event.gig_count,
                 new_event.event.default_attend
             )
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
         }
 
@@ -246,7 +246,7 @@ impl Event {
             "SELECT id FROM event ORDER BY id DESC LIMIT ?",
             call_and_release_times.len() as i32
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await?;
         for new_id in &new_ids {
             Attendance::create_for_new_event(*new_id, conn).await?;
@@ -278,7 +278,7 @@ impl Event {
                     gig.summary,
                     gig.description
                 )
-                .fetch_all(conn)
+                .fetch_all(&mut *conn.get().await)
                 .await?;
             }
         }
@@ -312,7 +312,7 @@ impl Event {
             update.event.default_attend,
             id
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         if Gig::for_event(id, conn).await?.is_some() {
@@ -321,7 +321,7 @@ impl Event {
                     "UPDATE gig SET performance_time = ?, uniform = ?, contact_name = ?, contact_email = ?,
                      contact_phone = ?, price = ?, public = ?, summary = ?, description = ?
                      WHERE event = ?", gig.performance_time, gig.uniform, gig.contact_name, gig.contact_email,
-                    gig.contact_phone, gig.price, gig.public, gig.summary, gig.description, id).execute(conn).await?;
+                    gig.contact_phone, gig.price, gig.public, gig.summary, gig.description, id).execute(&mut *conn.get().await).await?;
             }
         }
 
@@ -333,7 +333,7 @@ impl Event {
         Event::with_id(id, conn).await?;
 
         sqlx::query!("DELETE FROM event WHERE id = ?", id)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         Ok(())

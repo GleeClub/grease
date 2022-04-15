@@ -20,14 +20,14 @@ impl Document {
 
     pub async fn with_name_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM google_docs WHERE name = ?", name)
-            .fetch_optional(conn)
+            .fetch_optional(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
 
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM google_docs ORDER BY name")
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -42,7 +42,7 @@ impl Document {
             name,
             url
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -53,7 +53,7 @@ impl Document {
         Self::with_name(name, conn).await?;
 
         sqlx::query!("UPDATE google_docs SET url = ? WHERE name = ?", url, name)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         Ok(())
@@ -64,7 +64,7 @@ impl Document {
         Self::with_name(name, conn).await?;
 
         sqlx::query!("DELETE FROM google_docs WHERE name = ?", name)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         Ok(())

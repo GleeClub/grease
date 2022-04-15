@@ -90,7 +90,7 @@ impl Attendance {
             email,
             event_id
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -106,7 +106,7 @@ impl Attendance {
              FROM attendance WHERE event = ?",
             event_id
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -128,7 +128,7 @@ impl Attendance {
                 should_attend,
                 email
             )
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
         }
 
@@ -147,7 +147,7 @@ impl Attendance {
                 event.default_attend,
                 member.email
             )
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
         }
 
@@ -161,7 +161,7 @@ impl Attendance {
             "UPDATE attendance SET should_attend = false WHERE event = ? AND confirmed = false",
             event_id
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -187,7 +187,7 @@ impl Attendance {
             email,
             event_id
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -213,7 +213,7 @@ impl Attendance {
             event_id,
             email
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -230,7 +230,7 @@ impl Attendance {
             event_id,
             email
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())

@@ -134,7 +134,7 @@ impl AttendanceContext {
             emails.join(","),
             semester
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await?
         .into_iter()
         .collect();
@@ -149,7 +149,7 @@ impl AttendanceContext {
             emails.join(","),
             semester
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await?;
 
         let absence_requests: Vec<AbsenceRequest> = sqlx::query_as!(
@@ -161,7 +161,7 @@ impl AttendanceContext {
             emails.join(","),
             semester
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await?;
 
         let mut all_context: HashMap<i32, HashMap<String, Self>> = HashMap::new();

@@ -31,21 +31,21 @@ impl Fee {
 
     pub async fn with_name_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM fee WHERE name = ?", name)
-            .fetch_optional(conn)
+            .fetch_optional(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
 
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM fee ORDER BY NAME")
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
 
     pub async fn set_amount(name: &str, new_amount: i32, conn: &DbConn) -> Result<()> {
         sqlx::query!("UPDATE fee SET amount = ? WHERE name = ?", new_amount, name)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         Ok(())
@@ -62,7 +62,7 @@ impl Fee {
             Self::DUES_NAME,
             Self::DUES_DESCRIPTION
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await?;
 
         for email in members_who_havent_paid {
@@ -75,7 +75,7 @@ impl Fee {
                 Self::DUES_DESCRIPTION,
                 current_semester.name,
             )
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
         }
 
@@ -93,7 +93,7 @@ impl Fee {
             Self::DUES_NAME,
             Self::DUES_DESCRIPTION
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await?;
 
         for email in members_who_havent_paid {
@@ -106,7 +106,7 @@ impl Fee {
                 Self::DUES_DESCRIPTION,
                 current_semester.name,
             )
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
         }
 
@@ -122,7 +122,7 @@ pub struct TransactionType {
 impl TransactionType {
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM transaction_type ORDER BY name")
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -136,7 +136,7 @@ impl TransactionType {
 
     pub async fn with_name_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM transaction_type WHERE name = ?", name)
-            .fetch_optional(conn)
+            .fetch_optional(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -177,7 +177,7 @@ impl ClubTransaction {
              FROM transaction WHERE id = ?",
             id
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -190,7 +190,7 @@ impl ClubTransaction {
              FROM transaction WHERE semester = ? ORDER BY time",
             semester
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -208,7 +208,7 @@ impl ClubTransaction {
             member,
             semester
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -221,7 +221,7 @@ impl ClubTransaction {
             sqlx::query!(
                 "INSERT INTO transaction (member, amount, type, description, semester) VALUES (?, ?, ?, ?, ?)",
                 member, batch.amount, transaction_type.name, batch.description, current_semester.name)
-                .execute(conn).await?;
+                .execute(&mut *conn.get().await).await?;
         }
 
         Ok(())
@@ -233,7 +233,7 @@ impl ClubTransaction {
             resolved,
             id
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())

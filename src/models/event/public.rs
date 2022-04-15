@@ -70,7 +70,7 @@ impl PublicEvent {
              WHERE gig.public = true AND event.semester =
                  (SELECT name FROM semester WHERE current = true)"
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }

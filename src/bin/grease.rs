@@ -1,16 +1,8 @@
 //! # Grease API
 //!
-//! The backend for the Georgia Tech Glee Club's website.
+//! The backend for the Georgia Tech Glee Club's website
 
-#![feature(drain_filter, path_try_exists, once_cell, generic_associated_types)]
-
-mod cron;
-mod db;
-mod email;
-mod file;
-mod graphql;
-mod models;
-mod util;
+use grease::{cron, graphql};
 
 fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();

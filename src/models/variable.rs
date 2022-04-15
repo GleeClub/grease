@@ -22,7 +22,7 @@ impl Variable {
 
     pub async fn with_key_opt(key: &str, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM variable WHERE `key` = ?", key)
-            .fetch_optional(conn)
+            .fetch_optional(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -30,7 +30,7 @@ impl Variable {
     pub async fn set(key: &str, value: &str, conn: &DbConn) -> Result<()> {
         if Self::with_key_opt(key, conn).await?.is_some() {
             sqlx::query!("UPDATE variable SET value = ? WHERE `key` = ?", value, key)
-                .execute(conn)
+                .execute(&mut *conn.get().await)
                 .await?;
         } else {
             sqlx::query!(
@@ -38,7 +38,7 @@ impl Variable {
                 key,
                 value
             )
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
         }
 
@@ -47,7 +47,7 @@ impl Variable {
 
     pub async fn unset(key: &str, conn: &DbConn) -> Result<()> {
         sqlx::query!("DELETE FROM variable WHERE `key` = ?", key)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         Ok(())

@@ -48,7 +48,7 @@ impl Gig {
              FROM gig WHERE event = ?",
             event_id
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -62,7 +62,7 @@ impl Gig {
                  (SELECT id FROM event WHERE semester = ?)",
             semester
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -133,7 +133,7 @@ impl GigRequest {
              FROM gig_request WHERE id = ?",
             id
         )
-            .fetch_optional(conn)
+            .fetch_optional(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -145,7 +145,7 @@ impl GigRequest {
                  start_time as \"start_time: _\", location, comments, status as \"status: _\", event
              FROM gig_request ORDER BY time"
         )
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -165,11 +165,11 @@ impl GigRequest {
             new_request.location,
             new_request.comments
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         sqlx::query_scalar!("SELECT id FROM gig_request ORDER BY id DESC")
-            .fetch_one(conn)
+            .fetch_one(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -199,7 +199,7 @@ impl GigRequest {
             }
             _ => {
                 sqlx::query!("UPDATE gig_request SET status = ? WHERE id = ?", status, id)
-                    .execute(conn)
+                    .execute(&mut *conn.get().await)
                     .await?;
 
                 Ok(())

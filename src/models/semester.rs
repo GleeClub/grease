@@ -25,7 +25,7 @@ impl Semester {
                  gig_requirement, current as \"current: bool\"
              FROM semester WHERE current = true"
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await?
         .ok_or_else(|| "No current semester set".into())
     }
@@ -44,7 +44,7 @@ impl Semester {
              FROM semester WHERE name = ?",
             name
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -56,7 +56,7 @@ impl Semester {
                  gig_requirement, current as \"current: bool\"
              FROM semester ORDER BY start_date"
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -77,7 +77,7 @@ impl Semester {
             new_semester.end_date,
             new_semester.gig_requirement
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -101,7 +101,7 @@ impl Semester {
             update.gig_requirement,
             name
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -109,7 +109,7 @@ impl Semester {
 
     pub async fn set_current(name: &str, conn: &DbConn) -> Result<()> {
         if sqlx::query!("SELECT name FROM semester WHERE name = ?", name)
-            .fetch_optional(conn)
+            .fetch_optional(&mut *conn.get().await)
             .await?
             .is_none()
         {
@@ -117,10 +117,10 @@ impl Semester {
         }
 
         sqlx::query!("UPDATE semester SET current = false")
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
         sqlx::query!("UPDATE semester SET current = true WHERE name = ?", name)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         Ok(())

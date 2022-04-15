@@ -68,7 +68,7 @@ impl AbsenceRequest {
             email,
             event_id
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -82,7 +82,7 @@ impl AbsenceRequest {
              ORDER BY time",
             semester_name
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -94,7 +94,7 @@ impl AbsenceRequest {
             event_id,
             reason
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -114,7 +114,7 @@ impl AbsenceRequest {
             event_id,
             member
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())

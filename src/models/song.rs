@@ -91,7 +91,7 @@ impl Song {
              FROM song WHERE id = ?",
             id
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -103,7 +103,7 @@ impl Song {
                  starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"
              FROM song ORDER BY title"
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -118,7 +118,7 @@ impl Song {
              WHERE gig_song.event = ? ORDER BY gig_song.order ASC",
             event_id
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -129,11 +129,11 @@ impl Song {
             new_song.title,
             new_song.info
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         sqlx::query_scalar!("SELECT id FROM song ORDER BY id DESC")
-            .fetch_one(conn)
+            .fetch_one(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -142,7 +142,7 @@ impl Song {
         sqlx::query!(
             "UPDATE song SET title = ?, current = ?, info = ?, `key` = ?, starting_pitch = ?, mode = ? WHERE id = ?",
             updated_song.title, updated_song.current, updated_song.info, updated_song.key, updated_song.starting_pitch, updated_song.mode, id
-        ).execute(conn).await?;
+        ).execute(&mut *conn.get().await).await?;
 
         Ok(())
     }
@@ -150,7 +150,7 @@ impl Song {
     pub async fn delete(id: i32, conn: &DbConn) -> Result<()> {
         // TODO: verify exists
         sqlx::query!("DELETE FROM song WHERE id = ?", id)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         Ok(())
@@ -170,11 +170,11 @@ impl PublicSong {
             "SELECT name, target, song FROM song_link WHERE `type` = ?",
             SongLink::PERFORMANCES
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await?;
         let all_public_songs =
             sqlx::query!("SELECT id, title, current as \"current: bool\" FROM song ORDER BY title")
-                .fetch_all(conn)
+                .fetch_all(&mut *conn.get().await)
                 .await?;
 
         Ok(all_public_songs
@@ -244,7 +244,7 @@ impl MediaType {
              FROM media_type WHERE name = ?",
             name
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -256,7 +256,7 @@ impl MediaType {
             "SELECT name, `order`, storage as \"storage: _\"
              FROM media_type ORDER BY `order`"
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -287,21 +287,21 @@ impl SongLink {
 
     pub async fn with_id_opt(id: i32, conn: &DbConn) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM song_link WHERE id = ?", id)
-            .fetch_optional(conn)
+            .fetch_optional(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
 
     pub async fn for_song(song_id: i32, conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM song_link WHERE song = ?", song_id)
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
 
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM song_link")
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -321,11 +321,11 @@ impl SongLink {
             new_link.name,
             encoded_target
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         sqlx::query_scalar!("SELECT id FROM song_link ORDER BY id DESC")
-            .fetch_one(conn)
+            .fetch_one(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -347,7 +347,7 @@ impl SongLink {
             new_target,
             id,
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         if song_link.target != new_target && media_type.storage == StorageType::Local {
@@ -370,7 +370,7 @@ impl SongLink {
         let media_type = MediaType::with_name(&song_link.r#type, conn).await?;
 
         sqlx::query!("DELETE FROM song_link WHERE id = ?", id)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         if media_type.storage == StorageType::Local && MusicFile::exists(&song_link.target)? {

@@ -42,7 +42,7 @@ impl ActiveSemester {
              ORDER BY s.start_date",
             member
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -59,7 +59,7 @@ impl ActiveSemester {
             member,
             semester
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -77,7 +77,7 @@ impl ActiveSemester {
         sqlx::query!(
             "INSERT INTO active_semester (member, semester, enrollment, section) VALUES (?, ?, ?, ?)",
             new_semester.member, new_semester.semester, new_semester.enrollment, new_semester.section
-        ).execute(conn).await?;
+        ).execute(&mut *conn.get().await).await?;
 
         Ok(())
     }
@@ -91,13 +91,13 @@ impl ActiveSemester {
                 sqlx::query!(
                     "UPDATE active_semester SET enrollment = ?, section = ? WHERE member = ? AND semester = ?",
                     enrollment, update.section, update.member, update.semester
-                ).execute(conn).await?;
+                ).execute(&mut *conn.get().await).await?;
             }
             (Some(enrollment), None) => {
                 sqlx::query!(
                     "INSERT INTO active_semester (member, semester, enrollment, section) VALUES (?, ?, ?, ?)",
                     update.member, update.semester, enrollment, update.section
-                ).execute(conn).await?;
+                ).execute(&mut *conn.get().await).await?;
             }
             (None, Some(_active_semester)) => {
                 sqlx::query!(
@@ -105,7 +105,7 @@ impl ActiveSemester {
                     update.member,
                     update.semester
                 )
-                .execute(conn)
+                .execute(&mut *conn.get().await)
                 .await?;
             }
             (None, None) => {}

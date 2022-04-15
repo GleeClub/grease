@@ -36,7 +36,7 @@ impl Carpool {
              ORDER BY last_name, preferred_name, first_name",
             self.id
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -45,7 +45,7 @@ impl Carpool {
 impl Carpool {
     pub async fn for_event(event_id: i32, conn: &DbConn) -> Result<Vec<Carpool>> {
         sqlx::query_as!(Self, "SELECT * FROM carpool WHERE event = ?", event_id)
-            .fetch_all(conn)
+            .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -59,7 +59,7 @@ impl Carpool {
         Event::with_id(event_id, conn).await?;
 
         sqlx::query!("DELETE FROM carpool WHERE event = ?", event_id)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         // TODO: batch?
@@ -69,10 +69,10 @@ impl Carpool {
                 event_id,
                 carpool.driver
             )
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
             let new_carpool_id = sqlx::query_scalar!("SELECT id FROM carpool ORDER BY id DESC")
-                .fetch_one(conn)
+                .fetch_one(&mut *conn.get().await)
                 .await?;
 
             for passenger in carpool.passengers {
@@ -81,7 +81,7 @@ impl Carpool {
                     passenger,
                     new_carpool_id
                 )
-                .execute(conn)
+                .execute(&mut *conn.get().await)
                 .await?;
             }
         }

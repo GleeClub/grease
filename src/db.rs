@@ -1,15 +1,8 @@
-use std::sync::{Mutex, MutexGuard};
-
+use tokio::sync::{Mutex, MutexGuard};
 use anyhow::{Context as _, Result};
 use async_graphql::Context;
-use either::Either;
-use futures_core::future::BoxFuture;
-use futures_core::stream::BoxStream;
-use futures_util::pin_mut;
-use sqlx::database::HasStatement;
-use sqlx::{Connection, Database, Describe, Error, Execute, Executor, MySql, MySqlConnection};
+use sqlx::{Connection, MySqlConnection};
 
-#[derive(Debug)]
 pub struct DbConn(Mutex<MySqlConnection>);
 
 impl DbConn {
@@ -26,15 +19,19 @@ impl DbConn {
         ctx.data_unchecked::<DbConn>()
     }
 
+    pub async fn get<'c>(&'c self) -> MutexGuard<'c, MySqlConnection> {
+        self.0.lock().await
+    }
+
     pub async fn close(&self, successful: bool) -> Result<()> {
         if successful {
             sqlx::query!("COMMIT")
-                .execute(self)
+                .execute(&mut *self.get().await)
                 .await
                 .context("Failed to commit transaction")?;
         } else {
             sqlx::query!("ROLLBACK")
-                .execute(self)
+                .execute(&mut *self.get().await)
                 .await
                 .context("Failed to rollback transaction")?;
         }
@@ -43,72 +40,69 @@ impl DbConn {
     }
 }
 
-#[derive(Debug)]
-pub struct DbConnHandle<'c>(MutexGuard<'c, MySqlConnection>);
+// impl<'c> Executor<'c> for DbConnHandle<'c> {
+//     type Database = MySql;
 
-impl<'c> Executor<'c> for DbConnHandle<'c> {
-    type Database = MySql;
+//     fn fetch_many<'e, 'q: 'e, E: 'q>(
+//         self,
+//         query: E,
+//     ) -> BoxStream<
+//         'e,
+//         Result<
+//             Either<<Self::Database as Database>::QueryResult, <Self::Database as Database>::Row>,
+//             Error,
+//         >,
+//     >
+//     where
+//         'c: 'e,
+//         E: Execute<'q, Self::Database>,
+//     {
+//         let mut conn = self.0.lock().unwrap();
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
-        self,
-        query: E,
-    ) -> BoxStream<
-        'e,
-        Result<
-            Either<<Self::Database as Database>::QueryResult, <Self::Database as Database>::Row>,
-            Error,
-        >,
-    >
-    where
-        'c: 'e,
-        E: Execute<'q, Self::Database>,
-    {
-        let mut conn = self.0.lock().unwrap();
+//         Box::pin(conn.fetch_many(query))
 
-        Box::pin(conn.fetch_many(query))
+//         //     futures_util::stream::Map:(async move {
+//         //         let s = conn.fetch_many(query).await.await?;
+//         //         pin_mut!(s);
 
-        //     futures_util::stream::Map:(async move {
-        //         let s = conn.fetch_many(query).await.await?;
-        //         pin_mut!(s);
+//         //         while let Some(v) = s.try_next().await? {
+//         //             let _ = futures_util::sink::SinkExt::send(&mut sender, Ok(v)).await;
+//         //         }
 
-        //         while let Some(v) = s.try_next().await? {
-        //             let _ = futures_util::sink::SinkExt::send(&mut sender, Ok(v)).await;
-        //         }
+//         //         Ok(())
+//         //     })
+//         // )
+//     }
 
-        //         Ok(())
-        //     })
-        // )
-    }
+//     fn fetch_optional<'e, 'q: 'e, E: 'q>(
+//         self,
+//         query: E,
+//     ) -> BoxFuture<'e, Result<Option<<Self::Database as Database>::Row>, Error>>
+//     where
+//         'c: 'e,
+//         E: Execute<'q, Self::Database>,
+//     {
+//         self.0.lock().unwrap().fetch_optional(query)
+//     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
-        self,
-        query: E,
-    ) -> BoxFuture<'e, Result<Option<<Self::Database as Database>::Row>, Error>>
-    where
-        'c: 'e,
-        E: Execute<'q, Self::Database>,
-    {
-        self.0.lock().unwrap().fetch_optional(query)
-    }
+//     fn prepare_with<'e, 'q: 'e>(
+//         self,
+//         sql: &'q str,
+//         parameters: &'e [<Self::Database as Database>::TypeInfo],
+//     ) -> BoxFuture<'e, Result<<Self::Database as HasStatement<'q>>::Statement, Error>>
+//     where
+//         'c: 'e,
+//     {
+//         self.0.lock().unwrap().prepare_with(sql, parameters)
+//     }
 
-    fn prepare_with<'e, 'q: 'e>(
-        self,
-        sql: &'q str,
-        parameters: &'e [<Self::Database as Database>::TypeInfo],
-    ) -> BoxFuture<'e, Result<<Self::Database as HasStatement<'q>>::Statement, Error>>
-    where
-        'c: 'e,
-    {
-        self.0.lock().unwrap().prepare_with(sql, parameters)
-    }
-
-    fn describe<'e, 'q: 'e>(
-        self,
-        sql: &'q str,
-    ) -> BoxFuture<'e, Result<Describe<Self::Database>, Error>>
-    where
-        'c: 'e,
-    {
-        self.0.lock().unwrap().describe(sql)
-    }
-}
+//     fn describe<'e, 'q: 'e>(
+//         self,
+//         sql: &'q str,
+//     ) -> BoxFuture<'e, Result<Describe<Self::Database>, Error>>
+//     where
+//         'c: 'e,
+//     {
+//         self.0.lock().unwrap().describe(sql)
+//     }
+// }

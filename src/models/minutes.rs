@@ -52,7 +52,7 @@ impl Minutes {
              FROM minutes WHERE id = ?",
             id
         )
-        .fetch_optional(conn)
+        .fetch_optional(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
@@ -63,18 +63,18 @@ impl Minutes {
             "SELECT id, name, date as \"date: _\", public, private
              FROM minutes ORDER BY date"
         )
-        .fetch_all(conn)
+        .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
     }
 
     pub async fn create(name: &str, conn: &DbConn) -> Result<i32> {
         sqlx::query!("INSERT INTO minutes (name) VALUES (?)", name)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         sqlx::query_scalar!("SELECT id FROM minutes ORDER BY id DESC")
-            .fetch_one(conn)
+            .fetch_one(&mut *conn.get().await)
             .await
             .map_err(Into::into)
     }
@@ -87,7 +87,7 @@ impl Minutes {
             update.public,
             id
         )
-        .execute(conn)
+        .execute(&mut *conn.get().await)
         .await?;
 
         Ok(())
@@ -95,7 +95,7 @@ impl Minutes {
 
     pub async fn delete(id: i32, conn: &DbConn) -> Result<()> {
         sqlx::query!("DELETE FROM minutes WHERE id = ?", id)
-            .execute(conn)
+            .execute(&mut *conn.get().await)
             .await?;
 
         Ok(())
