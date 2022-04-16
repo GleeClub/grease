@@ -1,7 +1,7 @@
-use tokio::sync::{Mutex, MutexGuard};
 use anyhow::{Context as _, Result};
 use async_graphql::Context;
 use sqlx::{Connection, MySqlConnection};
+use tokio::sync::{Mutex, MutexGuard};
 
 pub struct DbConn(Mutex<MySqlConnection>);
 
@@ -21,6 +21,10 @@ impl DbConn {
 
     pub async fn get<'c>(&'c self) -> MutexGuard<'c, MySqlConnection> {
         self.0.lock().await
+    }
+
+    pub fn into_inner(self) -> MySqlConnection {
+        self.0.into_inner()
     }
 
     pub async fn close(&self, successful: bool) -> Result<()> {

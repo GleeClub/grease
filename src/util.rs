@@ -1,13 +1,18 @@
 use time::OffsetDateTime;
 
+const HEADER_TOKEN: &'static str = "token";
+
 pub fn now() -> OffsetDateTime {
     OffsetDateTime::try_now_local().expect("Failed to get system time UTC offset")
 }
 
-// fn in_dst(time: OffsetDateTime) -> bool {
-//     // TODO: actual dates
-//     // https://stackoverflow.com/questions/5590429/calculating-daylight-saving-time-from-only-date
-//     let start_of_dst = Date::from_calendar_date
-//     (now.month() >= Month::March && now.day() > 8)
-//         && (now.month() <= November && now.day() < 7)
-// }
+pub fn get_token_from_header<'a>(request: &'a cgi::Request) -> Option<&'a str> {
+    request
+        .headers()
+        .get(HEADER_TOKEN)
+        .and_then(|header| header.to_str().ok())
+}
+
+pub fn gql_err_to_anyhow(err: async_graphql::Error) -> anyhow::Error {
+    anyhow::anyhow!("{}", err.message)
+}

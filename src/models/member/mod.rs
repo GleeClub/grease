@@ -10,7 +10,7 @@ use crate::models::semester::Semester;
 pub mod active_semester;
 pub mod session;
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Clone)]
 pub struct Member {
     /// The member's email, which must be unique
     pub email: String,
@@ -283,6 +283,7 @@ impl Member {
         }
 
         let pass_hash = if let Some(new_hash) = update.pass_hash {
+            // TODO: make as self enum
             if as_self {
                 bcrypt::hash(new_hash, 10)?
             } else {
@@ -332,6 +333,9 @@ impl Member {
     }
 
     pub async fn delete(email: &str, conn: &DbConn) -> Result<()> {
+        // TODO: verify exists
+        Member::with_email(email, conn).await?;
+
         sqlx::query!("DELETE FROM member WHERE email = ?", email)
             .execute(&mut *conn.get().await)
             .await?;

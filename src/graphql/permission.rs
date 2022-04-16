@@ -6,7 +6,7 @@ use crate::models::permissions::MemberPermission;
 
 pub struct Permission {
     name: &'static str,
-    event_type: Option<&'static str>,
+    event_type: Option<String>,
 }
 
 impl Permission {
@@ -17,10 +17,10 @@ impl Permission {
         }
     }
 
-    pub fn for_type(self, event_type: &'static str) -> Self {
+    pub fn for_type(self, event_type: impl Into<String>) -> Self {
         Self {
             name: self.name,
-            event_type: Some(event_type),
+            event_type: Some(event_type.into()),
         }
     }
 
@@ -29,9 +29,7 @@ impl Permission {
 
         Ok(permissions.iter().any(|permission| {
             permission.name == self.name
-                && (permission.event_type.is_none()
-                    || permission.event_type.as_ref().map(|type_| type_.as_str())
-                        == self.event_type)
+                && (permission.event_type.is_none() || &permission.event_type == &self.event_type)
         }))
     }
 

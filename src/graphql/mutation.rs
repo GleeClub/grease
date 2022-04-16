@@ -1,9 +1,13 @@
 use async_graphql::{Context, Object, Result};
 
 use crate::db::DbConn;
+use crate::graphql::permission::Permission;
 use crate::graphql::{LoggedIn, SUCCESS_MESSAGE};
+use crate::models::member::active_semester::ActiveSemester;
+use crate::models::event::attendance::{Attendance, AttendanceUpdate};
+use crate::models::event::{Event, NewEvent};
 use crate::models::member::session::Session;
-use crate::models::member::{Member, NewMember, RegisterForSemesterForm};
+use crate::models::member::{Member, MemberUpdate, NewMember, RegisterForSemesterForm};
 
 pub struct MutationRoot;
 
@@ -26,14 +30,13 @@ impl MutationRoot {
 
     /// Logs the member out
     pub async fn logout(&self, ctx: &Context<'_>) -> Result<&'static str> {
-        if let Some(user) = ctx.data_opt::<Member>() {
-            let conn = DbConn::from_ctx(ctx);
-            Session::remove(&user.email, conn).await?;
+        let user = ctx
+            .data_opt::<Member>()
+            .ok_or_else(|| "Not currently logged in")?;
+        let conn = DbConn::from_ctx(ctx);
+        Session::remove(&user.email, conn).await?;
 
-            Ok(SUCCESS_MESSAGE)
-        } else {
-            Err("Not currently logged in".into())
-        }
+        Ok(SUCCESS_MESSAGE)
     }
 
     pub async fn forgot_password(&self, ctx: &Context<'_>, email: String) -> Result<&'static str> {
@@ -63,6 +66,7 @@ impl MutationRoot {
         let conn = DbConn::from_ctx(ctx);
         let email = new_member.email.clone();
         Member::register(new_member, conn).await?;
+
         Member::with_email(&email, conn).await
     }
 
@@ -75,87 +79,113 @@ impl MutationRoot {
         let conn = DbConn::from_ctx(ctx);
         let user = ctx.data_unchecked::<Member>();
         Member::register_for_current_semester(user.email.clone(), new_semester, conn).await?;
+
         Member::with_email(&user.email, conn).await
     }
+
+    #[graphql(guard = "LoggedIn")]
+    pub async fn update_profile(
+        &self,
+        ctx: &Context<'_>,
+        new_member: MemberUpdate,
+    ) -> Result<Member> {
+        let conn = DbConn::from_ctx(ctx);
+        let user = ctx.data_unchecked::<Member>();
+        let new_email = new_member.email.clone();
+        Member::update(&user.email, new_member, true, conn).await?;
+
+        Member::with_email(&new_email, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_USER)")]
+    pub async fn update_member(
+        &self,
+        ctx: &Context<'_>,
+        email: String,
+        new_member: MemberUpdate,
+    ) -> Result<Member> {
+        let conn = DbConn::from_ctx(ctx);
+        let new_email = new_member.email.clone();
+        Member::update(&email, new_member, false, conn).await?;
+
+        Member::with_email(&new_email, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::SWITCH_USER)")]
+    pub async fn login_as(&self, ctx: &Context<'_>, email: String) -> Result<String> {
+        let conn = DbConn::from_ctx(ctx);
+
+        Session::get_or_generate_token(&email, conn).await
+    }
+
+    /// Deletes a member and returns their email
+    #[graphql(guard = "LoggedIn.and(Permission::DELETE_USER)")]
+    pub async fn delete_member(&self, ctx: &Context<'_>, email: String) -> Result<String> {
+        let conn = DbConn::from_ctx(ctx);
+        Member::delete(&email, conn).await?;
+
+        Ok(email)
+    }
+
+    #[graphql(guard = "LoggedIn.and((Permission::CREATE_EVENT.for_type(&new_event.event.r#type)))")]
+    pub async fn create_event(&self, ctx: &Context<'_>, new_event: NewEvent) -> Result<Event> {
+        let conn = DbConn::from_ctx(ctx);
+        let new_id = Event::create(new_event, None, conn).await?;
+
+        Event::with_id(new_id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and((Permission::MODIFY_EVENT.for_type(&new_event.event.r#type)))")]
+    pub async fn update_event(
+        &self,
+        ctx: &Context<'_>,
+        id: i32,
+        new_event: NewEvent,
+    ) -> Result<Event> {
+        let conn = DbConn::from_ctx(ctx);
+        Event::update(id, new_event, conn).await?;
+
+        Event::with_id(id, conn).await
+    }
+
+    // TODO: event type
+    /// Deletes an event and returns its id
+    #[graphql(guard = "LoggedIn.and(Permission::DELETE_EVENT)")]
+    pub async fn delete_event(&self, ctx: &Context<'_>, id: i32) -> Result<i32> {
+        let conn = DbConn::from_ctx(ctx);
+        Event::delete(id, conn).await?;
+
+        Ok(id)
+    }
+
+    #[graphql(guard = "LoggedIn")]
+    pub async fn update_attendance(
+        &self,
+        ctx: &Context<'_>,
+        event_id: i32,
+        email: String,
+        update: AttendanceUpdate,
+    ) -> Result<Attendance> {
+        let conn = DbConn::from_ctx(ctx);
+        let user = ctx.data_unchecked::<Member>();
+        let event = Event::with_id(event_id, conn).await?;
+
+        if !Permission::EDIT_ATTENDANCE.for_type(&event.r#type).granted_to(&user.email, conn).await? {
+            let user_section = ActiveSemester::for_member_during_semester(&user.email, &event.semester, conn).await?
+                .map(|semester| semester.section);
+            let member_section = ActiveSemester::for_member_during_semester(&email, &event.semester, conn).await?
+                .map(|semester| semester.section);
+
+            if user_section.is_none() || user_section != member_section || !Permission::EDIT_ATTENDANCE_OWN_SECTION.for_type(&event.r#type).granted_to(&user.email, conn).await? {
+                return Err("Not allowed to edit attendance".into());
+            }
+        }
+
+        Attendance::update(event_id, &email, update, conn).await?;
+
+        Attendance::for_member_at_event(&email, event_id, conn).await
+    }
 }
-
-//   @[GraphQL::Field]
-//   def register_for_semester(form : Input::RegisterForSemesterForm, context : UserContext) : Models::Member
-//     context.user!.register_for_current_semester form
-//     context.user!
-//   end
-
-//   @[GraphQL::Field]
-//   def update_profile(form : Input::NewMember, context : UserContext) : Models::Member
-//     context.user!.update form, as_self: true
-//     context.user!
-//   end
-
-//   @[GraphQL::Field]
-//   def update_member(email : String, form : Input::NewMember, context : UserContext) : Models::Member
-//     context.able_to! Permissions::EDIT_USER
-
-//     member = Models::Member.with_email! email
-//     member.update form, as_self: false
-//     member
-//   end
-
-//   @[GraphQL::Field(description: "Gets a login token for the given member")]
-//   def login_as(member : String, context : UserContext) : String
-//     context.able_to! Permissions::SWITCH_USER
-
-//     Models::Session.get_or_generate_token member
-//   end
-
-//   @[GraphQL::Field(description: "Deletes a member and returns their email")]
-//   def delete_member(email : String, context : UserContext) : String
-//     context.able_to! Permissions::DELETE_USER
-
-//     member = Models::Member.with_email! email
-//     member.delete
-//     email
-//   end
-
-//   @[GraphQL::Field]
-//   def create_event(form : Input::NewEvent, context : UserContext) : Models::Event
-//     context.able_to! Permissions::CREATE_EVENT, form.event.type
-
-//     new_id = Models::Event.create form
-//     Models::Event.with_id! new_id
-//   end
-
-//   @[GraphQL::Field]
-//   def update_event(id : Int32, form : Input::NewEvent, context : UserContext) : Models::Event
-//     context.able_to! Permissions::MODIFY_EVENT, form.event.type
-
-//     Models::Event.update id, form
-//     Models::Event.with_id! id
-//   end
-
-//   @[GraphQL::Field(description: "Deletes an event and returns its id")]
-//   def delete_event(id : Int32, context : UserContext) : Int32
-//     context.able_to! Permissions::DELETE_EVENT
-
-//     Models::Event.delete id
-//     id
-//   end
-
-//   @[GraphQL::Field]
-//   def update_attendance(event_id : Int32, member : String, form : Input::AttendanceForm, context : UserContext) : Models::Attendance
-//     event = Models::Event.with_id! event_id
-
-//     unless context.able_to? Permissions::EDIT_ATTENDANCE, event.type
-//       user_section = context.user!.get_semester(event.semester).try &.section
-//       member_section = (Models::ActiveSemester.for_semester member, event.semester).try &.section
-
-//       unless user_section == member_section && context.able_to? Permissions::EDIT_ATTENDANCE_OWN_SECTION, event.type
-//         raise "Permission #{Permissions::EDIT_ATTENDANCE} required"
-//       end
-//     end
-
-//     Models::Attendance.update event_id, member, form
-//     Models::Attendance.for_member_at_event! member, event_id
-//   end
 
 //   @[GraphQL::Field]
 //   def rsvp_for_event(id : Int32, attending : Bool, context : UserContext) : Models::Attendance

@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Sam Mohr <sam.mohr@protonmail.com>"]
 edition = "2021"
 
+[lib]
+name = "grease"
+path = "src/lib.rs"
+
 [[bin]]
 name = "grease"
 path = "src/bin/grease.rs"

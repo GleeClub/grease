@@ -22,8 +22,8 @@ pub struct QueryRoot;
 
 #[Object]
 impl QueryRoot {
-    pub async fn user<'c>(&self, ctx: &'c Context<'c>) -> Option<&'c Member> {
-        ctx.data_opt::<Member>()
+    pub async fn user<'c>(&self, ctx: &'c Context<'c>) -> Option<Member> {
+        ctx.data_opt::<Member>().cloned()
     }
 
     #[graphql(guard = "LoggedIn")]
