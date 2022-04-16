@@ -5,12 +5,11 @@
 use std::process::Command;
 
 use anyhow::{bail, Context, Result};
-use cgi::http::response::Builder;
 use cgi::http::Method;
 use grease::db::DbConn;
 use grease::models::member::Member;
 use grease::models::permissions::MemberRole;
-use grease::util::{get_token_from_header, gql_err_to_anyhow};
+use grease::util::{get_token_from_header, gql_err_to_anyhow, options_response};
 
 const API_FILE_NAME: &'static str = "grease";
 
@@ -29,7 +28,7 @@ fn main() {
 
 pub async fn handle_request(request: cgi::Request) -> Result<cgi::Response> {
     if request.method() == Method::OPTIONS {
-        return Ok(options());
+        return Ok(options_response());
     }
 
     ensure_member_is_webmaster(&request).await?;
@@ -37,24 +36,12 @@ pub async fn handle_request(request: cgi::Request) -> Result<cgi::Response> {
     match request.uri().path() {
         "/upload-api" => upload_api(request)?,
         "/migrate" => run_migrations().await?,
+        // "/restore-db" => restore_db(request).await?,
+        // "/backup-db" => return backup_db().await,
         unknown => bail!("The requested action \"{}\" does not exist.", unknown),
     }
 
     Ok(cgi::empty_response(204))
-}
-
-pub fn options() -> cgi::Response {
-    Builder::new()
-        .status(204)
-        .header("Allow", "POST, OPTIONS")
-        .header("Access-Control-Allow-Origin", "*")
-        .header("Access-Control-Allow-Methods", "POST, OPTIONS")
-        .header(
-            "Access-Control-Allow-Headers",
-            "token,access-control-allow-origin,content-type",
-        )
-        .body(Vec::new())
-        .unwrap()
 }
 
 pub async fn ensure_member_is_webmaster(request: &cgi::Request) -> Result<()> {
@@ -97,3 +84,5 @@ pub async fn run_migrations() -> Result<()> {
         .await
         .context("Failed to run database migrations")
 }
+
+// pub async fn

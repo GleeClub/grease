@@ -7,6 +7,7 @@ use crate::models::member::active_semester::ActiveSemester;
 use crate::models::member::Member;
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct Attendance {
     /// Whether the member is expected to attend the event
     pub should_attend: bool,

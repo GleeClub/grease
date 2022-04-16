@@ -8,6 +8,7 @@ use crate::models::GqlDateTime;
 pub const DATETIME_FORMAT: &'static str = "%Y%m%dT%H%M%SZ";
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct PublicEvent {
     pub id: i32,
     pub name: String,

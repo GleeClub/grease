@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result};
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
-use async_graphql::{Context, EmptySubscription, Guard, Request, Schema, Variables};
+use async_graphql::{EmptySubscription, Request, Schema, Variables};
 use cgi::http::header::{CONTENT_LENGTH, CONTENT_TYPE};
 use cgi::http::response::Builder;
 use cgi::http::Method;
@@ -13,23 +13,10 @@ use crate::models::member::Member;
 use crate::util::{get_token_from_header, gql_err_to_anyhow};
 
 pub mod mutation;
-pub mod permission;
+pub mod guards;
 pub mod query;
 
 pub const SUCCESS_MESSAGE: &'static str = "success";
-
-pub struct LoggedIn;
-
-#[async_trait::async_trait]
-impl Guard for LoggedIn {
-    async fn check(&self, ctx: &Context<'_>) -> async_graphql::Result<()> {
-        if ctx.data_opt::<Member>().is_some() {
-            Ok(())
-        } else {
-            Err("User must be logged in".into())
-        }
-    }
-}
 
 #[derive(Deserialize)]
 struct RequestBody {
@@ -41,7 +28,7 @@ pub async fn handle(request: cgi::Request) -> Result<cgi::Response> {
     if request.method() == Method::GET {
         return Ok(cgi::html_response(
             200,
-            playground_source(GraphQLPlaygroundConfig::new("/")),
+            playground_source(GraphQLPlaygroundConfig::new("/cgi-bin/grease")),
         ));
     }
 

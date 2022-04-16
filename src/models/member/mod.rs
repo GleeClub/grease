@@ -1,6 +1,9 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
 
 use crate::db::DbConn;
+use crate::models::money::ClubTransaction;
+use crate::graphql::guards::{LoggedIn, Permission};
+use crate::models::grades::Grades;
 use crate::models::event::attendance::Attendance;
 use crate::models::member::active_semester::{ActiveSemester, Enrollment, NewActiveSemester};
 use crate::models::member::session::Session;
@@ -11,6 +14,7 @@ pub mod active_semester;
 pub mod session;
 
 #[derive(SimpleObject, Clone)]
+#[graphql(complex)]
 pub struct Member {
     /// The member's email, which must be unique
     pub email: String,
@@ -63,8 +67,14 @@ impl Member {
     }
 
     /// The semester TODO
+    #[graphql(guard = "LoggedIn")]
     pub async fn semester(&self, ctx: &Context<'_>) -> Result<Option<ActiveSemester>> {
         let conn = DbConn::from_ctx(ctx);
+        let user = ctx.data_unchecked::<Member>();
+        if &user.email != &self.email {
+            Permission::VIEW_USER_PRIVATE_DETAILS.ensure_granted_to(&user.email, conn).await?;
+        }
+
         let current_semester = Semester::get_current(conn).await?;
         ActiveSemester::for_member_during_semester(&self.email, &current_semester.name, conn).await
     }
@@ -87,29 +97,35 @@ impl Member {
         ActiveSemester::all_for_member(&self.email, conn).await
     }
 
-    // /// The name of the semester they were active during
-    // pub async fn semester(
+    /// The grades for the member in the given semester (default the current semester)
+    #[graphql(guard = "LoggedIn")]
+    pub async fn grades(&self, ctx: &Context<'_>, semester: Option<String>) -> Result<Grades> {
+        let conn = DbConn::from_ctx(ctx);
+        let user = ctx.data_unchecked::<Member>();
+        if &user.email != &self.email {
+            Permission::VIEW_USER_PRIVATE_DETAILS.ensure_granted_to(&user.email, conn).await?;
+        }
 
-    // @[GraphQL::Field(description: "The name of the semester they were active during")]
-    // def semesters(context : UserContext) : Array(Models::ActiveSemester)
-    //   context.able_to! Permissions::VIEW_USER_PRIVATE_DETAILS unless @email == context.user!.email
+        let semester = if let Some(name) = semester {
+            name
+        } else {
+            Semester::get_current(conn).await?.name
+        };
 
-    //   (ActiveSemester.all_for_member @email).sort_by &.semester
-    // end
+        Grades::for_member(&self.email, &semester, conn).await
+    }
 
-    // @[GraphQL::Field(description: "The grades for the member in the given semester (default the current semester)")]
-    // def grades(context : UserContext) : Models::Grades
-    //   context.able_to! Permissions::VIEW_USER_PRIVATE_DETAILS unless @email == context.user!.email
+    /// All of the member's transactions for their entire time in Glee Club
+    #[graphql(guard = "LoggedIn")]
+    pub async fn transactions(&self, ctx: &Context<'_>) -> Result<Vec<ClubTransaction>> {
+        let conn = DbConn::from_ctx(ctx);
+        let user = ctx.data_unchecked::<Member>();
+        if &user.email != &self.email {
+            Permission::VIEW_USER_PRIVATE_DETAILS.ensure_granted_to(&user.email, conn).await?;
+        }
 
-    //   Grades.for_member self, Semester.current
-    // end
-
-    // @[GraphQL::Field(description: "All of the member's transactions for their entire time in Glee Club")]
-    // def transactions(context : UserContext) : Array(Models::ClubTransaction)
-    //   context.able_to! Permissions::VIEW_USER_PRIVATE_DETAILS unless @email == context.user!.email
-
-    //   ClubTransaction.for_member_during_semester @email, Semester.current.name
-    // end
+        ClubTransaction::for_member(&self.email, conn).await
+    }
 }
 
 impl Member {

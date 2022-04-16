@@ -4,6 +4,7 @@ use crate::db::DbConn;
 use crate::models::grades::Grades;
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct ActiveSemester {
     /// The email of the member
     pub member: String,

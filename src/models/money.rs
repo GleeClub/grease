@@ -195,6 +195,22 @@ impl ClubTransaction {
         .map_err(Into::into)
     }
 
+    pub async fn for_member(
+        member: &str,
+        conn: &DbConn,
+    ) -> Result<Vec<Self>> {
+        sqlx::query_as!(
+            Self,
+            "SELECT id, member, `time` as \"time: _\", amount,
+                 description, semester, `type`, resolved as \"resolved: bool\"
+             FROM transaction WHERE member = ? ORDER BY time",
+            member
+        )
+        .fetch_all(&mut *conn.get().await)
+        .await
+        .map_err(Into::into)
+    }
+
     pub async fn for_member_during_semester(
         member: &str,
         semester: &str,

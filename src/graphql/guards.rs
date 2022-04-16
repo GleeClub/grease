@@ -4,6 +4,19 @@ use crate::db::DbConn;
 use crate::models::member::Member;
 use crate::models::permissions::MemberPermission;
 
+pub struct LoggedIn;
+
+#[async_trait::async_trait]
+impl Guard for LoggedIn {
+    async fn check(&self, ctx: &Context<'_>) -> async_graphql::Result<()> {
+        if ctx.data_opt::<Member>().is_some() {
+            Ok(())
+        } else {
+            Err("User must be logged in".into())
+        }
+    }
+}
+
 pub struct Permission {
     name: &'static str,
     event_type: Option<String>,
@@ -31,6 +44,14 @@ impl Permission {
             permission.name == self.name
                 && (permission.event_type.is_none() || &permission.event_type == &self.event_type)
         }))
+    }
+
+    pub async fn ensure_granted_to(&self, member: &str, conn: &DbConn) -> Result<()> {
+        if self.granted_to(member, conn).await? {
+            Ok(())
+        } else {
+            Err(format!("Permission {} required", self.name).into())
+        }
     }
 
     pub const PROCESS_GIG_REQUESTS: Self = Self::new("process-gig-requests");

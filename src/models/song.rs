@@ -40,6 +40,7 @@ pub enum Mode {
 }
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct Song {
     /// The ID of the song
     pub id: i32,

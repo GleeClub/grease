@@ -1,8 +1,8 @@
 use async_graphql::{Context, Object, Result};
 
 use crate::db::DbConn;
-use crate::graphql::permission::Permission;
-use crate::graphql::{LoggedIn, SUCCESS_MESSAGE};
+use crate::graphql::SUCCESS_MESSAGE;
+use crate::graphql::guards::{LoggedIn, Permission};
 use crate::models::document::Document;
 use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestState};
 use crate::models::event::attendance::{Attendance, AttendanceUpdate};

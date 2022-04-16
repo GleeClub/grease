@@ -5,6 +5,7 @@ use crate::models::event::Event;
 use crate::models::member::Member;
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct Carpool {
     /// The ID of the carpool
     pub id: i32,

@@ -1,11 +1,12 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
 
 use crate::db::DbConn;
-use crate::graphql::permission::Permission;
+use crate::graphql::guards::Permission;
 use crate::models::member::Member;
 use crate::models::GqlDate;
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct Minutes {
     /// The ID of the meeting minutes
     pub id: i32,

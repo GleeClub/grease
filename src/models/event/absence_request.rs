@@ -6,6 +6,7 @@ use crate::models::member::Member;
 use crate::models::GqlDateTime;
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct AbsenceRequest {
     /// The time this request was placed
     pub time: GqlDateTime,

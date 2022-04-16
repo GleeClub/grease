@@ -52,6 +52,7 @@ impl EventType {
 }
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct Event {
     /// The ID of the event
     pub id: i32,

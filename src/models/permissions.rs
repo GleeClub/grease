@@ -34,6 +34,7 @@ impl Role {
 }
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct MemberRole {
     /// The name of the role being held
     pub role: String,

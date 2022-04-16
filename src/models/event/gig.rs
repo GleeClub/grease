@@ -6,6 +6,7 @@ use crate::models::event::Event;
 use crate::models::GqlDateTime;
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct Gig {
     /// The ID of the event this gig belongs to
     pub event: i32,
@@ -77,6 +78,7 @@ pub enum GigRequestStatus {
 }
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct GigRequest {
     /// The ID of the gig request
     pub id: i32,
