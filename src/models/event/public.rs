@@ -1,4 +1,5 @@
 use async_graphql::{ComplexObject, Result, SimpleObject};
+use time::{OffsetDateTime, UtcOffset};
 use uuid::Uuid;
 
 use crate::db::DbConn;
@@ -20,12 +21,12 @@ pub struct PublicEvent {
 #[ComplexObject]
 impl PublicEvent {
     pub async fn invite(&self) -> String {
-        let now = crate::util::now().format(DATETIME_FORMAT);
-        let start_time = self.start_time.0.format(DATETIME_FORMAT);
+        let now = Self::format_datetime(&crate::util::now());
+        let start_time = Self::format_datetime(&self.start_time.0);
         let end_time = self
             .end_time
             .as_ref()
-            .map(|et| et.0.format(DATETIME_FORMAT))
+            .map(|et| Self::format_datetime(&et.0))
             .unwrap_or_default();
         let location = self.location.clone().unwrap_or_default();
         let summary = self.summary.clone().unwrap_or_default();
@@ -73,5 +74,9 @@ impl PublicEvent {
         .fetch_all(&mut *conn.get().await)
         .await
         .map_err(Into::into)
+    }
+
+    pub fn format_datetime(datetime: &OffsetDateTime) -> String {
+        datetime.to_offset(UtcOffset::UTC).format(DATETIME_FORMAT)
     }
 }
