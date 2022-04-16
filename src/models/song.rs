@@ -308,7 +308,7 @@ impl SongLink {
 
     pub async fn create(song_id: i32, new_link: NewSongLink, conn: &DbConn) -> Result<i32> {
         let encoded_target = if let Some(file) = new_link.link_file() {
-            file.upload()?;
+            file.save()?;
             file.path.to_string_lossy().to_string()
         } else {
             new_link.target

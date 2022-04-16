@@ -3,11 +3,24 @@ use async_graphql::{Context, Object, Result};
 use crate::db::DbConn;
 use crate::graphql::permission::Permission;
 use crate::graphql::{LoggedIn, SUCCESS_MESSAGE};
-use crate::models::member::active_semester::ActiveSemester;
+use crate::models::document::Document;
+use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestState};
 use crate::models::event::attendance::{Attendance, AttendanceUpdate};
+use crate::models::event::carpool::{Carpool, UpdatedCarpool};
+use crate::models::event::gig::{GigRequest, GigRequestStatus, NewGigRequest};
+use crate::models::event::uniform::{NewUniform, Uniform};
 use crate::models::event::{Event, NewEvent};
+use crate::models::member::active_semester::ActiveSemester;
 use crate::models::member::session::Session;
 use crate::models::member::{Member, MemberUpdate, NewMember, RegisterForSemesterForm};
+use crate::models::minutes::{Minutes, UpdatedMeetingMinutes};
+use crate::models::money::{ClubTransaction, Fee, TransactionBatch};
+use crate::models::permissions::{MemberRole, NewRolePermission, RolePermission};
+use crate::models::semester::{NewSemester, Semester};
+use crate::models::song::{NewSong, NewSongLink, Song, SongLink, SongLinkUpdate, SongUpdate};
+use crate::models::variable::Variable;
+
+// TODO: sendEmail(since: NaiveDateTime!): Boolean!
 
 pub struct MutationRoot;
 
@@ -127,7 +140,7 @@ impl MutationRoot {
         Ok(email)
     }
 
-    #[graphql(guard = "LoggedIn.and((Permission::CREATE_EVENT.for_type(&new_event.event.r#type)))")]
+    #[graphql(guard = "LoggedIn.and(Permission::CREATE_EVENT.for_type(&new_event.event.r#type))")]
     pub async fn create_event(&self, ctx: &Context<'_>, new_event: NewEvent) -> Result<Event> {
         let conn = DbConn::from_ctx(ctx);
         let new_id = Event::create(new_event, None, conn).await?;
@@ -135,7 +148,7 @@ impl MutationRoot {
         Event::with_id(new_id, conn).await
     }
 
-    #[graphql(guard = "LoggedIn.and((Permission::MODIFY_EVENT.for_type(&new_event.event.r#type)))")]
+    #[graphql(guard = "LoggedIn.and(Permission::MODIFY_EVENT.for_type(&new_event.event.r#type))")]
     pub async fn update_event(
         &self,
         ctx: &Context<'_>,
@@ -149,7 +162,7 @@ impl MutationRoot {
     }
 
     // TODO: event type
-    /// Deletes an event and returns its id
+    /// Deletes an event and returns its ID
     #[graphql(guard = "LoggedIn.and(Permission::DELETE_EVENT)")]
     pub async fn delete_event(&self, ctx: &Context<'_>, id: i32) -> Result<i32> {
         let conn = DbConn::from_ctx(ctx);
@@ -170,13 +183,28 @@ impl MutationRoot {
         let user = ctx.data_unchecked::<Member>();
         let event = Event::with_id(event_id, conn).await?;
 
-        if !Permission::EDIT_ATTENDANCE.for_type(&event.r#type).granted_to(&user.email, conn).await? {
-            let user_section = ActiveSemester::for_member_during_semester(&user.email, &event.semester, conn).await?
-                .map(|semester| semester.section);
-            let member_section = ActiveSemester::for_member_during_semester(&email, &event.semester, conn).await?
-                .map(|semester| semester.section);
+        if !Permission::EDIT_ATTENDANCE
+            .for_type(&event.r#type)
+            .granted_to(&user.email, conn)
+            .await?
+        {
+            let user_section =
+                ActiveSemester::for_member_during_semester(&user.email, &event.semester, conn)
+                    .await?
+                    .map(|semester| semester.section);
+            let member_section =
+                ActiveSemester::for_member_during_semester(&email, &event.semester, conn)
+                    .await?
+                    .map(|semester| semester.section);
 
-            if user_section.is_none() || user_section != member_section || !Permission::EDIT_ATTENDANCE_OWN_SECTION.for_type(&event.r#type).granted_to(&user.email, conn).await? {
+            if user_section.is_none()
+                || user_section != member_section
+                || !Permission::EDIT_ATTENDANCE_OWN_SECTION
+                    .for_type(&event.r#type)
+                    .granted_to(&user.email, conn)
+                    .await?
+            {
+                // TODO: use the normal format?
                 return Err("Not allowed to edit attendance".into());
             }
         }
@@ -185,331 +213,439 @@ impl MutationRoot {
 
         Attendance::for_member_at_event(&email, event_id, conn).await
     }
+
+    #[graphql(guard = "LoggedIn")]
+    pub async fn rsvp_for_event(
+        &self,
+        ctx: &Context<'_>,
+        id: i32,
+        attending: bool,
+    ) -> Result<Attendance> {
+        let conn = DbConn::from_ctx(ctx);
+        let user = ctx.data_unchecked::<Member>();
+        Attendance::rsvp_for_event(id, &user.email, attending, conn).await?;
+
+        Attendance::for_member_at_event(&user.email, id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn")]
+    pub async fn confirm_for_event(&self, ctx: &Context<'_>, id: i32) -> Result<Attendance> {
+        let conn = DbConn::from_ctx(ctx);
+        let user = ctx.data_unchecked::<Member>();
+        Attendance::confirm_for_event(id, &user.email, conn).await?;
+
+        Attendance::for_member_at_event(&user.email, id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_CARPOOLS)")]
+    pub async fn update_carpools(
+        &self,
+        ctx: &Context<'_>,
+        event_id: i32,
+        carpools: Vec<UpdatedCarpool>,
+    ) -> Result<Vec<Carpool>> {
+        let conn = DbConn::from_ctx(ctx);
+        Carpool::update(event_id, carpools, conn).await?;
+
+        Carpool::for_event(event_id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::PROCESS_ABSENCE_REQUESTS)")]
+    pub async fn respond_to_absence_request(
+        &self,
+        ctx: &Context<'_>,
+        event_id: i32,
+        email: String,
+        approved: bool,
+    ) -> Result<AbsenceRequest> {
+        let conn = DbConn::from_ctx(ctx);
+        let state = if approved {
+            AbsenceRequestState::Approved
+        } else {
+            AbsenceRequestState::Denied
+        };
+
+        AbsenceRequest::set_state(event_id, &email, state, conn).await?;
+
+        AbsenceRequest::for_member_at_event(&email, event_id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn")]
+    pub async fn submit_absence_request(
+        &self,
+        ctx: &Context<'_>,
+        event_id: i32,
+        reason: String,
+    ) -> Result<AbsenceRequest> {
+        let conn = DbConn::from_ctx(ctx);
+        let user = ctx.data_unchecked::<Member>();
+        AbsenceRequest::submit(event_id, &user.email, &reason, conn).await?;
+
+        AbsenceRequest::for_member_at_event(&user.email, event_id, conn).await
+    }
+
+    pub async fn submit_gig_request(
+        &self,
+        ctx: &Context<'_>,
+        request: NewGigRequest,
+    ) -> Result<GigRequest> {
+        let conn = DbConn::from_ctx(ctx);
+        let new_id = GigRequest::submit(request, conn).await?;
+
+        GigRequest::with_id(new_id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::PROCESS_GIG_REQUESTS)")]
+    pub async fn dismiss_gig_request(&self, ctx: &Context<'_>, id: i32) -> Result<GigRequest> {
+        let conn = DbConn::from_ctx(ctx);
+        GigRequest::set_status(id, GigRequestStatus::Dismissed, conn).await?;
+
+        GigRequest::with_id(id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::PROCESS_GIG_REQUESTS)")]
+    pub async fn reopen_gig_request(&self, ctx: &Context<'_>, id: i32) -> Result<GigRequest> {
+        let conn = DbConn::from_ctx(ctx);
+        GigRequest::set_status(id, GigRequestStatus::Pending, conn).await?;
+
+        GigRequest::with_id(id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::CREATE_EVENT.for_type(&new_event.event.r#type))")]
+    pub async fn create_event_from_gig_request(
+        &self,
+        ctx: &Context<'_>,
+        request_id: i32,
+        new_event: NewEvent,
+    ) -> Result<Event> {
+        let conn = DbConn::from_ctx(ctx);
+        let request = GigRequest::with_id(request_id, conn).await?;
+        let new_id = Event::create(new_event, Some(request), conn).await?;
+
+        Event::with_id(new_id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_LINKS)")]
+    pub async fn create_document(
+        &self,
+        ctx: &Context<'_>,
+        name: String,
+        url: String,
+    ) -> Result<Document> {
+        let conn = DbConn::from_ctx(ctx);
+        Document::create(&name, &url, conn).await?;
+
+        Document::with_name(&name, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_LINKS)")]
+    pub async fn delete_document(&self, ctx: &Context<'_>, name: String) -> Result<Document> {
+        let conn = DbConn::from_ctx(ctx);
+        let document = Document::with_name(&name, conn).await?;
+        Document::delete(&name, conn).await?;
+
+        Ok(document)
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_SEMESTER)")]
+    pub async fn create_semester(
+        &self,
+        ctx: &Context<'_>,
+        new_semester: NewSemester,
+    ) -> Result<Semester> {
+        let conn = DbConn::from_ctx(ctx);
+        let name = new_semester.name.clone();
+        Semester::create(new_semester, conn).await?;
+
+        Semester::with_name(&name, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_SEMESTER)")]
+    pub async fn update_semester(
+        &self,
+        ctx: &Context<'_>,
+        name: String,
+        update: NewSemester,
+    ) -> Result<Semester> {
+        let conn = DbConn::from_ctx(ctx);
+        let new_name = update.name.clone();
+        Semester::update(&name, update, conn).await?;
+
+        Semester::with_name(&new_name, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_SEMESTER)")]
+    pub async fn set_current_semester(&self, ctx: &Context<'_>, name: String) -> Result<Semester> {
+        let conn = DbConn::from_ctx(ctx);
+        Semester::set_current(&name, conn).await?;
+
+        Semester::with_name(&name, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_MINUTES)")]
+    pub async fn create_meeting_minutes(&self, ctx: &Context<'_>, name: String) -> Result<Minutes> {
+        let conn = DbConn::from_ctx(ctx);
+        let new_id = Minutes::create(&name, conn).await?;
+
+        Minutes::with_id(new_id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_MINUTES)")]
+    pub async fn update_meeting_minutes(
+        &self,
+        ctx: &Context<'_>,
+        id: i32,
+        update: UpdatedMeetingMinutes,
+    ) -> Result<Minutes> {
+        let conn = DbConn::from_ctx(ctx);
+        Minutes::update(id, update, conn).await?;
+
+        Minutes::with_id(id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_MINUTES)")]
+    pub async fn email_meeting_minutes(&self, ctx: &Context<'_>, id: i32) -> Result<Minutes> {
+        let conn = DbConn::from_ctx(ctx);
+
+        // TODO: implement emails
+
+        Minutes::with_id(id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_MINUTES)")]
+    pub async fn delete_meeting_minutes(&self, ctx: &Context<'_>, id: i32) -> Result<Minutes> {
+        let conn = DbConn::from_ctx(ctx);
+        let minutes = Minutes::with_id(id, conn).await?;
+        Minutes::delete(id, conn).await?;
+
+        Ok(minutes)
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_UNIFORMS)")]
+    pub async fn create_uniform(
+        &self,
+        ctx: &Context<'_>,
+        new_uniform: NewUniform,
+    ) -> Result<Uniform> {
+        let conn = DbConn::from_ctx(ctx);
+        let new_id = Uniform::create(new_uniform, conn).await?;
+
+        Uniform::with_id(new_id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_UNIFORMS)")]
+    pub async fn update_uniform(
+        &self,
+        ctx: &Context<'_>,
+        id: i32,
+        update: NewUniform,
+    ) -> Result<Uniform> {
+        let conn = DbConn::from_ctx(ctx);
+        Uniform::update(id, update, conn).await?;
+
+        Uniform::with_id(id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_UNIFORMS)")]
+    pub async fn delete_uniform(&self, ctx: &Context<'_>, id: i32) -> Result<Uniform> {
+        let conn = DbConn::from_ctx(ctx);
+        let uniform = Uniform::with_id(id, conn).await?;
+        Uniform::delete(id, conn).await?;
+
+        Ok(uniform)
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
+    pub async fn create_song(&self, ctx: &Context<'_>, new_song: NewSong) -> Result<Song> {
+        let conn = DbConn::from_ctx(ctx);
+        let new_id = Song::create(new_song, conn).await?;
+
+        Song::with_id(new_id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
+    pub async fn update_song(
+        &self,
+        ctx: &Context<'_>,
+        id: i32,
+        update: SongUpdate,
+    ) -> Result<Song> {
+        let conn = DbConn::from_ctx(ctx);
+        Song::update(id, update, conn).await?;
+
+        Song::with_id(id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
+    pub async fn delete_song(&self, ctx: &Context<'_>, id: i32) -> Result<Song> {
+        let conn = DbConn::from_ctx(ctx);
+        let song = Song::with_id(id, conn).await?;
+        Song::delete(id, conn).await?;
+
+        Ok(song)
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
+    pub async fn create_song_link(
+        &self,
+        ctx: &Context<'_>,
+        song_id: i32,
+        new_link: NewSongLink,
+    ) -> Result<SongLink> {
+        let conn = DbConn::from_ctx(ctx);
+        let new_id = SongLink::create(song_id, new_link, conn).await?;
+
+        SongLink::with_id(new_id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
+    pub async fn update_song_link(
+        &self,
+        ctx: &Context<'_>,
+        id: i32,
+        update: SongLinkUpdate,
+    ) -> Result<SongLink> {
+        let conn = DbConn::from_ctx(ctx);
+        SongLink::update(id, update, conn).await?;
+
+        SongLink::with_id(id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
+    pub async fn delete_song_link(&self, ctx: &Context<'_>, id: i32) -> Result<SongLink> {
+        let conn = DbConn::from_ctx(ctx);
+        let link = SongLink::with_id(id, conn).await?;
+        SongLink::delete(id, conn).await?;
+
+        Ok(link)
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_PERMISSIONS)")]
+    pub async fn add_permission_to_role(
+        &self,
+        ctx: &Context<'_>,
+        role_permission: NewRolePermission,
+    ) -> Result<bool> {
+        let conn = DbConn::from_ctx(ctx);
+        RolePermission::add(role_permission, conn).await?;
+
+        Ok(true)
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_PERMISSIONS)")]
+    pub async fn remove_permission_from_role(
+        &self,
+        ctx: &Context<'_>,
+        role_permission: NewRolePermission,
+    ) -> Result<bool> {
+        let conn = DbConn::from_ctx(ctx);
+        RolePermission::remove(role_permission, conn).await?;
+
+        Ok(true)
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
+    pub async fn add_officership(
+        &self,
+        ctx: &Context<'_>,
+        role: String,
+        email: String,
+    ) -> Result<bool> {
+        let conn = DbConn::from_ctx(ctx);
+        MemberRole::add(&email, &role, conn).await?;
+
+        Ok(true)
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
+    pub async fn remove_officership(
+        &self,
+        ctx: &Context<'_>,
+        role: String,
+        email: String,
+    ) -> Result<bool> {
+        let conn = DbConn::from_ctx(ctx);
+        MemberRole::remove(&email, &role, conn).await?;
+
+        Ok(true)
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_TRANSACTION)")]
+    pub async fn update_fee_amount(
+        &self,
+        ctx: &Context<'_>,
+        name: String,
+        amount: i32,
+    ) -> Result<Fee> {
+        let conn = DbConn::from_ctx(ctx);
+        Fee::set_amount(&name, amount, conn).await?;
+
+        Fee::with_name(&name, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_TRANSACTION)")]
+    pub async fn charge_dues(&self, ctx: &Context<'_>) -> Result<Vec<ClubTransaction>> {
+        let conn = DbConn::from_ctx(ctx);
+        let current_semester = Semester::get_current(conn).await?;
+        Fee::charge_dues_for_semester(conn).await?;
+
+        ClubTransaction::for_semester(&current_semester.name, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_TRANSACTION)")]
+    pub async fn charge_late_dues(&self, ctx: &Context<'_>) -> Result<Vec<ClubTransaction>> {
+        let conn = DbConn::from_ctx(ctx);
+        let current_semester = Semester::get_current(conn).await?;
+        Fee::charge_late_dues_for_semester(conn).await?;
+
+        ClubTransaction::for_semester(&current_semester.name, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_TRANSACTION)")]
+    pub async fn add_batch_of_transactions(
+        &self,
+        ctx: &Context<'_>,
+        batch: TransactionBatch,
+    ) -> Result<Vec<ClubTransaction>> {
+        let conn = DbConn::from_ctx(ctx);
+        let current_semester = Semester::get_current(conn).await?;
+        ClubTransaction::add_batch(batch, conn).await?;
+
+        ClubTransaction::for_semester(&current_semester.name, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_TRANSACTION)")]
+    pub async fn resolve_transaction(
+        &self,
+        ctx: &Context<'_>,
+        id: i32,
+        resolved: bool,
+    ) -> Result<ClubTransaction> {
+        let conn = DbConn::from_ctx(ctx);
+        ClubTransaction::resolve(id, resolved, conn).await?;
+
+        ClubTransaction::with_id(id, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
+    pub async fn set_variable(
+        &self,
+        ctx: &Context<'_>,
+        key: String,
+        value: String,
+    ) -> Result<Variable> {
+        let conn = DbConn::from_ctx(ctx);
+        Variable::set(&key, &value, conn).await?;
+
+        Variable::with_key(&key, conn).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
+    pub async fn unset_variable(&self, ctx: &Context<'_>, key: String) -> Result<String> {
+        let conn = DbConn::from_ctx(ctx);
+        let variable = Variable::with_key(&key, conn).await?;
+        Variable::unset(&key, conn).await?;
+
+        Ok(variable.value)
+    }
 }
-
-//   @[GraphQL::Field]
-//   def rsvp_for_event(id : Int32, attending : Bool, context : UserContext) : Models::Attendance
-//     Models::Attendance.rsvp_for_event id, context.user!, attending
-//     Models::Attendance.for_member_at_event! context.user!.email, id
-//   end
-
-//   @[GraphQL::Field]
-//   def confirm_for_event(id : Int32, context : UserContext) : Models::Attendance
-//     Models::Attendance.confirm_for_event id, context.user!
-//     Models::Attendance.for_member_at_event! context.user!.email, id
-//   end
-
-//   @[GraphQL::Field]
-//   def update_carpools(event_id : Int32, carpools : Array(Input::UpdatedCarpool), context : UserContext) : Array(Models::Carpool)
-//     context.able_to! Permissions::EDIT_CARPOOLS
-
-//     Models::Carpool.update event_id, carpools
-//     Models::Carpool.for_event event_id
-//   end
-
-//   @[GraphQL::Field]
-//   def respond_to_absence_request(event_id : Int32, member : String, approved : Bool, context : UserContext) : Models::AbsenceRequest
-//     context.able_to! Permissions::PROCESS_ABSENCE_REQUESTS
-
-//     state = approved ? Models::AbsenceRequest::State::APPROVED : Models::AbsenceRequest::State::DENIED
-//     Models::AbsenceRequest.set_state event_id, member, state
-//     Models::AbsenceRequest.for_member_at_event! member, event_id
-//   end
-
-//   @[GraphQL::Field]
-//   def submit_absence_request(event_id : Int32, reason : String, context : UserContext) : Models::AbsenceRequest
-//     Models::AbsenceRequest.submit event_id, context.user!.email, reason
-//     Models::AbsenceRequest.for_member_at_event! event_id, context.user!.email
-//   end
-
-//   @[GraphQL::Field]
-//   def submit_gig_request(form : Input::NewGigRequest) : Models::GigRequest
-//     new_id = Models::GigRequest.submit form
-//     Models::GigRequest.with_id! new_id
-//   end
-
-//   @[GraphQL::Field]
-//   def dismiss_gig_request(id : Int32, context : UserContext) : Models::GigRequest
-//     context.able_to! Permissions::PROCESS_GIG_REQUESTS
-
-//     request = Models::GigRequest.with_id! id
-//     request.set_status Models::GigRequest::Status::DISMISSED
-//     request
-//   end
-
-//   @[GraphQL::Field]
-//   def reopen_gig_request(id : Int32, context : UserContext) : Models::GigRequest
-//     context.able_to! Permissions::PROCESS_GIG_REQUESTS
-
-//     request = Models::GigRequest.with_id! id
-//     request.set_status Models::GigRequest::Status::PENDING
-//     request
-//   end
-
-//   @[GraphQL::Field]
-//   def create_event_from_gig_request(request_id : Int32, form : Input::NewEvent, context : UserContext) : Models::Event
-//     context.able_to! Permissions::CREATE_EVENT, form.event.type
-
-//     request = Models::GigRequest.with_id request_id
-//     new_id = Models::Event.create form, request
-//     Models::Event.with_id! new_id
-//   end
-
-//   @[GraphQL::Field]
-//   def set_variable(key : String, value : String, context : UserContext) : Models::Variable
-//     context.able_to! Permissions::EDIT_OFFICERS
-
-//     Models::Variable.set key, value
-//     Models::Variable.with_key! key
-//   end
-
-//   @[GraphQL::Field]
-//   def unset_variable(key : String, context : UserContext) : Models::Variable
-//     context.able_to! Permissions::EDIT_OFFICERS
-
-//     var = Models::Variable.with_key! key
-//     var.unset
-//     var
-//   end
-
-//   @[GraphQL::Field]
-//   def create_document(name : String, url : String, context : UserContext) : Models::Document
-//     context.able_to! Permissions::EDIT_LINKS
-
-//     Models::Document.create name, url
-//     Models::Document.with_name! name
-//   end
-
-//   @[GraphQL::Field]
-//   def update_document(name : String, url : String, context : UserContext) : Models::Document
-//     context.able_to! Permissions::EDIT_LINKS
-
-//     document = Models::Document.with_name! name
-//     document.set_url url
-//     document
-//   end
-
-//   @[GraphQL::Field]
-//   def delete_document(name : String, context : UserContext) : Models::Document
-//     context.able_to! Permissions::EDIT_LINKS
-
-//     document = Models::Document.with_name! name
-//     document.delete
-//     document
-//   end
-
-//   @[GraphQL::Field]
-//   def create_semester(form : Input::NewSemester, context : UserContext) : Models::Semester
-//     context.able_to! Permissions::EDIT_SEMESTER
-
-//     Models::Semester.create form
-//     Models::Semester.with_name! form.name
-//   end
-
-//   @[GraphQL::Field]
-//   def update_semester(name : String, form : Input::NewSemester, context : UserContext) : Models::Semester
-//     context.able_to! Permissions::EDIT_SEMESTER
-
-//     Models::Semester.update name, form
-//     Models::Semester.with_name! form.name
-//   end
-
-//   @[GraphQL::Field]
-//   def set_current_semester(name : String, context : UserContext) : Models::Semester
-//     context.able_to! Permissions::EDIT_SEMESTER
-
-//     Models::Semester.set_current name
-//     Models::Semester.with_name! name
-//   end
-
-//   @[GraphQL::Field]
-//   def create_meeting_minutes(name : String, context : UserContext) : Models::Minutes
-//     context.able_to! Permissions::EDIT_MINUTES
-
-//     new_id = Models::Minutes.create name
-//     Models::Minutes.with_id! new_id
-//   end
-
-//   @[GraphQL::Field]
-//   def update_meeting_minutes(id : Int32, form : Input::UpdatedMeetingMinutes, context : UserContext) : Models::Minutes
-//     context.able_to! Permissions::EDIT_MINUTES
-
-//     minutes = Models::Minutes.with_id! id
-//     minutes.update form
-//     minutes
-//   end
-
-//   @[GraphQL::Field]
-//   def email_meeting_minutes(id : Int32, context : UserContext) : Models::Minutes
-//     context.able_to! Permissions::EDIT_MINUTES
-
-//     minutes = Models::Minutes.with_id! id
-//     minutes.email
-//     minutes
-//   end
-
-//   @[GraphQL::Field]
-//   def delete_meeting_minutes(id : Int32, context : UserContext) : Models::Minutes
-//     context.able_to! Permissions::EDIT_MINUTES
-
-//     minutes = Models::Minutes.with_id! id
-//     minutes.delete
-//     minutes
-//   end
-
-//   @[GraphQL::Field]
-//   def create_uniform(form : Input::NewUniform, context : UserContext) : Models::Uniform
-//     context.able_to! Permissions::EDIT_UNIFORMS
-
-//     new_id = Models::Uniform.create form
-//     Models::Uniform.with_id! new_id
-//   end
-
-//   @[GraphQL::Field]
-//   def update_uniform(id : Int32, form : Input::NewUniform, context : UserContext) : Models::Uniform
-//     context.able_to! Permissions::EDIT_UNIFORMS
-
-//     uniform = Models::Uniform.with_id! id
-//     uniform.update form
-//     uniform
-//   end
-
-//   @[GraphQL::Field]
-//   def delete_uniform(id : Int32, context : UserContext) : Models::Uniform
-//     context.able_to! Permissions::EDIT_UNIFORMS
-
-//     uniform = Models::Uniform.with_id! id
-//     uniform.delete
-//     uniform
-//   end
-
-//   @[GraphQL::Field]
-//   def create_song(form : Input::NewSong, context : UserContext) : Models::Song
-//     context.able_to! Permissions::EDIT_REPERTOIRE
-
-//     new_id = Models::Song.create form
-//     Models::Song.with_id! new_id
-//   end
-
-//   @[GraphQL::Field]
-//   def update_song(id : Int32, form : Input::SongUpdate, context : UserContext) : Models::Song
-//     context.able_to! Permissions::EDIT_REPERTOIRE
-
-//     song = Models::Song.with_id! id
-//     song.update form
-//     song
-//   end
-
-//   @[GraphQL::Field(description: "Deletes a song and returns the id")]
-//   def delete_song(id : Int32, context : UserContext) : Int32
-//     context.able_to! Permissions::EDIT_REPERTOIRE
-
-//     song = Models::Song.with_id! id
-//     song.delete
-//     id
-//   end
-
-//   @[GraphQL::Field]
-//   def create_song_link(song_id : Int32, form : Input::NewSongLink, context : UserContext) : Models::SongLink
-//     context.able_to! Permissions::EDIT_REPERTOIRE
-
-//     new_id = Models::SongLink.create song_id, form
-//     Models::SongLink.with_id! new_id
-//   end
-
-//   @[GraphQL::Field]
-//   def update_song_link(id : Int32, form : Input::SongLinkUpdate, context : UserContext) : Models::SongLink
-//     context.able_to! Permissions::EDIT_REPERTOIRE
-
-//     link = Models::SongLink.with_id! id
-//     link.update form
-//     link
-//   end
-
-//   @[GraphQL::Field]
-//   def delete_song_link(id : Int32, context : UserContext) : Models::SongLink
-//     context.able_to! Permissions::EDIT_REPERTOIRE
-
-//     link = Models::SongLink.with_id! id
-//     link.delete
-//     link
-//   end
-
-//   @[GraphQL::Field]
-//   def add_permission_to_role(position : String, permission : String, event_type : String?, context : UserContext) : Bool
-//     context.able_to! Permissions::EDIT_PERMISSIONS
-
-//     Models::RolePermission.add position, permission, event_type
-//     true
-//   end
-
-//   @[GraphQL::Field]
-//   def remove_permission_from_role(position : String, permission : String, event_type : String?, context : UserContext) : Bool
-//     context.able_to! Permissions::EDIT_PERMISSIONS
-
-//     Models::RolePermission.remove position, permission, event_type
-//     true
-//   end
-
-//   @[GraphQL::Field]
-//   def add_officership(position : String, member : String, context : UserContext) : Models::MemberRole
-//     context.able_to! Permissions::EDIT_OFFICERS
-
-//     member_role = Models::MemberRole.new member, position
-//     member_role.add
-//     member_role
-//   end
-
-//   @[GraphQL::Field]
-//   def remove_officership(position : String, member : String, context : UserContext) : Models::MemberRole
-//     context.able_to! Permissions::EDIT_OFFICERS
-
-//     member_role = Models::MemberRole.new member, position
-//     member_role.remove
-//     member_role
-//   end
-
-//   @[GraphQL::Field]
-//   def update_fee_amount(name : String, amount : Int32, context : UserContext) : Models::Fee
-//     context.able_to! Permissions::EDIT_TRANSACTION
-
-//     fee = Models::Fee.with_name! name
-//     fee.set_amount amount
-//     fee
-//   end
-
-//   @[GraphQL::Field]
-//   def charge_dues(context : UserContext) : Array(Models::ClubTransaction)
-//     context.able_to! Permissions::EDIT_TRANSACTION
-
-//     Models::Fee.charge_dues_for_semester
-//     Models::ClubTransaction.for_semester Models::Semester.current.name
-//   end
-
-//   @[GraphQL::Field]
-//   def charge_late_dues(context : UserContext) : Array(Models::ClubTransaction)
-//     context.able_to! Permissions::EDIT_TRANSACTION
-
-//     Models::Fee.charge_late_dues_for_semester
-//     Models::ClubTransaction.for_semester Models::Semester.current.name
-//   end
-
-//   @[GraphQL::Field]
-//   def add_batch_of_transactions(batch : Input::TransactionBatch, context : UserContext) : Array(Models::ClubTransaction)
-//     context.able_to! Permissions::EDIT_TRANSACTION
-
-//     Models::ClubTransaction.add_batch batch
-//     Models::ClubTransaction.for_semester Models::Semester.current.name
-//   end
-
-//   @[GraphQL::Field]
-//   def resolve_transaction(id : Int32, resolved : Bool, context : UserContext) : Models::ClubTransaction
-//     context.able_to! Permissions::EDIT_TRANSACTION
-
-//     transaction = Models::ClubTransaction.with_id! id
-//     transaction.resolve resolved
-//     transaction
-//   end
-
-//   # TODO: sendEmail(since: NaiveDateTime!): Boolean!
-// end

@@ -1,4 +1,4 @@
-//! Music file utilities, for uploading files and other relevant operations.
+//! Music file utilities, for uploading files and other relevant operations
 
 use std::ffi::OsString;
 use std::fs::OpenOptions;
@@ -26,7 +26,7 @@ impl MusicFile {
         Ok(PathBuf::from(Self::MUSIC_BASE_PATH).join(Self::file_name(path)?))
     }
 
-    pub fn upload(&self) -> Result<PathBuf> {
+    pub fn save(&self) -> Result<PathBuf> {
         let path = Self::named(&self.path)?;
 
         let mut file = OpenOptions::new()
@@ -53,10 +53,9 @@ impl MusicFile {
         if Self::exists(path)? {
             Ok(())
         } else {
-            Err(
-                "the file doesn't exist yet and must be uploaded before a link to it can be made"
-                    .into(),
-            )
+            Err("the file doesn't exist yet and must be \
+                 uploaded before a link to it can be made"
+                .into())
         }
     }
 }

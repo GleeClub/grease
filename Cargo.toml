@@ -13,6 +13,10 @@ name = "grease"
 path = "src/bin/grease.rs"
 
 [[bin]]
+name = "send_emails"
+path = "src/bin/send_emails.rs"
+
+[[bin]]
 name = "admin_tools"
 path = "src/bin/admin_tools.rs"
 

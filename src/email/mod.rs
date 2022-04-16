@@ -5,19 +5,23 @@ use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result};
 
-pub struct Email {
-    pub to_address: String,
+pub mod event;
+pub mod minutes;
+
+pub const MEMBER_LIST_ADDRESS: &'static str = "gleeclub@lists.gatech.edu";
+pub const OFFICER_LIST_ADDRESS: &'static str = "gleeclub@lists.gatech.edu";
+pub const FROM_ADDRESS: &'static str = "Glee Club Officers";
+
+pub struct Email<'a> {
+    pub address: &'a str,
     pub subject: String,
-    pub content: String,
+    pub body: String,
 }
 
-impl Email {
-    pub const DEFAULT_NAME: &'static str = "Glee Club Officers";
-    pub const DEFAULT_ADDRESS: &'static str = "gleeclub_officers@lists.gatech.edu";
-
-    pub fn send(&self) -> Result<()> {
+impl<'a> Email<'a> {
+    pub async fn send(&'a self) -> Result<()> {
         let mut mail = Command::new("mail")
-            .args(&["-s", &self.subject, &self.to_address])
+            .args(&["-s", &self.subject, &self.address])
             .stdin(Stdio::piped())
             .spawn()
             .context("Couldn't run `mail` to send an email")?;
@@ -27,7 +31,7 @@ impl Email {
             .as_mut()
             .context("No stdin was available for `mail`")?;
         stdin
-            .write_all(self.content.as_bytes())
+            .write_all(self.body.as_bytes())
             .context("Couldn't send an email with `mail`")?;
 
         let output = mail

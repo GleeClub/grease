@@ -3,6 +3,7 @@
 //! Tools for managing the
 
 use std::process::Command;
+
 use anyhow::{bail, Context, Result};
 use cgi::http::response::Builder;
 use cgi::http::Method;
@@ -11,7 +12,7 @@ use grease::models::member::Member;
 use grease::models::permissions::MemberRole;
 use grease::util::{get_token_from_header, gql_err_to_anyhow};
 
-const API_FILE_NAME: &'static str = "api";
+const API_FILE_NAME: &'static str = "grease";
 
 fn main() {
     dotenv::dotenv().ok();
