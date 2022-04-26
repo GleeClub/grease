@@ -3,7 +3,7 @@ use async_graphql::{Context, Object, Result};
 use crate::db::DbConn;
 use crate::graphql::SUCCESS_MESSAGE;
 use crate::graphql::guards::{LoggedIn, Permission};
-use crate::models::document::Document;
+use crate::models::link::DocumentLink;
 use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestState};
 use crate::models::event::attendance::{Attendance, AttendanceUpdate};
 use crate::models::event::carpool::{Carpool, UpdatedCarpool};
@@ -326,25 +326,25 @@ impl MutationRoot {
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_LINKS)")]
-    pub async fn create_document(
+    pub async fn create_link(
         &self,
         ctx: &Context<'_>,
         name: String,
         url: String,
-    ) -> Result<Document> {
+    ) -> Result<DocumentLink> {
         let conn = DbConn::from_ctx(ctx);
-        Document::create(&name, &url, conn).await?;
+        DocumentLink::create(&name, &url, conn).await?;
 
-        Document::with_name(&name, conn).await
+        DocumentLink::with_name(&name, conn).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_LINKS)")]
-    pub async fn delete_document(&self, ctx: &Context<'_>, name: String) -> Result<Document> {
+    pub async fn delete_link(&self, ctx: &Context<'_>, name: String) -> Result<DocumentLink> {
         let conn = DbConn::from_ctx(ctx);
-        let document = Document::with_name(&name, conn).await?;
-        Document::delete(&name, conn).await?;
+        let link = DocumentLink::with_name(&name, conn).await?;
+        DocumentLink::delete(&name, conn).await?;
 
-        Ok(document)
+        Ok(link)
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_SEMESTER)")]

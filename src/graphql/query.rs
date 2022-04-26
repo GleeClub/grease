@@ -2,7 +2,7 @@ use async_graphql::{Context, Object, Result};
 
 use crate::db::DbConn;
 use crate::graphql::guards::{LoggedIn, Permission};
-use crate::models::document::Document;
+use crate::models::link::DocumentLink;
 use crate::models::event::absence_request::AbsenceRequest;
 use crate::models::event::gig::GigRequest;
 use crate::models::event::uniform::Uniform;
@@ -138,9 +138,9 @@ impl QueryRoot {
     }
 
     #[graphql(guard = "LoggedIn")]
-    pub async fn documents(&self, ctx: &Context<'_>) -> Result<Vec<Document>> {
+    pub async fn links(&self, ctx: &Context<'_>) -> Result<Vec<DocumentLink>> {
         let conn = DbConn::from_ctx(ctx);
-        Document::all(conn).await
+        DocumentLink::all(conn).await
     }
 
     #[graphql(guard = "LoggedIn")]

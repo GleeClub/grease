@@ -1,7 +1,7 @@
 use async_graphql::{InputValueError, InputValueResult, Scalar, ScalarType, Value};
 use time::{Date, Format, OffsetDateTime};
 
-pub mod document;
+pub mod link;
 pub mod event;
 pub mod grades;
 pub mod member;

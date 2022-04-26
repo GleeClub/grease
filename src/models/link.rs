@@ -4,14 +4,14 @@ use crate::db::DbConn;
 
 /// A link to a Google Doc or other important document.
 #[derive(SimpleObject)]
-pub struct Document {
-    /// The name of the document
+pub struct DocumentLink {
+    /// The name of the link
     pub name: String,
-    /// A link to the document
+    /// The link itself
     pub url: String,
 }
 
-impl Document {
+impl DocumentLink {
     pub async fn with_name(name: &str, conn: &DbConn) -> Result<Self> {
         Self::with_name_opt(name, conn)
             .await?
