@@ -1,4 +1,3 @@
 target/
 vendor/
 cgi-bin/
-.env
