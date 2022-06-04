@@ -42,7 +42,7 @@ impl Permission {
 
         Ok(permissions.iter().any(|permission| {
             permission.name == self.name
-                && (permission.event_type.is_none() || &permission.event_type == &self.event_type)
+                && (permission.event_type.is_none() || permission.event_type == self.event_type)
         }))
     }
 

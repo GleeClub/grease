@@ -1,12 +1,12 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
 
 use crate::db::DbConn;
-use crate::models::money::ClubTransaction;
 use crate::graphql::guards::{LoggedIn, Permission};
-use crate::models::grades::Grades;
 use crate::models::event::attendance::Attendance;
+use crate::models::grades::Grades;
 use crate::models::member::active_semester::{ActiveSemester, Enrollment, NewActiveSemester};
 use crate::models::member::session::Session;
+use crate::models::money::ClubTransaction;
 use crate::models::permissions::{MemberPermission, Role};
 use crate::models::semester::Semester;
 
@@ -72,7 +72,9 @@ impl Member {
         let conn = DbConn::from_ctx(ctx);
         let user = ctx.data_unchecked::<Member>();
         if &user.email != &self.email {
-            Permission::VIEW_USER_PRIVATE_DETAILS.ensure_granted_to(&user.email, conn).await?;
+            Permission::VIEW_USER_PRIVATE_DETAILS
+                .ensure_granted_to(&user.email, conn)
+                .await?;
         }
 
         let current_semester = Semester::get_current(conn).await?;
@@ -103,7 +105,9 @@ impl Member {
         let conn = DbConn::from_ctx(ctx);
         let user = ctx.data_unchecked::<Member>();
         if &user.email != &self.email {
-            Permission::VIEW_USER_PRIVATE_DETAILS.ensure_granted_to(&user.email, conn).await?;
+            Permission::VIEW_USER_PRIVATE_DETAILS
+                .ensure_granted_to(&user.email, conn)
+                .await?;
         }
 
         let semester = if let Some(name) = semester {
@@ -121,7 +125,9 @@ impl Member {
         let conn = DbConn::from_ctx(ctx);
         let user = ctx.data_unchecked::<Member>();
         if &user.email != &self.email {
-            Permission::VIEW_USER_PRIVATE_DETAILS.ensure_granted_to(&user.email, conn).await?;
+            Permission::VIEW_USER_PRIVATE_DETAILS
+                .ensure_granted_to(&user.email, conn)
+                .await?;
         }
 
         ClubTransaction::for_member(&self.email, conn).await
@@ -284,18 +290,17 @@ impl Member {
         as_self: bool,
         conn: &DbConn,
     ) -> Result<()> {
-        if email != &update.email {
-            if sqlx::query!("SELECT email FROM member WHERE email = ?", update.email)
+        if email != &update.email
+            && sqlx::query!("SELECT email FROM member WHERE email = ?", update.email)
                 .fetch_optional(&mut *conn.get().await)
                 .await?
                 .is_some()
-            {
-                return Err(format!(
-                    "Cannot change email to {}, as another member has that email",
-                    update.email
-                )
-                .into());
-            }
+        {
+            return Err(format!(
+                "Cannot change email to {}, as another member has that email",
+                update.email
+            )
+            .into());
         }
 
         let pass_hash = if let Some(new_hash) = update.pass_hash {

@@ -113,7 +113,7 @@ impl GigRequest {
     pub async fn event(&self, ctx: &Context<'_>) -> Result<Option<Event>> {
         if let Some(event_id) = self.event {
             let conn = DbConn::from_ctx(ctx);
-            Ok(Some(Event::with_id(event_id, &conn).await?))
+            Ok(Some(Event::with_id(event_id, conn).await?))
         } else {
             Ok(None)
         }

@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::db::DbConn;
 use crate::models::GqlDateTime;
 
-pub const DATETIME_FORMAT: &'static str = "%Y%m%dT%H%M%SZ";
+pub const DATETIME_FORMAT: &str = "%Y%m%dT%H%M%SZ";
 
 #[derive(SimpleObject)]
 #[graphql(complex)]

@@ -1,15 +1,15 @@
 use async_graphql::{Context, Object, Result};
 
 use crate::db::DbConn;
-use crate::graphql::SUCCESS_MESSAGE;
 use crate::graphql::guards::{LoggedIn, Permission};
-use crate::models::link::DocumentLink;
+use crate::graphql::SUCCESS_MESSAGE;
 use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestState};
 use crate::models::event::attendance::{Attendance, AttendanceUpdate};
 use crate::models::event::carpool::{Carpool, UpdatedCarpool};
 use crate::models::event::gig::{GigRequest, GigRequestStatus, NewGigRequest};
 use crate::models::event::uniform::{NewUniform, Uniform};
 use crate::models::event::{Event, NewEvent};
+use crate::models::link::DocumentLink;
 use crate::models::member::active_semester::ActiveSemester;
 use crate::models::member::session::Session;
 use crate::models::member::{Member, MemberUpdate, NewMember, RegisterForSemesterForm};

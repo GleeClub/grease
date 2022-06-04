@@ -1,9 +1,9 @@
 use async_graphql::{InputValueError, InputValueResult, Scalar, ScalarType, Value};
 use time::{Date, Format, OffsetDateTime};
 
-pub mod link;
 pub mod event;
 pub mod grades;
+pub mod link;
 pub mod member;
 pub mod minutes;
 pub mod money;
@@ -13,7 +13,7 @@ pub mod song;
 pub mod static_data;
 pub mod variable;
 
-pub const DATE_FORMAT: &'static str = "%Y-%m-%d";
+pub const DATE_FORMAT: &str = "%Y-%m-%d";
 
 #[derive(sqlx::Type, Clone)]
 #[sqlx(transparent)]

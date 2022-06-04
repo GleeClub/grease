@@ -26,13 +26,13 @@ impl AbsenceRequest {
     /// The event they requested absence from
     pub async fn event(&self, ctx: &Context<'_>) -> Result<Event> {
         let conn = DbConn::from_ctx(ctx);
-        Event::with_id(self.event, &conn).await
+        Event::with_id(self.event, conn).await
     }
 
     /// The member that requested an absence
     pub async fn member(&self, ctx: &Context<'_>) -> Result<Member> {
         let conn = DbConn::from_ctx(ctx);
-        Member::with_email(&self.member, &conn).await
+        Member::with_email(&self.member, conn).await
     }
 }
 

@@ -17,7 +17,7 @@ pub struct Role {
 
 impl Role {
     pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM role ORDER BY rank")
+        sqlx::query_as!(Self, "SELECT * FROM role ORDER BY `rank`")
             .fetch_all(&mut *conn.get().await)
             .await
             .map_err(Into::into)
@@ -26,10 +26,14 @@ impl Role {
     pub async fn for_member(email: &str, conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
-                "SELECT * FROM role WHERE name IN (SELECT rank FROM member_role WHERE member = ?) ORDER BY rank", email)
-            .fetch_all(&mut *conn.get().await)
-            .await
-            .map_err(Into::into)
+            "SELECT * FROM role WHERE name in 
+             (SELECT `rank` FROM member_role WHERE member = ?) 
+             ORDER BY `rank`",
+            email
+        )
+        .fetch_all(&mut *conn.get().await)
+        .await
+        .map_err(Into::into)
     }
 }
 

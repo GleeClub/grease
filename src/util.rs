@@ -1,7 +1,7 @@
 use cgi::http::response::Builder;
 use time::OffsetDateTime;
 
-const HEADER_TOKEN: &'static str = "GREASE_TOKEN";
+const HEADER_TOKEN: &str = "GREASE_TOKEN";
 
 pub fn now() -> OffsetDateTime {
     OffsetDateTime::try_now_local().expect("Failed to get system time UTC offset")

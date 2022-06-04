@@ -19,7 +19,7 @@ impl DbConn {
         ctx.data_unchecked::<DbConn>()
     }
 
-    pub async fn get<'c>(&'c self) -> MutexGuard<'c, MySqlConnection> {
+    pub async fn get(&self) -> MutexGuard<'_, MySqlConnection> {
         self.0.lock().await
     }
 

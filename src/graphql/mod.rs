@@ -12,11 +12,11 @@ use crate::graphql::query::QueryRoot;
 use crate::models::member::Member;
 use crate::util::{get_token_from_header, gql_err_to_anyhow};
 
-pub mod mutation;
 pub mod guards;
+pub mod mutation;
 pub mod query;
 
-pub const SUCCESS_MESSAGE: &'static str = "success";
+pub const SUCCESS_MESSAGE: &str = "success";
 
 #[derive(Deserialize)]
 struct RequestBody {
@@ -47,8 +47,7 @@ pub async fn handle(request: cgi::Request) -> Result<cgi::Response> {
         request
     };
 
-    let schema = Schema::new(QueryRoot, MutationRoot, EmptySubscription);
-    let response = schema.execute(request).await;
+    let response = build_schema().execute(request).await;
     let body = serde_json::to_vec(&response).context("Failed to serialize response")?;
 
     Builder::new()
@@ -58,6 +57,10 @@ pub async fn handle(request: cgi::Request) -> Result<cgi::Response> {
         .header(CONTENT_LENGTH, body.len().to_string().as_str())
         .body(body)
         .context("Failed to build response")
+}
+
+pub fn build_schema() -> Schema<QueryRoot, MutationRoot, EmptySubscription> {
+    Schema::new(QueryRoot, MutationRoot, EmptySubscription)
 }
 
 async fn load_user_from_request(request: &cgi::Request, conn: &DbConn) -> Result<Option<Member>> {

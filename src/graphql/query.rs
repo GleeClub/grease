@@ -2,11 +2,11 @@ use async_graphql::{Context, Object, Result};
 
 use crate::db::DbConn;
 use crate::graphql::guards::{LoggedIn, Permission};
-use crate::models::link::DocumentLink;
 use crate::models::event::absence_request::AbsenceRequest;
 use crate::models::event::gig::GigRequest;
 use crate::models::event::uniform::Uniform;
 use crate::models::event::Event;
+use crate::models::link::DocumentLink;
 use crate::models::member::active_semester::{ActiveSemester, Enrollment};
 use crate::models::member::Member;
 use crate::models::minutes::Minutes;

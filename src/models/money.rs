@@ -195,10 +195,7 @@ impl ClubTransaction {
         .map_err(Into::into)
     }
 
-    pub async fn for_member(
-        member: &str,
-        conn: &DbConn,
-    ) -> Result<Vec<Self>> {
+    pub async fn for_member(member: &str, conn: &DbConn) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, member, `time` as \"time: _\", amount,
