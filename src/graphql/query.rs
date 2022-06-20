@@ -1,6 +1,6 @@
 use async_graphql::{Context, Object, Result};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::graphql::guards::{LoggedIn, Permission};
 use crate::models::event::absence_request::AbsenceRequest;
 use crate::models::event::gig::GigRequest;
@@ -27,8 +27,8 @@ impl QueryRoot {
 
     #[graphql(guard = "LoggedIn")]
     pub async fn member(&self, ctx: &Context<'_>, email: String) -> Result<Member> {
-        let conn = DbConn::from_ctx(ctx);
-        Member::with_email(&email, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Member::with_email(&email, pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
@@ -39,14 +39,14 @@ impl QueryRoot {
         #[graphql(default = true)] include_club: bool,
         #[graphql(default = false)] include_inactive: bool,
     ) -> Result<Vec<Member>> {
-        let conn = DbConn::from_ctx(ctx);
-        let semester = Semester::get_current(conn).await?;
+        let pool: &MySqlPool = ctx.data_unchecked();
+        let semester = Semester::get_current(pool).await?;
 
         let mut selected_members = vec![];
-        for member in Member::all(conn).await? {
+        for member in Member::all(pool).await? {
             // TODO: optimize queries?
             let enrollment =
-                ActiveSemester::for_member_during_semester(&member.email, &semester.name, conn)
+                ActiveSemester::for_member_during_semester(&member.email, &semester.name, pool)
                     .await?
                     .map(|s| s.enrollment);
             let include_member = match enrollment {
@@ -65,105 +65,105 @@ impl QueryRoot {
 
     #[graphql(guard = "LoggedIn")]
     pub async fn event(&self, ctx: &Context<'_>, id: i32) -> Result<Event> {
-        let conn = DbConn::from_ctx(ctx);
-        Event::with_id(id, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Event::with_id(id, pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn events(&self, ctx: &Context<'_>) -> Result<Vec<Event>> {
-        let conn = DbConn::from_ctx(ctx);
-        let semester = Semester::get_current(conn).await?;
-        Event::for_semester(&semester.name, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        let semester = Semester::get_current(pool).await?;
+        Event::for_semester(&semester.name, pool).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::PROCESS_ABSENCE_REQUESTS)")]
     pub async fn absence_requests(&self, ctx: &Context<'_>) -> Result<Vec<AbsenceRequest>> {
-        let conn = DbConn::from_ctx(ctx);
-        let current_semester = Semester::get_current(conn).await?;
-        AbsenceRequest::for_semester(&current_semester.name, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        let current_semester = Semester::get_current(pool).await?;
+        AbsenceRequest::for_semester(&current_semester.name, pool).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::PROCESS_GIG_REQUESTS)")]
     pub async fn gig_request(&self, ctx: &Context<'_>, id: i32) -> Result<GigRequest> {
-        let conn = DbConn::from_ctx(ctx);
-        GigRequest::with_id(id, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        GigRequest::with_id(id, pool).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::PROCESS_GIG_REQUESTS)")]
     pub async fn gig_requests(&self, ctx: &Context<'_>) -> Result<Vec<GigRequest>> {
-        let conn = DbConn::from_ctx(ctx);
-        GigRequest::all(conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        GigRequest::all(pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn meeting_minutes(&self, ctx: &Context<'_>, id: i32) -> Result<Minutes> {
-        let conn = DbConn::from_ctx(ctx);
-        Minutes::with_id(id, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Minutes::with_id(id, pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn all_meeting_minutes(&self, ctx: &Context<'_>) -> Result<Vec<Minutes>> {
-        let conn = DbConn::from_ctx(ctx);
-        Minutes::all(conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Minutes::all(pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn current_semester(&self, ctx: &Context<'_>) -> Result<Semester> {
-        let conn = DbConn::from_ctx(ctx);
-        Semester::get_current(conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Semester::get_current(pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn semester(&self, ctx: &Context<'_>, name: String) -> Result<Semester> {
-        let conn = DbConn::from_ctx(ctx);
-        Semester::with_name(&name, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Semester::with_name(&name, pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn semesters(&self, ctx: &Context<'_>) -> Result<Vec<Semester>> {
-        let conn = DbConn::from_ctx(ctx);
-        Semester::all(conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Semester::all(pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn uniform(&self, ctx: &Context<'_>, id: i32) -> Result<Uniform> {
-        let conn = DbConn::from_ctx(ctx);
-        Uniform::with_id(id, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Uniform::with_id(id, pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn uniforms(&self, ctx: &Context<'_>) -> Result<Vec<Uniform>> {
-        let conn = DbConn::from_ctx(ctx);
-        Uniform::all(conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Uniform::all(pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn links(&self, ctx: &Context<'_>) -> Result<Vec<DocumentLink>> {
-        let conn = DbConn::from_ctx(ctx);
-        DocumentLink::all(conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        DocumentLink::all(pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn song(&self, ctx: &Context<'_>, id: i32) -> Result<Song> {
-        let conn = DbConn::from_ctx(ctx);
-        Song::with_id(id, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Song::with_id(id, pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn songs(&self, ctx: &Context<'_>) -> Result<Vec<Song>> {
-        let conn = DbConn::from_ctx(ctx);
-        Song::all(conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Song::all(pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn song_link(&self, ctx: &Context<'_>, id: i32) -> Result<SongLink> {
-        let conn = DbConn::from_ctx(ctx);
-        SongLink::with_id(id, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        SongLink::with_id(id, pool).await
     }
 
     pub async fn public_songs(&self, ctx: &Context<'_>) -> Result<Vec<PublicSong>> {
-        let conn = DbConn::from_ctx(ctx);
-        PublicSong::all(conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        PublicSong::all(pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
@@ -173,33 +173,33 @@ impl QueryRoot {
 
     #[graphql(guard = "LoggedIn.and(Permission::VIEW_TRANSACTIONS)")]
     pub async fn transactions(&self, ctx: &Context<'_>) -> Result<Vec<ClubTransaction>> {
-        let conn = DbConn::from_ctx(ctx);
-        let current_semester = Semester::get_current(conn).await?;
-        ClubTransaction::for_semester(&current_semester.name, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        let current_semester = Semester::get_current(pool).await?;
+        ClubTransaction::for_semester(&current_semester.name, pool).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::VIEW_TRANSACTIONS)")]
     pub async fn fees(&self, ctx: &Context<'_>) -> Result<Vec<Fee>> {
-        let conn = DbConn::from_ctx(ctx);
-        Fee::all(conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Fee::all(pool).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
     pub async fn officers(&self, ctx: &Context<'_>) -> Result<Vec<MemberRole>> {
-        let conn = DbConn::from_ctx(ctx);
-        MemberRole::current_officers(conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        MemberRole::current_officers(pool).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
     pub async fn current_permissions(&self, ctx: &Context<'_>) -> Result<Vec<RolePermission>> {
-        let conn = DbConn::from_ctx(ctx);
-        RolePermission::all(conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        RolePermission::all(pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
     pub async fn variable(&self, ctx: &Context<'_>, key: String) -> Result<Variable> {
         // TODO: permissions?
-        let conn = DbConn::from_ctx(ctx);
-        Variable::with_key(&key, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Variable::with_key(&key, pool).await
     }
 }

@@ -1,6 +1,6 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::graphql::guards::{LoggedIn, Permission};
 use crate::models::event::attendance::Attendance;
 use crate::models::grades::Grades;
@@ -69,79 +69,79 @@ impl Member {
     /// The semester TODO
     #[graphql(guard = "LoggedIn")]
     pub async fn semester(&self, ctx: &Context<'_>) -> Result<Option<ActiveSemester>> {
-        let conn = DbConn::from_ctx(ctx);
+        let pool: &MySqlPool = ctx.data_unchecked();
         let user = ctx.data_unchecked::<Member>();
-        if &user.email != &self.email {
+        if user.email != self.email {
             Permission::VIEW_USER_PRIVATE_DETAILS
-                .ensure_granted_to(&user.email, conn)
+                .ensure_granted_to(&user.email, pool)
                 .await?;
         }
 
-        let current_semester = Semester::get_current(conn).await?;
-        ActiveSemester::for_member_during_semester(&self.email, &current_semester.name, conn).await
+        let current_semester = Semester::get_current(pool).await?;
+        ActiveSemester::for_member_during_semester(&self.email, &current_semester.name, pool).await
     }
 
     /// The officer positions currently held by the member
     pub async fn positions(&self, ctx: &Context<'_>) -> Result<Vec<Role>> {
-        let conn = DbConn::from_ctx(ctx);
-        Role::for_member(&self.email, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Role::for_member(&self.email, pool).await
     }
 
     /// The permissions currently held by the member
     pub async fn permissions(&self, ctx: &Context<'_>) -> Result<Vec<MemberPermission>> {
-        let conn = DbConn::from_ctx(ctx);
-        MemberPermission::for_member(&self.email, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        MemberPermission::for_member(&self.email, pool).await
     }
 
     /// The semester TODO
     pub async fn semesters(&self, ctx: &Context<'_>) -> Result<Vec<ActiveSemester>> {
-        let conn = DbConn::from_ctx(ctx);
-        ActiveSemester::all_for_member(&self.email, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        ActiveSemester::all_for_member(&self.email, pool).await
     }
 
     /// The grades for the member in the given semester (default the current semester)
     #[graphql(guard = "LoggedIn")]
     pub async fn grades(&self, ctx: &Context<'_>, semester: Option<String>) -> Result<Grades> {
-        let conn = DbConn::from_ctx(ctx);
+        let pool: &MySqlPool = ctx.data_unchecked();
         let user = ctx.data_unchecked::<Member>();
         if &user.email != &self.email {
             Permission::VIEW_USER_PRIVATE_DETAILS
-                .ensure_granted_to(&user.email, conn)
+                .ensure_granted_to(&user.email, pool)
                 .await?;
         }
 
         let semester = if let Some(name) = semester {
             name
         } else {
-            Semester::get_current(conn).await?.name
+            Semester::get_current(pool).await?.name
         };
 
-        Grades::for_member(&self.email, &semester, conn).await
+        Grades::for_member(&self.email, &semester, pool).await
     }
 
     /// All of the member's transactions for their entire time in Glee Club
     #[graphql(guard = "LoggedIn")]
     pub async fn transactions(&self, ctx: &Context<'_>) -> Result<Vec<ClubTransaction>> {
-        let conn = DbConn::from_ctx(ctx);
+        let pool: &MySqlPool = ctx.data_unchecked();
         let user = ctx.data_unchecked::<Member>();
-        if &user.email != &self.email {
+        if user.email != self.email {
             Permission::VIEW_USER_PRIVATE_DETAILS
-                .ensure_granted_to(&user.email, conn)
+                .ensure_granted_to(&user.email, pool)
                 .await?;
         }
 
-        ClubTransaction::for_member(&self.email, conn).await
+        ClubTransaction::for_member(&self.email, pool).await
     }
 }
 
 impl Member {
-    pub async fn with_email(email: &str, conn: &DbConn) -> Result<Member> {
-        Self::with_email_opt(email, conn)
+    pub async fn with_email(email: &str, pool: &MySqlPool) -> Result<Member> {
+        Self::with_email_opt(email, pool)
             .await?
             .ok_or_else(|| format!("No member with email {}", email).into())
     }
 
-    pub async fn with_email_opt(email: &str, conn: &DbConn) -> Result<Option<Member>> {
+    pub async fn with_email_opt(email: &str, pool: &MySqlPool) -> Result<Option<Member>> {
         sqlx::query_as!(
             Member,
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
@@ -150,17 +150,17 @@ impl Member {
              FROM member WHERE email = ?",
             email
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn with_token(token: &str, conn: &DbConn) -> Result<Member> {
-        let session = Session::with_token(token, conn).await?;
-        Self::with_email(&session.member, conn).await
+    pub async fn with_token(token: &str, pool: &MySqlPool) -> Result<Member> {
+        let session = Session::with_token(token, pool).await?;
+        Self::with_email(&session.member, pool).await
     }
 
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
@@ -168,13 +168,13 @@ impl Member {
                  arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash
              FROM member ORDER BY last_name, first_name"
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
 
     /// The members that were active during the given semester
-    pub async fn active_during(semester: &str, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn active_during(semester: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
@@ -184,15 +184,15 @@ impl Member {
              (SELECT member FROM active_semester WHERE semester = ?)",
             semester
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn login_is_valid(email: &str, pass_hash: &str, conn: &DbConn) -> Result<bool> {
+    pub async fn login_is_valid(email: &str, pass_hash: &str, pool: &MySqlPool) -> Result<bool> {
         if let Some(hash) =
             sqlx::query_scalar!("SELECT pass_hash FROM member WHERE email = ?", email)
-                .fetch_optional(&mut *conn.get().await)
+                .fetch_optional(pool)
                 .await?
         {
             bcrypt::verify(&hash, pass_hash)
@@ -202,18 +202,18 @@ impl Member {
         }
     }
 
-    pub async fn is_active(&self, email: &str, conn: &DbConn) -> Result<bool> {
-        let current_semester = Semester::get_current(conn).await?;
+    pub async fn is_active(&self, email: &str, pool: &MySqlPool) -> Result<bool> {
+        let current_semester = Semester::get_current(pool).await?;
         Ok(
-            ActiveSemester::for_member_during_semester(email, &current_semester.name, conn)
+            ActiveSemester::for_member_during_semester(email, &current_semester.name, pool)
                 .await?
                 .is_some(),
         )
     }
 
-    pub async fn register(new_member: NewMember, conn: &DbConn) -> Result<()> {
+    pub async fn register(new_member: NewMember, pool: &MySqlPool) -> Result<()> {
         if sqlx::query!("SELECT email FROM member WHERE email = ?", new_member.email)
-            .fetch_optional(&mut *conn.get().await)
+            .fetch_optional(pool)
             .await?
             .is_some()
         {
@@ -250,22 +250,22 @@ impl Member {
             new_member.conflicts,
             new_member.dietary_restrictions
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
-        let current_semester = Semester::get_current(conn).await?;
-        Attendance::create_for_new_member(&new_member.email, &current_semester.name, conn).await
+        let current_semester = Semester::get_current(pool).await?;
+        Attendance::create_for_new_member(&new_member.email, &current_semester.name, pool).await
     }
 
     pub async fn register_for_current_semester(
         email: String,
         form: RegisterForSemesterForm,
-        conn: &DbConn,
+        pool: &MySqlPool,
     ) -> Result<()> {
-        let current_semester = Semester::get_current(conn).await?;
+        let current_semester = Semester::get_current(pool).await?;
         ActiveSemester::create_for_member(
             form.active_semester(email.clone(), current_semester.name.clone()),
-            conn,
+            pool,
         )
         .await?;
 
@@ -278,21 +278,21 @@ impl Member {
             form.dietary_restrictions,
             email
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
-        Attendance::create_for_new_member(&email, &current_semester.name, conn).await
+        Attendance::create_for_new_member(&email, &current_semester.name, pool).await
     }
 
     pub async fn update(
         email: &str,
         update: MemberUpdate,
         as_self: bool,
-        conn: &DbConn,
+        pool: &MySqlPool,
     ) -> Result<()> {
         if email != &update.email
             && sqlx::query!("SELECT email FROM member WHERE email = ?", update.email)
-                .fetch_optional(&mut *conn.get().await)
+                .fetch_optional(pool)
                 .await?
                 .is_some()
         {
@@ -312,7 +312,7 @@ impl Member {
             }
         } else {
             sqlx::query_scalar!("SELECT pass_hash FROM member WHERE email = ?", email)
-                .fetch_one(&mut *conn.get().await)
+                .fetch_one(pool)
                 .await?
         };
 
@@ -340,25 +340,25 @@ impl Member {
             update.dietary_restrictions,
             pass_hash
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
-        let current_semester = Semester::get_current(conn).await?;
+        let current_semester = Semester::get_current(pool).await?;
         let active_semester_update = NewActiveSemester {
             member: email.to_owned(),
             semester: current_semester.name,
             enrollment: update.enrollment,
             section: update.section,
         };
-        ActiveSemester::update(active_semester_update, conn).await
+        ActiveSemester::update(active_semester_update, pool).await
     }
 
-    pub async fn delete(email: &str, conn: &DbConn) -> Result<()> {
+    pub async fn delete(email: &str, pool: &MySqlPool) -> Result<()> {
         // TODO: verify exists
-        Member::with_email(email, conn).await?;
+        Member::with_email(email, pool).await?;
 
         sqlx::query!("DELETE FROM member WHERE email = ?", email)
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
 
         Ok(())
@@ -372,9 +372,9 @@ pub struct SectionType {
 }
 
 impl SectionType {
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM section_type ORDER BY name")
-            .fetch_all(&mut *conn.get().await)
+            .fetch_all(pool)
             .await
             .map_err(Into::into)
     }

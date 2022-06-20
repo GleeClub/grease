@@ -1,7 +1,7 @@
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
+use sqlx::MySqlPool;
 use time::{Duration, OffsetDateTime};
 
-use crate::db::DbConn;
 use crate::models::event::attendance::Attendance;
 use crate::models::event::carpool::Carpool;
 use crate::models::event::gig::{Gig, GigRequest, GigRequestStatus, NewGig};
@@ -43,9 +43,9 @@ impl EventType {
     pub const OMBUDS: &'static str = "Ombuds";
     pub const OTHER: &'static str = "Other";
 
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM event_type ORDER BY name")
-            .fetch_all(&mut *conn.get().await)
+            .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
@@ -82,16 +82,16 @@ pub struct Event {
 impl Event {
     /// The gig for this event, if it is a gig
     pub async fn gig(&self, ctx: &Context<'_>) -> Result<Option<Gig>> {
-        let conn = DbConn::from_ctx(ctx);
-        Gig::for_event(self.id, &conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Gig::for_event(self.id, pool).await
     }
 
     /// The attendance for the current user at this event
     pub async fn user_attendance(&self, ctx: &Context<'_>) -> Result<Option<Attendance>> {
-        let conn = DbConn::from_ctx(ctx);
+        let pool: &MySqlPool = ctx.data_unchecked();
 
         if let Some(user) = ctx.data_opt::<Member>() {
-            Attendance::for_member_at_event_opt(&user.email, self.id, &conn).await
+            Attendance::for_member_at_event_opt(&user.email, self.id, pool).await
         } else {
             Ok(None)
         }
@@ -99,35 +99,35 @@ impl Event {
 
     /// The attendance for a specific member at this event
     pub async fn attendance(&self, ctx: &Context<'_>, member: String) -> Result<Attendance> {
-        let conn = DbConn::from_ctx(ctx);
-        Attendance::for_member_at_event(&member, self.id, &conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Attendance::for_member_at_event(&member, self.id, &pool).await
     }
 
     pub async fn all_attendance(&self, ctx: &Context<'_>) -> Result<Vec<Attendance>> {
-        let conn = DbConn::from_ctx(ctx);
-        Attendance::for_event(self.id, &conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Attendance::for_event(self.id, pool).await
     }
 
     pub async fn carpools(&self, ctx: &Context<'_>) -> Result<Vec<Carpool>> {
-        let conn = DbConn::from_ctx(ctx);
-        Carpool::for_event(self.id, &conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Carpool::for_event(self.id, pool).await
     }
 
     pub async fn setlist(&self, ctx: &Context<'_>) -> Result<Vec<Song>> {
-        let conn = DbConn::from_ctx(ctx);
-        Song::setlist_for_event(self.id, &conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Song::setlist_for_event(self.id, pool).await
     }
 }
 
 impl Event {
-    pub async fn with_id(id: i32, conn: &DbConn) -> Result<Self> {
-        Self::with_id_opt(id, conn)
+    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+        Self::with_id_opt(id, pool)
             .await?
             .ok_or_else(|| format!("No event with id {}", id))
             .map_err(Into::into)
     }
 
-    pub async fn with_id_opt(id: i32, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, name, semester, `type`, call_time as \"call_time: _\",
@@ -136,14 +136,14 @@ impl Event {
              FROM event WHERE id = ?",
             id
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn for_semester(semester: &str, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
         // TODO: verify_exists
-        Semester::with_name(semester, conn).await?;
+        Semester::with_name(semester, pool).await?;
 
         sqlx::query_as!(
             Self,
@@ -153,7 +153,7 @@ impl Event {
              FROM event WHERE semester = ? ORDER BY call_time",
             semester
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
@@ -167,7 +167,7 @@ impl Event {
         attendance: Option<&Attendance>,
         is_active: bool,
     ) -> Result<()> {
-        if let Some(rsvp_issue) = self.rsvp_issue_for(attendance, is_active) {
+        if let Some(rsvp_issue) = self.rsvp_issue_for(attendance, is_active)? {
             Err(rsvp_issue.into())
         } else {
             Ok(())
@@ -178,25 +178,27 @@ impl Event {
         &self,
         attendance: Option<&Attendance>,
         is_active: bool,
-    ) -> Option<String> {
-        if !is_active {
+    ) -> Result<Option<String>> {
+        let issue = if !is_active {
             Some("Member must be active to RSVP to events.".to_owned())
         } else if !attendance.map(|a| a.should_attend).unwrap_or(true) {
             None
-        } else if now() + Duration::days(1) > self.call_time.0 {
+        } else if now()? + Duration::days(1) > self.call_time.0 {
             Some("Responses are closed for this event.".to_owned())
         } else if ["Tutti Gig", "Sectional", "Rehearsal"].contains(&self.r#type.as_str()) {
             // TODO: update event types to constants
             Some(format!("You cannot RSVP for {} events.", self.r#type))
         } else {
             None
-        }
+        };
+
+        Ok(issue)
     }
 
     pub async fn create(
         new_event: NewEvent,
         from_request: Option<GigRequest>,
-        conn: &DbConn,
+        pool: &MySqlPool,
     ) -> Result<i32> {
         if let Some(release_time) = &new_event.event.release_time {
             if &release_time.0 <= &new_event.event.call_time.0 {
@@ -239,7 +241,7 @@ impl Event {
                 new_event.event.gig_count,
                 new_event.event.default_attend
             )
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
         }
 
@@ -247,16 +249,16 @@ impl Event {
             "SELECT id FROM event ORDER BY id DESC LIMIT ?",
             call_and_release_times.len() as i32
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await?;
         for new_id in &new_ids {
-            Attendance::create_for_new_event(*new_id, conn).await?;
+            Attendance::create_for_new_event(*new_id, pool).await?;
         }
 
         let gig = if new_event.gig.is_some() {
             new_event.gig
         } else if let Some(request) = &from_request {
-            Some(request.build_new_gig(conn).await?)
+            Some(request.build_new_gig(pool).await?)
         } else {
             None
         };
@@ -279,13 +281,13 @@ impl Event {
                     gig.summary,
                     gig.description
                 )
-                .fetch_all(&mut *conn.get().await)
+                .fetch_all(pool)
                 .await?;
             }
         }
 
         if let Some(request) = from_request {
-            GigRequest::set_status(request.id, GigRequestStatus::Accepted, conn).await?;
+            GigRequest::set_status(request.id, GigRequestStatus::Accepted, pool).await?;
         }
 
         new_ids
@@ -294,8 +296,8 @@ impl Event {
             .ok_or_else(|| "Failed to find latest event ID".into())
     }
 
-    pub async fn update(id: i32, update: NewEvent, conn: &DbConn) -> Result<()> {
-        Self::with_id(id, conn).await?;
+    pub async fn update(id: i32, update: NewEvent, pool: &MySqlPool) -> Result<()> {
+        Self::with_id(id, pool).await?;
 
         sqlx::query!(
             "UPDATE event SET name = ?, semester = ?, `type` = ?, call_time = ?, release_time = ?,
@@ -313,28 +315,28 @@ impl Event {
             update.event.default_attend,
             id
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
-        if Gig::for_event(id, conn).await?.is_some() {
+        if Gig::for_event(id, pool).await?.is_some() {
             if let Some(gig) = update.gig {
                 sqlx::query!(
                     "UPDATE gig SET performance_time = ?, uniform = ?, contact_name = ?, contact_email = ?,
                      contact_phone = ?, price = ?, public = ?, summary = ?, description = ?
                      WHERE event = ?", gig.performance_time, gig.uniform, gig.contact_name, gig.contact_email,
-                    gig.contact_phone, gig.price, gig.public, gig.summary, gig.description, id).execute(&mut *conn.get().await).await?;
+                    gig.contact_phone, gig.price, gig.public, gig.summary, gig.description, id).execute(pool).await?;
             }
         }
 
         Ok(())
     }
 
-    pub async fn delete(id: i32, conn: &DbConn) -> Result<()> {
+    pub async fn delete(id: i32, pool: &MySqlPool) -> Result<()> {
         // TODO: verify exists?
-        Event::with_id(id, conn).await?;
+        Event::with_id(id, pool).await?;
 
         sqlx::query!("DELETE FROM event WHERE id = ?", id)
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
 
         Ok(())

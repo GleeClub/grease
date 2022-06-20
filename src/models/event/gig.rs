@@ -1,6 +1,6 @@
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::models::event::uniform::Uniform;
 use crate::models::event::Event;
 use crate::models::GqlDateTime;
@@ -35,13 +35,13 @@ pub struct Gig {
 impl Gig {
     /// The uniform for this gig
     pub async fn uniform(&self, ctx: &Context<'_>) -> Result<Uniform> {
-        let conn = DbConn::from_ctx(ctx);
-        Uniform::with_id(self.uniform, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Uniform::with_id(self.uniform, pool).await
     }
 }
 
 impl Gig {
-    pub async fn for_event(event_id: i32, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn for_event(event_id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT event, performance_time as \"performance_time: _\", contact_name, contact_email,
@@ -49,12 +49,12 @@ impl Gig {
              FROM gig WHERE event = ?",
             event_id
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn for_semester(semester: &str, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT event, performance_time as \"performance_time: _\", contact_name, contact_email,
@@ -63,7 +63,7 @@ impl Gig {
                  (SELECT id FROM event WHERE semester = ?)",
             semester
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
@@ -112,8 +112,8 @@ impl GigRequest {
     /// If and when an event is created from a request, this is the event
     pub async fn event(&self, ctx: &Context<'_>) -> Result<Option<Event>> {
         if let Some(event_id) = self.event {
-            let conn = DbConn::from_ctx(ctx);
-            Ok(Some(Event::with_id(event_id, conn).await?))
+            let pool: &MySqlPool = ctx.data_unchecked();
+            Ok(Some(Event::with_id(event_id, pool).await?))
         } else {
             Ok(None)
         }
@@ -121,13 +121,13 @@ impl GigRequest {
 }
 
 impl GigRequest {
-    pub async fn with_id(id: i32, conn: &DbConn) -> Result<Self> {
-        Self::with_id_opt(id, conn)
+    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+        Self::with_id_opt(id, pool)
             .await?
             .ok_or_else(|| format!("No gig request with ID {}", id).into())
     }
 
-    pub async fn with_id_opt(id: i32, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, `time` as \"time: _\", name, organization, contact_name, contact_phone, contact_email,
@@ -135,24 +135,24 @@ impl GigRequest {
              FROM gig_request WHERE id = ?",
             id
         )
-            .fetch_optional(&mut *conn.get().await)
+            .fetch_optional(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, `time` as \"time: _\", name, organization, contact_name, contact_phone, contact_email,
                  start_time as \"start_time: _\", location, comments, status as \"status: _\", event
              FROM gig_request ORDER BY time"
         )
-            .fetch_all(&mut *conn.get().await)
+            .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn submit(new_request: NewGigRequest, conn: &DbConn) -> Result<i32> {
+    pub async fn submit(new_request: NewGigRequest, pool: &MySqlPool) -> Result<i32> {
         sqlx::query!(
             "INSERT INTO gig_request (
                 name, organization, contact_name, contact_phone,
@@ -167,17 +167,17 @@ impl GigRequest {
             new_request.location,
             new_request.comments
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         sqlx::query_scalar!("SELECT id FROM gig_request ORDER BY id DESC")
-            .fetch_one(&mut *conn.get().await)
+            .fetch_one(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn set_status(id: i32, status: GigRequestStatus, conn: &DbConn) -> Result<()> {
-        let request = Self::with_id(id, conn).await?;
+    pub async fn set_status(id: i32, status: GigRequestStatus, pool: &MySqlPool) -> Result<()> {
+        let request = Self::with_id(id, pool).await?;
 
         if request.status == status {
             return Ok(());
@@ -201,7 +201,7 @@ impl GigRequest {
             }
             _ => {
                 sqlx::query!("UPDATE gig_request SET status = ? WHERE id = ?", status, id)
-                    .execute(&mut *conn.get().await)
+                    .execute(pool)
                     .await?;
 
                 Ok(())
@@ -209,8 +209,8 @@ impl GigRequest {
         }
     }
 
-    pub async fn build_new_gig(&self, conn: &DbConn) -> Result<NewGig> {
-        let default_uniform = Uniform::get_default(conn).await?;
+    pub async fn build_new_gig(&self, pool: &MySqlPool) -> Result<NewGig> {
+        let default_uniform = Uniform::get_default(pool).await?;
 
         Ok(NewGig {
             performance_time: self.start_time.clone(),

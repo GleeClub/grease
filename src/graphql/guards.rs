@@ -1,6 +1,6 @@
 use async_graphql::{Context, Guard, Result};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::models::member::Member;
 use crate::models::permissions::MemberPermission;
 
@@ -37,8 +37,8 @@ impl Permission {
         }
     }
 
-    pub async fn granted_to(&self, member: &str, conn: &DbConn) -> Result<bool> {
-        let permissions = MemberPermission::for_member(member, conn).await?;
+    pub async fn granted_to(&self, member: &str, pool: &MySqlPool) -> Result<bool> {
+        let permissions = MemberPermission::for_member(member, pool).await?;
 
         Ok(permissions.iter().any(|permission| {
             permission.name == self.name
@@ -46,8 +46,8 @@ impl Permission {
         }))
     }
 
-    pub async fn ensure_granted_to(&self, member: &str, conn: &DbConn) -> Result<()> {
-        if self.granted_to(member, conn).await? {
+    pub async fn ensure_granted_to(&self, member: &str, pool: &MySqlPool) -> Result<()> {
+        if self.granted_to(member, pool).await? {
             Ok(())
         } else {
             Err(format!("Permission {} required", self.name).into())
@@ -95,8 +95,8 @@ impl Permission {
 impl Guard for Permission {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
         if let Some(user) = ctx.data_opt::<Member>() {
-            let conn = DbConn::from_ctx(ctx);
-            if self.granted_to(&user.email, &conn).await? {
+            let pool: &MySqlPool = ctx.data_unchecked();
+            if self.granted_to(&user.email, pool).await? {
                 return Ok(());
             }
         }

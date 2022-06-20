@@ -2,8 +2,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::file::MusicFile;
 
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
@@ -63,9 +63,9 @@ pub struct Song {
 impl Song {
     /// The links connected to the song sorted into sections
     pub async fn links(&self, ctx: &Context<'_>) -> Result<Vec<SongLinkSection>> {
-        let conn = DbConn::from_ctx(ctx);
-        let mut all_links = SongLink::for_song(self.id, conn).await?;
-        let all_types = MediaType::all(conn).await?;
+        let pool: &MySqlPool = ctx.data_unchecked();
+        let mut all_links = SongLink::for_song(self.id, pool).await?;
+        let all_types = MediaType::all(pool).await?;
 
         Ok(all_types
             .into_iter()
@@ -78,13 +78,13 @@ impl Song {
 }
 
 impl Song {
-    pub async fn with_id(id: i32, conn: &DbConn) -> Result<Self> {
-        Self::with_id_opt(id, conn)
+    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+        Self::with_id_opt(id, pool)
             .await?
             .ok_or_else(|| format!("No song with id {}", id).into())
     }
 
-    pub async fn with_id_opt(id: i32, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, title, info, current as \"current: bool\", `key` as \"key: _\",
@@ -92,25 +92,25 @@ impl Song {
              FROM song WHERE id = ?",
             id
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, title, info, current as \"current: bool\", `key` as \"key: _\",
                  starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"
              FROM song ORDER BY title"
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
 
     // TODO: fix query
-    pub async fn setlist_for_event(event_id: i32, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn setlist_for_event(event_id: i32, pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT s.id, s.title, s.info, s.current as \"current: bool\", s.`key` as \"key: _\",
@@ -119,39 +119,39 @@ impl Song {
              WHERE gig_song.event = ? ORDER BY gig_song.order ASC",
             event_id
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn create(new_song: NewSong, conn: &DbConn) -> Result<i32> {
+    pub async fn create(new_song: NewSong, pool: &MySqlPool) -> Result<i32> {
         sqlx::query!(
             "INSERT INTO song (title, info) VALUES (?, ?)",
             new_song.title,
             new_song.info
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         sqlx::query_scalar!("SELECT id FROM song ORDER BY id DESC")
-            .fetch_one(&mut *conn.get().await)
+            .fetch_one(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn update(id: i32, updated_song: SongUpdate, conn: &DbConn) -> Result<()> {
+    pub async fn update(id: i32, updated_song: SongUpdate, pool: &MySqlPool) -> Result<()> {
         sqlx::query!(
             "UPDATE song SET title = ?, current = ?, info = ?, `key` = ?, starting_pitch = ?, mode = ? WHERE id = ?",
             updated_song.title, updated_song.current, updated_song.info, updated_song.key, updated_song.starting_pitch, updated_song.mode, id
-        ).execute(&mut *conn.get().await).await?;
+        ).execute(pool).await?;
 
         Ok(())
     }
 
-    pub async fn delete(id: i32, conn: &DbConn) -> Result<()> {
+    pub async fn delete(id: i32, pool: &MySqlPool) -> Result<()> {
         // TODO: verify exists
         sqlx::query!("DELETE FROM song WHERE id = ?", id)
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
 
         Ok(())
@@ -166,16 +166,16 @@ pub struct PublicSong {
 }
 
 impl PublicSong {
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         let mut all_public_videos = sqlx::query!(
             "SELECT name, target, song FROM song_link WHERE `type` = ?",
             SongLink::PERFORMANCES
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await?;
         let all_public_songs =
             sqlx::query!("SELECT id, title, current as \"current: bool\" FROM song ORDER BY title")
-                .fetch_all(&mut *conn.get().await)
+                .fetch_all(pool)
                 .await?;
 
         Ok(all_public_songs
@@ -232,32 +232,32 @@ pub enum StorageType {
 }
 
 impl MediaType {
-    pub async fn with_name(name: &str, conn: &DbConn) -> Result<Self> {
-        Self::with_name_opt(name, conn)
+    pub async fn with_name(name: &str, pool: &MySqlPool) -> Result<Self> {
+        Self::with_name_opt(name, pool)
             .await?
             .ok_or_else(|| format!("No media type named {}", name).into())
     }
 
-    pub async fn with_name_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT name, `order`, storage as \"storage: _\"
              FROM media_type WHERE name = ?",
             name
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         // TODO: grep ASC -> remove all instances
         sqlx::query_as!(
             Self,
             "SELECT name, `order`, storage as \"storage: _\"
              FROM media_type ORDER BY `order`"
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
@@ -280,34 +280,34 @@ pub struct SongLink {
 impl SongLink {
     pub const PERFORMANCES: &'static str = "Performances";
 
-    pub async fn with_id(id: i32, conn: &DbConn) -> Result<Self> {
-        Self::with_id_opt(id, conn)
+    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+        Self::with_id_opt(id, pool)
             .await?
             .ok_or_else(|| format!("No song link with id {}", id).into())
     }
 
-    pub async fn with_id_opt(id: i32, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM song_link WHERE id = ?", id)
-            .fetch_optional(&mut *conn.get().await)
+            .fetch_optional(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn for_song(song_id: i32, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn for_song(song_id: i32, pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM song_link WHERE song = ?", song_id)
-            .fetch_all(&mut *conn.get().await)
+            .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM song_link")
-            .fetch_all(&mut *conn.get().await)
+            .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn create(song_id: i32, new_link: NewSongLink, conn: &DbConn) -> Result<i32> {
+    pub async fn create(song_id: i32, new_link: NewSongLink, pool: &MySqlPool) -> Result<i32> {
         let encoded_target = if let Some(file) = new_link.link_file() {
             file.save()?;
             file.path.to_string_lossy().to_string()
@@ -322,19 +322,19 @@ impl SongLink {
             new_link.name,
             encoded_target
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         sqlx::query_scalar!("SELECT id FROM song_link ORDER BY id DESC")
-            .fetch_one(&mut *conn.get().await)
+            .fetch_one(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn update(id: i32, update: SongLinkUpdate, conn: &DbConn) -> Result<()> {
-        let song_link = SongLink::with_id(id, conn).await?;
+    pub async fn update(id: i32, update: SongLinkUpdate, pool: &MySqlPool) -> Result<()> {
+        let song_link = SongLink::with_id(id, pool).await?;
 
-        let media_type = MediaType::with_name(&song_link.r#type, conn).await?;
+        let media_type = MediaType::with_name(&song_link.r#type, pool).await?;
         let new_target = if media_type.storage == StorageType::Local {
             // TODO: is this correct?
             base64::encode(&update.target)
@@ -348,7 +348,7 @@ impl SongLink {
             new_target,
             id,
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         if song_link.target != new_target && media_type.storage == StorageType::Local {
@@ -366,12 +366,12 @@ impl SongLink {
         Ok(())
     }
 
-    pub async fn delete(id: i32, conn: &DbConn) -> Result<()> {
-        let song_link = SongLink::with_id(id, conn).await?;
-        let media_type = MediaType::with_name(&song_link.r#type, conn).await?;
+    pub async fn delete(id: i32, pool: &MySqlPool) -> Result<()> {
+        let song_link = SongLink::with_id(id, pool).await?;
+        let media_type = MediaType::with_name(&song_link.r#type, pool).await?;
 
         sqlx::query!("DELETE FROM song_link WHERE id = ?", id)
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
 
         if media_type.storage == StorageType::Local && MusicFile::exists(&song_link.target)? {

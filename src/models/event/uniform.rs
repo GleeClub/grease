@@ -2,8 +2,7 @@ use async_graphql::{
     InputObject, InputValueError, InputValueResult, Result, Scalar, ScalarType, SimpleObject, Value,
 };
 use regex::Regex;
-
-use crate::db::DbConn;
+use sqlx::MySqlPool;
 
 #[derive(SimpleObject)]
 pub struct Uniform {
@@ -45,63 +44,63 @@ impl ScalarType for UniformColor {
 }
 
 impl Uniform {
-    pub async fn with_id(id: i32, conn: &DbConn) -> Result<Self> {
-        Self::with_id_opt(id, conn)
+    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+        Self::with_id_opt(id, pool)
             .await?
             .ok_or_else(|| format!("No uniform with id {}", id).into())
     }
 
-    pub async fn with_id_opt(id: i32, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, name, color as \"color: _\", description
              FROM uniform WHERE id = ?",
             id
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, name, color as \"color: _\", description
              FROM uniform ORDER BY name"
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn get_default(conn: &DbConn) -> Result<Self> {
+    pub async fn get_default(pool: &MySqlPool) -> Result<Self> {
         sqlx::query_as!(
             Self,
             "SELECT id, name, color as \"color: _\", description
              FROM uniform ORDER BY name"
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await?
         .ok_or_else(|| "There are currently no uniforms".into())
     }
 
-    pub async fn create(new_uniform: NewUniform, conn: &DbConn) -> Result<i32> {
+    pub async fn create(new_uniform: NewUniform, pool: &MySqlPool) -> Result<i32> {
         sqlx::query!(
             "INSERT INTO uniform (name, color, description) VALUES (?, ?, ?)",
             new_uniform.name,
             new_uniform.color,
             new_uniform.description
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         sqlx::query_scalar!("SELECT id FROM uniform ORDER BY id DESC")
-            .fetch_one(&mut *conn.get().await)
+            .fetch_one(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn update(id: i32, update: NewUniform, conn: &DbConn) -> Result<()> {
+    pub async fn update(id: i32, update: NewUniform, pool: &MySqlPool) -> Result<()> {
         // TODO: verify exists?
         // TODO: mutation?
         sqlx::query!(
@@ -111,15 +110,15 @@ impl Uniform {
             update.description,
             id
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())
     }
 
-    pub async fn delete(id: i32, conn: &DbConn) -> Result<()> {
+    pub async fn delete(id: i32, pool: &MySqlPool) -> Result<()> {
         sqlx::query!("DELETE FROM uniform WHERE id = ?", id)
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
 
         Ok(())

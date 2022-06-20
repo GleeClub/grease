@@ -1,8 +1,8 @@
 use async_graphql::{ComplexObject, Result, SimpleObject};
+use sqlx::MySqlPool;
 use time::{OffsetDateTime, UtcOffset};
 use uuid::Uuid;
 
-use crate::db::DbConn;
 use crate::models::GqlDateTime;
 
 pub const DATETIME_FORMAT: &str = "%Y%m%dT%H%M%SZ";
@@ -21,8 +21,8 @@ pub struct PublicEvent {
 
 #[ComplexObject]
 impl PublicEvent {
-    pub async fn invite(&self) -> String {
-        let now = Self::format_datetime(&crate::util::now());
+    pub async fn invite(&self) -> Result<String> {
+        let now = Self::format_datetime(&crate::util::now()?);
         let start_time = Self::format_datetime(&self.start_time.0);
         let end_time = self
             .end_time
@@ -57,12 +57,15 @@ impl PublicEvent {
             Uuid::new_v4(),
         );
 
-        format!("data:text/calendar;base64,{}", base64::encode(&details))
+        Ok(format!(
+            "data:text/calendar;base64,{}",
+            base64::encode(&details)
+        ))
     }
 }
 
 impl PublicEvent {
-    pub async fn all_for_current_semester(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all_for_current_semester(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT event.id, event.name, gig.performance_time as \"start_time: _\",
@@ -72,7 +75,7 @@ impl PublicEvent {
              WHERE gig.public = true AND event.semester =
                  (SELECT name FROM semester WHERE current = true)"
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }

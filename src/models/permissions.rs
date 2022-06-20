@@ -1,6 +1,6 @@
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::models::member::Member;
 
 /// Roles that can be held by members to grant permissions
@@ -16,14 +16,14 @@ pub struct Role {
 }
 
 impl Role {
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM role ORDER BY `rank`")
-            .fetch_all(&mut *conn.get().await)
+            .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn for_member(email: &str, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn for_member(email: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT * FROM role WHERE name in 
@@ -31,7 +31,7 @@ impl Role {
              ORDER BY `rank`",
             email
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
@@ -51,33 +51,33 @@ pub struct MemberRole {
 impl MemberRole {
     /// The member holding the role
     pub async fn member(&self, ctx: &Context<'_>) -> Result<Member> {
-        let conn = DbConn::from_ctx(ctx);
-        Member::with_email(&self.member, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Member::with_email(&self.member, pool).await
     }
 }
 
 impl MemberRole {
-    pub async fn current_officers(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn current_officers(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM member_role ORDER BY role, member")
-            .fetch_all(&mut *conn.get().await)
+            .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn member_has_role(member: &str, role: &str, conn: &DbConn) -> Result<bool> {
+    pub async fn member_has_role(member: &str, role: &str, pool: &MySqlPool) -> Result<bool> {
         let member_role = sqlx::query!(
             "SELECT * FROM member_role WHERE member = ? AND role = ?",
             member,
             role
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await?;
 
         Ok(member_role.is_some())
     }
 
-    pub async fn add(member: &str, role: &str, conn: &DbConn) -> Result<()> {
-        if Self::member_has_role(member, role, conn).await? {
+    pub async fn add(member: &str, role: &str, pool: &MySqlPool) -> Result<()> {
+        if Self::member_has_role(member, role, pool).await? {
             return Err("Member already has that role".into());
         }
 
@@ -86,14 +86,14 @@ impl MemberRole {
             member,
             role
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())
     }
 
-    pub async fn remove(member: &str, role: &str, conn: &DbConn) -> Result<()> {
-        if !Self::member_has_role(member, role, conn).await? {
+    pub async fn remove(member: &str, role: &str, pool: &MySqlPool) -> Result<()> {
+        if !Self::member_has_role(member, role, pool).await? {
             return Err("Member does not have that role".into());
         }
 
@@ -102,7 +102,7 @@ impl MemberRole {
             member,
             role
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())
@@ -127,13 +127,13 @@ pub struct Permission {
 }
 
 impl Permission {
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT name, description, `type` as \"type: _\"
              FROM permission ORDER BY name"
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
@@ -162,14 +162,14 @@ pub struct RolePermission {
 }
 
 impl RolePermission {
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM role_permission")
-            .fetch_all(&mut *conn.get().await)
+            .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn add(role_permission: NewRolePermission, conn: &DbConn) -> Result<()> {
+    pub async fn add(role_permission: NewRolePermission, pool: &MySqlPool) -> Result<()> {
         sqlx::query_as!(
             Self,
             "INSERT IGNORE INTO role_permission (role, permission, event_type) VALUES (?, ?, ?)",
@@ -177,13 +177,13 @@ impl RolePermission {
             role_permission.permission,
             role_permission.event_type
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())
     }
 
-    pub async fn remove(role_permission: NewRolePermission, conn: &DbConn) -> Result<()> {
+    pub async fn remove(role_permission: NewRolePermission, pool: &MySqlPool) -> Result<()> {
         sqlx::query_as!(
             Self,
             "DELETE FROM role_permission WHERE role = ? AND permission = ? AND event_type = ?",
@@ -191,7 +191,7 @@ impl RolePermission {
             role_permission.permission,
             role_permission.event_type
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())
@@ -207,7 +207,7 @@ pub struct MemberPermission {
 }
 
 impl MemberPermission {
-    pub async fn for_member(member: &str, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn for_member(member: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT permission as name, event_type FROM role_permission
@@ -215,7 +215,7 @@ impl MemberPermission {
              WHERE member_role.member = ?",
             member
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }

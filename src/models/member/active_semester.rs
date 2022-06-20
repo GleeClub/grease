@@ -1,6 +1,6 @@
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::models::grades::Grades;
 
 #[derive(SimpleObject)]
@@ -20,8 +20,8 @@ pub struct ActiveSemester {
 impl ActiveSemester {
     /// The grades for the member in the given semester
     pub async fn grades(&self, ctx: &Context<'_>) -> Result<Grades> {
-        let conn = DbConn::from_ctx(ctx);
-        Grades::for_member(&self.member, &self.semester, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Grades::for_member(&self.member, &self.semester, pool).await
     }
 }
 
@@ -33,7 +33,7 @@ pub enum Enrollment {
 }
 
 impl ActiveSemester {
-    pub async fn all_for_member(member: &str, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all_for_member(member: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT a.member, a.semester, a.enrollment as \"enrollment: _\", a.section
@@ -43,7 +43,7 @@ impl ActiveSemester {
              ORDER BY s.start_date",
             member
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
@@ -51,7 +51,7 @@ impl ActiveSemester {
     pub async fn for_member_during_semester(
         member: &str,
         semester: &str,
-        conn: &DbConn,
+        pool: &MySqlPool,
     ) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
@@ -60,13 +60,16 @@ impl ActiveSemester {
             member,
             semester
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn create_for_member(new_semester: NewActiveSemester, conn: &DbConn) -> Result<()> {
-        if Self::for_member_during_semester(&new_semester.member, &new_semester.semester, conn)
+    pub async fn create_for_member(
+        new_semester: NewActiveSemester,
+        pool: &MySqlPool,
+    ) -> Result<()> {
+        if Self::for_member_during_semester(&new_semester.member, &new_semester.semester, pool)
             .await?
             .is_some()
         {
@@ -78,27 +81,27 @@ impl ActiveSemester {
         sqlx::query!(
             "INSERT INTO active_semester (member, semester, enrollment, section) VALUES (?, ?, ?, ?)",
             new_semester.member, new_semester.semester, new_semester.enrollment, new_semester.section
-        ).execute(&mut *conn.get().await).await?;
+        ).execute(pool).await?;
 
         Ok(())
     }
 
-    pub async fn update(update: NewActiveSemester, conn: &DbConn) -> Result<()> {
+    pub async fn update(update: NewActiveSemester, pool: &MySqlPool) -> Result<()> {
         let active_semester =
-            Self::for_member_during_semester(&update.member, &update.semester, conn).await?;
+            Self::for_member_during_semester(&update.member, &update.semester, pool).await?;
 
         match (update.enrollment, active_semester) {
             (Some(enrollment), Some(_active_semester)) => {
                 sqlx::query!(
                     "UPDATE active_semester SET enrollment = ?, section = ? WHERE member = ? AND semester = ?",
                     enrollment, update.section, update.member, update.semester
-                ).execute(&mut *conn.get().await).await?;
+                ).execute(pool).await?;
             }
             (Some(enrollment), None) => {
                 sqlx::query!(
                     "INSERT INTO active_semester (member, semester, enrollment, section) VALUES (?, ?, ?, ?)",
                     update.member, update.semester, enrollment, update.section
-                ).execute(&mut *conn.get().await).await?;
+                ).execute(pool).await?;
             }
             (None, Some(_active_semester)) => {
                 sqlx::query!(
@@ -106,7 +109,7 @@ impl ActiveSemester {
                     update.member,
                     update.semester
                 )
-                .execute(&mut *conn.get().await)
+                .execute(pool)
                 .await?;
             }
             (None, None) => {}

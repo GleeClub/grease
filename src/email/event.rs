@@ -1,12 +1,12 @@
 use async_graphql::Result;
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::email::{Email, MEMBER_LIST_ADDRESS};
 use crate::models::event::Event;
 
-pub async fn email_for_event(event: &Event, conn: &DbConn) -> Result<Email<'static>> {
+pub async fn email_for_event(event: &Event, pool: &MySqlPool) -> Result<Email<'static>> {
     let subject = format!("{} is in 48 Hours", event.name);
-    let body = event_email_body(event, conn).await?;
+    let body = event_email_body(event, pool).await?;
 
     Ok(Email {
         subject,
@@ -15,7 +15,7 @@ pub async fn email_for_event(event: &Event, conn: &DbConn) -> Result<Email<'stat
     })
 }
 
-async fn event_email_body(_event: &Event, _conn: &DbConn) -> Result<String> {
+async fn event_email_body(_event: &Event, _pool: &MySqlPool) -> Result<String> {
     Ok(String::new())
 
     // let url = format!(
@@ -24,7 +24,7 @@ async fn event_email_body(_event: &Event, _conn: &DbConn) -> Result<String> {
     // );
     // let format_time = |time: &NaiveDateTime| time.format("").to_string();
     // let uniform = if let Some(uniform) = event.gig.as_ref().map(|gig| &gig.uniform) {
-    //     Some(Uniform::load(*uniform, conn)?)
+    //     Some(Uniform::load(*uniform, pool)?)
     // } else {
     //     None
     // };

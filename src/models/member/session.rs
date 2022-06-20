@@ -1,8 +1,8 @@
 use async_graphql::Result;
+use sqlx::MySqlPool;
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
-use crate::db::DbConn;
 use crate::models::member::Member;
 use crate::util::now;
 
@@ -12,16 +12,16 @@ pub struct Session {
 }
 
 impl Session {
-    pub async fn with_token(token: &str, conn: &DbConn) -> Result<Self> {
-        Self::with_token_opt(token, conn)
+    pub async fn with_token(token: &str, pool: &MySqlPool) -> Result<Self> {
+        Self::with_token_opt(token, pool)
             .await?
             .ok_or("No login tied to the provided API token")
             .map_err(Into::into)
     }
 
-    pub async fn with_token_opt(token: &str, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_token_opt(token: &str, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM session WHERE `key` = ?", token)
-            .fetch_optional(&mut *conn.get().await)
+            .fetch_optional(pool)
             .await
             .map_err(Into::into)
     }
@@ -39,17 +39,17 @@ impl Session {
 
         if let Some(timestamp) = timestamp_requested {
             let time_requested = OffsetDateTime::from_unix_timestamp(timestamp as i64);
-            Ok((now() - time_requested) > Duration::days(1))
+            Ok((now()? - time_requested) > Duration::days(1))
         } else {
             Ok(true)
         }
     }
 
-    pub async fn get_or_generate_token(email: &str, conn: &DbConn) -> Result<String> {
-        Member::with_email(email, conn).await?; // ensure that member exists
+    pub async fn get_or_generate_token(email: &str, pool: &MySqlPool) -> Result<String> {
+        Member::with_email(email, pool).await?; // ensure that member exists
 
         let session = sqlx::query_scalar!("SELECT `key` FROM session WHERE member = ?", email)
-            .fetch_optional(&mut *conn.get().await)
+            .fetch_optional(pool)
             .await?;
         if let Some(session_key) = session {
             return Ok(session_key);
@@ -61,33 +61,33 @@ impl Session {
             email,
             token
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(token)
     }
 
-    pub async fn remove(email: &str, conn: &DbConn) -> Result<()> {
+    pub async fn remove(email: &str, pool: &MySqlPool) -> Result<()> {
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
 
         Ok(())
     }
 
-    pub async fn generate_for_forgotten_password(email: &str, conn: &DbConn) -> Result<()> {
-        Member::with_email(email, conn).await?; // ensure that member exists
+    pub async fn generate_for_forgotten_password(email: &str, pool: &MySqlPool) -> Result<()> {
+        Member::with_email(email, pool).await?; // ensure that member exists
 
         sqlx::query!("DELETE FROM session WHERE member = ?", email)
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
-        let new_token = format!("{}X{}", Uuid::new_v4(), now().unix_timestamp());
+        let new_token = format!("{}X{}", Uuid::new_v4(), now()?.unix_timestamp());
         sqlx::query!(
             "INSERT INTO session (member, `key`) VALUES (?, ?)",
             email,
             new_token
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         // TODO: fix emails
@@ -96,8 +96,8 @@ impl Session {
         Ok(())
     }
 
-    pub async fn reset_password(token: &str, pass_hash: &str, conn: &DbConn) -> Result<()> {
-        let session = Self::with_token_opt(token, conn).await?.ok_or_else(|| {
+    pub async fn reset_password(token: &str, pass_hash: &str, pool: &MySqlPool) -> Result<()> {
+        let session = Self::with_token_opt(token, pool).await?.ok_or_else(|| {
             "No password reset request was found for the given token. \
                  Please request another password reset."
                 .to_owned()
@@ -109,7 +109,7 @@ impl Session {
             );
         }
 
-        Self::remove(&session.member, conn).await?;
+        Self::remove(&session.member, pool).await?;
         let hash = bcrypt::hash(pass_hash, 10)
             .map_err(|err| format!("Failed to hash password: {}", err))?;
         sqlx::query!(
@@ -117,7 +117,7 @@ impl Session {
             hash,
             session.member
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())

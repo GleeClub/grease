@@ -1,6 +1,6 @@
 use async_graphql::{ComplexObject, Context, Enum, Result, SimpleObject};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::models::event::Event;
 use crate::models::member::Member;
 use crate::models::GqlDateTime;
@@ -25,14 +25,14 @@ pub struct AbsenceRequest {
 impl AbsenceRequest {
     /// The event they requested absence from
     pub async fn event(&self, ctx: &Context<'_>) -> Result<Event> {
-        let conn = DbConn::from_ctx(ctx);
-        Event::with_id(self.event, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Event::with_id(self.event, pool).await
     }
 
     /// The member that requested an absence
     pub async fn member(&self, ctx: &Context<'_>) -> Result<Member> {
-        let conn = DbConn::from_ctx(ctx);
-        Member::with_email(&self.member, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Member::with_email(&self.member, pool).await
     }
 }
 
@@ -45,8 +45,8 @@ pub enum AbsenceRequestState {
 }
 
 impl AbsenceRequest {
-    pub async fn for_member_at_event(email: &str, event_id: i32, conn: &DbConn) -> Result<Self> {
-        Self::for_member_at_event_opt(email, event_id, conn)
+    pub async fn for_member_at_event(email: &str, event_id: i32, pool: &MySqlPool) -> Result<Self> {
+        Self::for_member_at_event_opt(email, event_id, pool)
             .await?
             .ok_or_else(|| {
                 format!(
@@ -60,7 +60,7 @@ impl AbsenceRequest {
     pub async fn for_member_at_event_opt(
         email: &str,
         event_id: i32,
-        conn: &DbConn,
+        pool: &MySqlPool,
     ) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
@@ -69,12 +69,12 @@ impl AbsenceRequest {
             email,
             event_id
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn for_semester(semester_name: &str, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester_name: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT `time` as \"time: _\", reason, state as \"state: _\", member, event
@@ -83,19 +83,19 @@ impl AbsenceRequest {
              ORDER BY time",
             semester_name
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn submit(event_id: i32, email: &str, reason: &str, conn: &DbConn) -> Result<()> {
+    pub async fn submit(event_id: i32, email: &str, reason: &str, pool: &MySqlPool) -> Result<()> {
         sqlx::query!(
             "INSERT INTO absence_request (member, event, reason) VALUES (?, ?, ?)",
             email,
             event_id,
             reason
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())
@@ -105,9 +105,9 @@ impl AbsenceRequest {
         event_id: i32,
         member: &str,
         state: AbsenceRequestState,
-        conn: &DbConn,
+        pool: &MySqlPool,
     ) -> Result<()> {
-        AbsenceRequest::for_member_at_event(member, event_id, conn).await?;
+        AbsenceRequest::for_member_at_event(member, event_id, pool).await?;
 
         sqlx::query!(
             "UPDATE absence_request SET state = ? WHERE event = ? AND member = ?",
@@ -115,7 +115,7 @@ impl AbsenceRequest {
             event_id,
             member
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())

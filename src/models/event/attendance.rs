@@ -1,6 +1,6 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestState};
 use crate::models::event::Event;
 use crate::models::member::active_semester::ActiveSemester;
@@ -28,26 +28,26 @@ pub struct Attendance {
 impl Attendance {
     /// The email of the member this attendance belongs to
     pub async fn member(&self, ctx: &Context<'_>) -> Result<Member> {
-        let conn = DbConn::from_ctx(ctx);
-        Member::with_email(&self.member, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Member::with_email(&self.member, pool).await
     }
 
     /// The absence request made by the current member, if they requested one
     pub async fn absence_request(&self, ctx: &Context<'_>) -> Result<Option<AbsenceRequest>> {
-        let conn = DbConn::from_ctx(ctx);
-        AbsenceRequest::for_member_at_event_opt(&self.member, self.event, conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        AbsenceRequest::for_member_at_event_opt(&self.member, self.event, pool).await
     }
 
     /// If the member is not allowed to RSVP, this is why
     pub async fn rsvp_issue(&self, ctx: &Context<'_>) -> Result<Option<String>> {
-        let conn = DbConn::from_ctx(ctx);
-        let event = Event::with_id(self.event, conn).await?;
+        let pool: &MySqlPool = ctx.data_unchecked();
+        let event = Event::with_id(self.event, pool).await?;
         let is_active =
-            ActiveSemester::for_member_during_semester(&self.member, &event.semester, conn)
+            ActiveSemester::for_member_during_semester(&self.member, &event.semester, pool)
                 .await?
                 .is_some();
 
-        Ok(event.rsvp_issue_for(Some(self), is_active))
+        event.rsvp_issue_for(Some(self), is_active)
     }
 
     /// Whether the absence is approved
@@ -66,8 +66,8 @@ impl Attendance {
 }
 
 impl Attendance {
-    pub async fn for_member_at_event(email: &str, event_id: i32, conn: &DbConn) -> Result<Self> {
-        Self::for_member_at_event_opt(email, event_id, conn)
+    pub async fn for_member_at_event(email: &str, event_id: i32, pool: &MySqlPool) -> Result<Self> {
+        Self::for_member_at_event_opt(email, event_id, pool)
             .await?
             .ok_or_else(|| {
                 format!(
@@ -81,7 +81,7 @@ impl Attendance {
     pub async fn for_member_at_event_opt(
         email: &str,
         event_id: i32,
-        conn: &DbConn,
+        pool: &MySqlPool,
     ) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
@@ -91,14 +91,14 @@ impl Attendance {
             email,
             event_id
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn for_event(event_id: i32, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn for_event(event_id: i32, pool: &MySqlPool) -> Result<Vec<Self>> {
         // TODO: verify_exists
-        Event::with_id(event_id, conn).await?;
+        Event::with_id(event_id, pool).await?;
 
         sqlx::query_as!(
             Self,
@@ -107,16 +107,20 @@ impl Attendance {
              FROM attendance WHERE event = ?",
             event_id
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn create_for_new_member(email: &str, semester: &str, conn: &DbConn) -> Result<()> {
-        let events = Event::for_semester(semester, conn).await?;
+    pub async fn create_for_new_member(
+        email: &str,
+        semester: &str,
+        pool: &MySqlPool,
+    ) -> Result<()> {
+        let events = Event::for_semester(semester, pool).await?;
 
         // TODO: make batch query
-        let now = crate::util::now();
+        let now = crate::util::now()?;
         for event in events {
             let should_attend = if event.call_time.0 < now {
                 false
@@ -129,16 +133,16 @@ impl Attendance {
                 should_attend,
                 email
             )
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
         }
 
         Ok(())
     }
 
-    pub async fn create_for_new_event(event_id: i32, conn: &DbConn) -> Result<()> {
-        let event = Event::with_id(event_id, conn).await?;
-        let active_members = Member::active_during(&event.semester, conn).await?;
+    pub async fn create_for_new_event(event_id: i32, pool: &MySqlPool) -> Result<()> {
+        let event = Event::with_id(event_id, pool).await?;
+        let active_members = Member::active_during(&event.semester, pool).await?;
 
         // TODO: make batch query
         for member in active_members {
@@ -148,21 +152,21 @@ impl Attendance {
                 event.default_attend,
                 member.email
             )
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
         }
 
         Ok(())
     }
 
-    pub async fn excuse_unconfirmed(event_id: i32, conn: &DbConn) -> Result<()> {
-        Event::with_id(event_id, conn).await?;
+    pub async fn excuse_unconfirmed(event_id: i32, pool: &MySqlPool) -> Result<()> {
+        Event::with_id(event_id, pool).await?;
 
         sqlx::query!(
             "UPDATE attendance SET should_attend = false WHERE event = ? AND confirmed = false",
             event_id
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())
@@ -172,10 +176,10 @@ impl Attendance {
         event_id: i32,
         email: &str,
         update: AttendanceUpdate,
-        conn: &DbConn,
+        pool: &MySqlPool,
     ) -> Result<()> {
         // TODO: verify exists
-        Self::for_member_at_event(email, event_id, conn).await?;
+        Self::for_member_at_event(email, event_id, pool).await?;
 
         sqlx::query!(
             "UPDATE attendance SET \
@@ -188,7 +192,7 @@ impl Attendance {
             email,
             event_id
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())
@@ -198,11 +202,11 @@ impl Attendance {
         event_id: i32,
         email: &str,
         attending: bool,
-        conn: &DbConn,
+        pool: &MySqlPool,
     ) -> Result<()> {
-        let event = Event::with_id(event_id, conn).await?;
-        let attendance = Self::for_member_at_event_opt(email, event_id, conn).await?;
-        let is_active = ActiveSemester::for_member_during_semester(email, &event.semester, conn)
+        let event = Event::with_id(event_id, pool).await?;
+        let attendance = Self::for_member_at_event_opt(email, event_id, pool).await?;
+        let is_active = ActiveSemester::for_member_during_semester(email, &event.semester, pool)
             .await?
             .is_some();
         event.ensure_no_rsvp_issue(attendance.as_ref(), is_active)?;
@@ -214,16 +218,16 @@ impl Attendance {
             event_id,
             email
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())
     }
 
-    pub async fn confirm_for_event(event_id: i32, email: &str, conn: &DbConn) -> Result<()> {
+    pub async fn confirm_for_event(event_id: i32, email: &str, pool: &MySqlPool) -> Result<()> {
         // TODO: verify_exists
-        Event::with_id(event_id, conn).await?;
-        Attendance::for_member_at_event(email, event_id, conn).await?;
+        Event::with_id(event_id, pool).await?;
+        Attendance::for_member_at_event(email, event_id, pool).await?;
 
         sqlx::query!(
             "UPDATE attendance SET should_attend = true, confirmed = true \
@@ -231,7 +235,7 @@ impl Attendance {
             event_id,
             email
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())

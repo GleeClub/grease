@@ -1,6 +1,6 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::models::event::Event;
 use crate::models::member::Member;
 
@@ -20,13 +20,13 @@ pub struct Carpool {
 impl Carpool {
     /// The driver of the carpool
     pub async fn driver(&self, ctx: &Context<'_>) -> Result<Member> {
-        let conn = DbConn::from_ctx(ctx);
-        Member::with_email(&self.driver, &conn).await
+        let pool: &MySqlPool = ctx.data_unchecked();
+        Member::with_email(&self.driver, &pool).await
     }
 
     /// The passengers of the carpool
     pub async fn passengers(&self, ctx: &Context<'_>) -> Result<Vec<Member>> {
-        let conn = DbConn::from_ctx(ctx);
+        let pool: &MySqlPool = ctx.data_unchecked();
         sqlx::query_as!(
             Member,
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
@@ -37,16 +37,16 @@ impl Carpool {
              ORDER BY last_name, preferred_name, first_name",
             self.id
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
 }
 
 impl Carpool {
-    pub async fn for_event(event_id: i32, conn: &DbConn) -> Result<Vec<Carpool>> {
+    pub async fn for_event(event_id: i32, pool: &MySqlPool) -> Result<Vec<Carpool>> {
         sqlx::query_as!(Self, "SELECT * FROM carpool WHERE event = ?", event_id)
-            .fetch_all(&mut *conn.get().await)
+            .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
@@ -54,13 +54,13 @@ impl Carpool {
     pub async fn update(
         event_id: i32,
         updated_carpools: Vec<UpdatedCarpool>,
-        conn: &DbConn,
+        pool: &MySqlPool,
     ) -> Result<()> {
         // TODO: verify exists?
-        Event::with_id(event_id, conn).await?;
+        Event::with_id(event_id, pool).await?;
 
         sqlx::query!("DELETE FROM carpool WHERE event = ?", event_id)
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
 
         // TODO: batch?
@@ -70,10 +70,10 @@ impl Carpool {
                 event_id,
                 carpool.driver
             )
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
             let new_carpool_id = sqlx::query_scalar!("SELECT id FROM carpool ORDER BY id DESC")
-                .fetch_one(&mut *conn.get().await)
+                .fetch_one(pool)
                 .await?;
 
             for passenger in carpool.passengers {
@@ -82,7 +82,7 @@ impl Carpool {
                     passenger,
                     new_carpool_id
                 )
-                .execute(&mut *conn.get().await)
+                .execute(pool)
                 .await?;
             }
         }

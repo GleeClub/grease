@@ -1,6 +1,6 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::graphql::guards::Permission;
 use crate::models::member::Member;
 use crate::models::GqlDate;
@@ -26,9 +26,9 @@ impl Minutes {
     /// The private, complete officer notes
     pub async fn private(&self, ctx: &Context<'_>) -> Result<Option<&String>> {
         if let Some(user) = ctx.data_opt::<Member>() {
-            let conn = DbConn::from_ctx(ctx);
+            let pool: &MySqlPool = ctx.data_unchecked();
             if Permission::VIEW_COMPLETE_MINUTES
-                .granted_to(&user.email, conn)
+                .granted_to(&user.email, pool)
                 .await?
             {
                 return Ok(self.private.as_ref());
@@ -40,47 +40,47 @@ impl Minutes {
 }
 
 impl Minutes {
-    pub async fn with_id(id: i32, conn: &DbConn) -> Result<Self> {
-        Self::with_id_opt(id, conn)
+    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+        Self::with_id_opt(id, pool)
             .await?
             .ok_or_else(|| format!("No meeting minutes with id {}", id).into())
     }
 
-    pub async fn with_id_opt(id: i32, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, name, date as \"date: _\", public, private
              FROM minutes WHERE id = ?",
             id
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, name, date as \"date: _\", public, private
              FROM minutes ORDER BY date"
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn create(name: &str, conn: &DbConn) -> Result<i32> {
+    pub async fn create(name: &str, pool: &MySqlPool) -> Result<i32> {
         sqlx::query!("INSERT INTO minutes (name) VALUES (?)", name)
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
 
         sqlx::query_scalar!("SELECT id FROM minutes ORDER BY id DESC")
-            .fetch_one(&mut *conn.get().await)
+            .fetch_one(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn update(id: i32, update: UpdatedMeetingMinutes, conn: &DbConn) -> Result<()> {
+    pub async fn update(id: i32, update: UpdatedMeetingMinutes, pool: &MySqlPool) -> Result<()> {
         sqlx::query!(
             "UPDATE minutes SET name = ?, private = ?, public = ? WHERE id = ?",
             update.name,
@@ -88,15 +88,15 @@ impl Minutes {
             update.public,
             id
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())
     }
 
-    pub async fn delete(id: i32, conn: &DbConn) -> Result<()> {
+    pub async fn delete(id: i32, pool: &MySqlPool) -> Result<()> {
         sqlx::query!("DELETE FROM minutes WHERE id = ?", id)
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
 
         Ok(())

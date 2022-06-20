@@ -1,33 +1,17 @@
-use cgi::http::response::Builder;
+use std::env;
+
+use sqlx::MySqlPool;
 use time::OffsetDateTime;
 
-const HEADER_TOKEN: &str = "GREASE_TOKEN";
+use crate::error::{GreaseError, GreaseResult};
 
-pub fn now() -> OffsetDateTime {
-    OffsetDateTime::try_now_local().expect("Failed to get system time UTC offset")
+pub fn now() -> GreaseResult<OffsetDateTime> {
+    OffsetDateTime::try_now_local().map_err(Into::into)
 }
 
-pub fn get_token_from_header<'a>(request: &'a cgi::Request) -> Option<&'a str> {
-    request
-        .headers()
-        .get(HEADER_TOKEN)
-        .and_then(|header| header.to_str().ok())
-}
+pub async fn connect_to_db() -> GreaseResult<MySqlPool> {
+    dotenv::dotenv().ok();
+    let db_uri = env::var("DATABASE_URL").map_err(|_e| GreaseError::DbUrlNotProvided)?;
 
-pub fn gql_err_to_anyhow(err: async_graphql::Error) -> anyhow::Error {
-    anyhow::anyhow!("{}", err.message)
-}
-
-pub fn options_response() -> cgi::Response {
-    Builder::new()
-        .status(204)
-        .header("Allow", "GET, POST, OPTIONS")
-        .header("Access-Control-Allow-Origin", "*")
-        .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        .header(
-            "Access-Control-Allow-Headers",
-            "token,access-control-allow-origin,content-type",
-        )
-        .body(Vec::new())
-        .unwrap()
+    MySqlPool::connect(&db_uri).await.map_err(Into::into)
 }

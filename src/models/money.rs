@@ -1,6 +1,6 @@
 use async_graphql::{InputObject, Result, SimpleObject};
+use sqlx::MySqlPool;
 
-use crate::db::DbConn;
 use crate::models::semester::Semester;
 use crate::models::GqlDateTime;
 
@@ -22,38 +22,38 @@ impl Fee {
     pub const DUES_DESCRIPTION: &'static str = "Semesterly Dues";
     pub const LATE_DUES_DESCRIPTION: &'static str = "Late Dues";
 
-    pub async fn with_name(name: &str, conn: &DbConn) -> Result<Self> {
-        Self::with_name_opt(name, conn)
+    pub async fn with_name(name: &str, pool: &MySqlPool) -> Result<Self> {
+        Self::with_name_opt(name, pool)
             .await?
             .ok_or_else(|| format!("No fee named {}", name))
             .map_err(Into::into)
     }
 
-    pub async fn with_name_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM fee WHERE name = ?", name)
-            .fetch_optional(&mut *conn.get().await)
+            .fetch_optional(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM fee ORDER BY NAME")
-            .fetch_all(&mut *conn.get().await)
+            .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn set_amount(name: &str, new_amount: i32, conn: &DbConn) -> Result<()> {
+    pub async fn set_amount(name: &str, new_amount: i32, pool: &MySqlPool) -> Result<()> {
         sqlx::query!("UPDATE fee SET amount = ? WHERE name = ?", new_amount, name)
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
 
         Ok(())
     }
 
-    pub async fn charge_dues_for_semester(conn: &DbConn) -> Result<()> {
-        let dues = Self::with_name(Self::DUES, conn).await?;
-        let current_semester = Semester::get_current(conn).await?;
+    pub async fn charge_dues_for_semester(pool: &MySqlPool) -> Result<()> {
+        let dues = Self::with_name(Self::DUES, pool).await?;
+        let current_semester = Semester::get_current(pool).await?;
 
         let members_who_havent_paid = sqlx::query_scalar!(
             "SELECT member FROM active_semester WHERE semester = ? AND member NOT IN \
@@ -62,7 +62,7 @@ impl Fee {
             Self::DUES_NAME,
             Self::DUES_DESCRIPTION
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await?;
 
         for email in members_who_havent_paid {
@@ -75,16 +75,16 @@ impl Fee {
                 Self::DUES_DESCRIPTION,
                 current_semester.name,
             )
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
         }
 
         Ok(())
     }
 
-    pub async fn charge_late_dues_for_semester(conn: &DbConn) -> Result<()> {
-        let late_dues = Self::with_name(Self::LATE_DUES, conn).await?;
-        let current_semester = Semester::get_current(conn).await?;
+    pub async fn charge_late_dues_for_semester(pool: &MySqlPool) -> Result<()> {
+        let late_dues = Self::with_name(Self::LATE_DUES, pool).await?;
+        let current_semester = Semester::get_current(pool).await?;
 
         let members_who_havent_paid = sqlx::query_scalar!(
             "SELECT member FROM active_semester WHERE semester = ? AND member NOT IN \
@@ -93,7 +93,7 @@ impl Fee {
             Self::DUES_NAME,
             Self::DUES_DESCRIPTION
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await?;
 
         for email in members_who_havent_paid {
@@ -106,7 +106,7 @@ impl Fee {
                 Self::DUES_DESCRIPTION,
                 current_semester.name,
             )
-            .execute(&mut *conn.get().await)
+            .execute(pool)
             .await?;
         }
 
@@ -120,23 +120,23 @@ pub struct TransactionType {
 }
 
 impl TransactionType {
-    pub async fn all(conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM transaction_type ORDER BY name")
-            .fetch_all(&mut *conn.get().await)
+            .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn with_name(name: &str, conn: &DbConn) -> Result<Self> {
-        Self::with_name_opt(name, conn)
+    pub async fn with_name(name: &str, pool: &MySqlPool) -> Result<Self> {
+        Self::with_name_opt(name, pool)
             .await?
             .ok_or_else(|| format!("No transaction type named {}", name))
             .map_err(Into::into)
     }
 
-    pub async fn with_name_opt(name: &str, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM transaction_type WHERE name = ?", name)
-            .fetch_optional(&mut *conn.get().await)
+            .fetch_optional(pool)
             .await
             .map_err(Into::into)
     }
@@ -163,13 +163,13 @@ pub struct ClubTransaction {
 }
 
 impl ClubTransaction {
-    pub async fn with_id(id: i32, conn: &DbConn) -> Result<Self> {
-        Self::with_id_opt(id, conn)
+    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+        Self::with_id_opt(id, pool)
             .await?
             .ok_or_else(|| format!("No transaction with id {}", id).into())
     }
 
-    pub async fn with_id_opt(id: i32, conn: &DbConn) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, member, `time` as \"time: _\", amount,
@@ -177,12 +177,12 @@ impl ClubTransaction {
              FROM transaction WHERE id = ?",
             id
         )
-        .fetch_optional(&mut *conn.get().await)
+        .fetch_optional(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn for_semester(semester: &str, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, member, `time` as \"time: _\", amount,
@@ -190,12 +190,12 @@ impl ClubTransaction {
              FROM transaction WHERE semester = ? ORDER BY time",
             semester
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn for_member(member: &str, conn: &DbConn) -> Result<Vec<Self>> {
+    pub async fn for_member(member: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT id, member, `time` as \"time: _\", amount,
@@ -203,7 +203,7 @@ impl ClubTransaction {
              FROM transaction WHERE member = ? ORDER BY time",
             member
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
@@ -211,7 +211,7 @@ impl ClubTransaction {
     pub async fn for_member_during_semester(
         member: &str,
         semester: &str,
-        conn: &DbConn,
+        pool: &MySqlPool,
     ) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
@@ -221,32 +221,32 @@ impl ClubTransaction {
             member,
             semester
         )
-        .fetch_all(&mut *conn.get().await)
+        .fetch_all(pool)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn add_batch(batch: TransactionBatch, conn: &DbConn) -> Result<()> {
-        let current_semester = Semester::get_current(conn).await?;
-        let transaction_type = TransactionType::with_name(&batch.r#type, conn).await?;
+    pub async fn add_batch(batch: TransactionBatch, pool: &MySqlPool) -> Result<()> {
+        let current_semester = Semester::get_current(pool).await?;
+        let transaction_type = TransactionType::with_name(&batch.r#type, pool).await?;
 
         for member in batch.members {
             sqlx::query!(
                 "INSERT INTO transaction (member, amount, type, description, semester) VALUES (?, ?, ?, ?, ?)",
                 member, batch.amount, transaction_type.name, batch.description, current_semester.name)
-                .execute(&mut *conn.get().await).await?;
+                .execute(pool).await?;
         }
 
         Ok(())
     }
 
-    pub async fn resolve(id: i32, resolved: bool, conn: &DbConn) -> Result<()> {
+    pub async fn resolve(id: i32, resolved: bool, pool: &MySqlPool) -> Result<()> {
         sqlx::query!(
             "UPDATE transaction SET resolved = ? WHERE id = ?",
             resolved,
             id
         )
-        .execute(&mut *conn.get().await)
+        .execute(pool)
         .await?;
 
         Ok(())

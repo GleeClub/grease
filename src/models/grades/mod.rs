@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use async_graphql::{Result, SimpleObject};
+use sqlx::MySqlPool;
+use time::OffsetDateTime;
 
-use crate::db::DbConn;
 use crate::models::event::{Event, EventType};
 use crate::models::grades::context::GradesContext;
 use crate::models::grades::week::{EventWithAttendance, WeekOfAttendances};
-use crate::util::now;
 
 pub mod context;
 pub mod week;
@@ -42,9 +42,10 @@ pub struct GradeChange {
 }
 
 impl Grades {
-    pub async fn for_member(email: &str, semester: &str, conn: &DbConn) -> Result<Grades> {
+    pub async fn for_member(email: &str, semester: &str, pool: &MySqlPool) -> Result<Grades> {
+        let now = crate::util::now()?;
         let context =
-            GradesContext::for_members_during_semester(&vec![email], semester, conn).await?;
+            GradesContext::for_members_during_semester(&vec![email], semester, pool).await?;
         let mut grades = Grades {
             grade: 100.0,
             volunteer_gigs_attended: 0,
@@ -53,7 +54,7 @@ impl Grades {
 
         for week in context.weeks_of_attendance(email) {
             for event in week.events.iter() {
-                let change = Self::calculate_grade_change(event, &week, grades.grade);
+                let change = Self::calculate_grade_change(event, &week, grades.grade, &now);
                 grades.grade = change.partial_score;
                 grades.events_with_changes.push(EventWithGradeChange {
                     event: event.event.clone(),
@@ -73,10 +74,11 @@ impl Grades {
         event: &EventWithAttendance<'_>,
         week: &WeekOfAttendances<'_>,
         grade: f64,
+        now: &OffsetDateTime,
     ) -> GradeChange {
         let is_bonus_event = week.is_bonus_event(event);
 
-        let (change, reason) = if event.event.call_time.0 > now() {
+        let (change, reason) = if &event.event.call_time.0 > now {
             Self::event_hasnt_happened_yet()
         } else if event.did_attend() {
             if week.missed_event_of_type(EventType::REHEARSAL).is_some() && event.event.is_gig() {
@@ -89,7 +91,7 @@ impl Grades {
                 Self::attended_normal_event()
             }
         } else if event.should_attend() {
-            Self::should_have_attended(event, week)
+            Self::should_have_attended(event, week, now)
         } else {
             Self::didnt_need_to_attend()
         };
@@ -215,6 +217,7 @@ impl Grades {
     fn should_have_attended(
         event: &EventWithAttendance,
         week: &WeekOfAttendances,
+        now: &OffsetDateTime,
     ) -> (f64, String) {
         // Lose the full point value if did not attend
         if event.event.r#type == EventType::OMBUDS {
@@ -250,7 +253,7 @@ impl Grades {
                 .last()
                 .map(|last_sectional| {
                     last_sectional.event.call_time.0 > event.event.call_time.0
-                        && last_sectional.event.call_time.0 > now()
+                        && &last_sectional.event.call_time.0 > now
                 })
                 .unwrap_or(false)
         {
