@@ -10,7 +10,6 @@ pub fn now() -> GreaseResult<OffsetDateTime> {
 }
 
 pub async fn connect_to_db() -> GreaseResult<MySqlPool> {
-    dotenv::dotenv().ok();
     let db_uri = env::var("DATABASE_URL").map_err(|_e| GreaseError::DbUrlNotProvided)?;
 
     MySqlPool::connect(&db_uri).await.map_err(Into::into)

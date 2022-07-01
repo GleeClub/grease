@@ -103,7 +103,7 @@ impl Fee {
                 email,
                 late_dues.amount,
                 Self::DUES_NAME,
-                Self::DUES_DESCRIPTION,
+                Self::LATE_DUES_DESCRIPTION,
                 current_semester.name,
             )
             .execute(pool)
@@ -202,24 +202,6 @@ impl ClubTransaction {
                  description, semester, `type`, resolved as \"resolved: bool\"
              FROM transaction WHERE member = ? ORDER BY time",
             member
-        )
-        .fetch_all(pool)
-        .await
-        .map_err(Into::into)
-    }
-
-    pub async fn for_member_during_semester(
-        member: &str,
-        semester: &str,
-        pool: &MySqlPool,
-    ) -> Result<Vec<Self>> {
-        sqlx::query_as!(
-            Self,
-            "SELECT id, member, `time` as \"time: _\", amount,
-                 description, semester, `type`, resolved as \"resolved: bool\"
-             FROM transaction WHERE semester = ? AND member = ? ORDER BY time",
-            member,
-            semester
         )
         .fetch_all(pool)
         .await

@@ -300,13 +300,6 @@ impl SongLink {
             .map_err(Into::into)
     }
 
-    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM song_link")
-            .fetch_all(pool)
-            .await
-            .map_err(Into::into)
-    }
-
     pub async fn create(song_id: i32, new_link: NewSongLink, pool: &MySqlPool) -> Result<i32> {
         let encoded_target = if let Some(file) = new_link.link_file() {
             file.save()?;

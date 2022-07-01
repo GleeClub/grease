@@ -202,15 +202,6 @@ impl Member {
         }
     }
 
-    pub async fn is_active(&self, email: &str, pool: &MySqlPool) -> Result<bool> {
-        let current_semester = Semester::get_current(pool).await?;
-        Ok(
-            ActiveSemester::for_member_during_semester(email, &current_semester.name, pool)
-                .await?
-                .is_some(),
-        )
-    }
-
     pub async fn register(new_member: NewMember, pool: &MySqlPool) -> Result<()> {
         if sqlx::query!("SELECT email FROM member WHERE email = ?", new_member.email)
             .fetch_optional(pool)

@@ -4,30 +4,14 @@ version = "0.1.0"
 authors = ["Sam Mohr <sam.mohr@protonmail.com>"]
 edition = "2021"
 
-[lib]
-name = "grease"
-path = "src/lib.rs"
-
-[[bin]]
-name = "grease"
-path = "src/bin/api.rs"
-
-[[bin]]
-name = "grease_tools"
-path = "src/bin/tools.rs"
-
-[[bin]]
-name = "send_emails"
-path = "src/bin/emails.rs"
-
 [dependencies]
-# TODO: actually use the dataloader, or remove the feature
-async-graphql = { version = "4", features = ["dataloader"] }
+axum = { version = "0.5", features = ["headers"] }
+async-graphql-axum = "4"
+# TODO: use the dataloader?
+async-graphql = "4"
 async-trait = "0.1"
 base64 = "0.10"
 bcrypt = "0.12"
-dotenv = "0.15"
-lambda_runtime = "0.5"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

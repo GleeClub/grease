@@ -337,6 +337,19 @@ impl MutationRoot {
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_LINKS)")]
+    pub async fn update_link(
+        &self,
+        ctx: &Context<'_>,
+        name: String,
+        url: String,
+    ) -> Result<DocumentLink> {
+        let pool: &MySqlPool = ctx.data_unchecked();
+        DocumentLink::set_url(&name, &url, pool).await?;
+
+        DocumentLink::with_name(&name, pool).await
+    }
+
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_LINKS)")]
     pub async fn delete_link(&self, ctx: &Context<'_>, name: String) -> Result<DocumentLink> {
         let pool: &MySqlPool = ctx.data_unchecked();
         let link = DocumentLink::with_name(&name, pool).await?;
