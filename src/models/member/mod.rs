@@ -195,8 +195,7 @@ impl Member {
                 .fetch_optional(pool)
                 .await?
         {
-            bcrypt::verify(&hash, pass_hash)
-                .map_err(|err| format!("Failed to verify password: {}", err).into())
+            Ok(bcrypt::verify(pass_hash, &hash).unwrap_or(false))
         } else {
             Ok(false)
         }

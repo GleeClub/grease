@@ -15,9 +15,11 @@ use std::net::SocketAddr;
 use anyhow::Context;
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use async_graphql::{Request, Response as GraphQLResponse};
+use axum::extract::Query;
 use axum::headers::{ContentType, HeaderMap};
 use axum::routing::get;
 use axum::{Extension, Json, Router, TypedHeader};
+use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::email::run_email_loop;
@@ -85,9 +87,18 @@ async fn query(
     Ok(Json(build_schema().execute(request).await))
 }
 
-async fn playground(headers: HeaderMap) -> GreaseResult<(TypedHeader<ContentType>, String)> {
+#[derive(Deserialize)]
+struct OptionalToken {
+    #[serde(default)]
+    pub token: Option<String>,
+}
+
+async fn playground(
+    headers: HeaderMap,
+    params: Query<OptionalToken>,
+) -> GreaseResult<(TypedHeader<ContentType>, String)> {
     let mut config = GraphQLPlaygroundConfig::new(API_URL);
-    if let Some(header) = get_token(&headers)? {
+    if let Some(header) = get_token(&headers)?.or(params.token.as_deref()) {
         config = config.with_header(GREASE_TOKEN, header);
     }
 

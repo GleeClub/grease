@@ -85,18 +85,18 @@ impl GradesContext {
         let start_of_semester = self
             .events
             .first()
-            .map(|(event, _gig)| &event.call_time)
-            .unwrap_or(&self.semester.start_date);
+            .map(|(event, _gig)| event.call_time.0.date())
+            .unwrap_or(self.semester.start_date.0);
         let end_of_semester = self
             .events
             .last()
-            .map(|(event, _gig)| &event.call_time)
-            .unwrap_or(&self.semester.end_date);
-        let days_after_sunday = start_of_semester.0.weekday().number_from_sunday() - 1;
-        let first_sunday = start_of_semester.0 - Duration::days(days_after_sunday as i64);
+            .map(|(event, _gig)| event.call_time.0.date())
+            .unwrap_or(self.semester.end_date.0);
+        let days_after_sunday = start_of_semester.weekday().number_from_sunday() - 1;
+        let first_sunday = start_of_semester - Duration::days(days_after_sunday as i64);
 
         std::iter::successors(Some(first_sunday), move |sunday| {
-            Some(*sunday + Duration::weeks(1)).filter(|s| s <= &end_of_semester.0)
+            Some(*sunday + Duration::weeks(1)).filter(|s| s <= &end_of_semester)
         })
         .map(|sunday| {
             let next_sunday = sunday + Duration::weeks(1);
@@ -105,8 +105,8 @@ impl GradesContext {
                 events: self
                     .events
                     .iter()
-                    .skip_while(|(event, _gig)| event.call_time.0 < sunday)
-                    .take_while(|(event, _gig)| event.call_time.0 < next_sunday)
+                    .skip_while(|(event, _gig)| event.call_time.0.date() < sunday)
+                    .take_while(|(event, _gig)| event.call_time.0.date() < next_sunday)
                     .map(|(event, gig)| EventWithAttendance {
                         event: event.clone(),
                         gig: gig.as_ref(),

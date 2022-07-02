@@ -1,16 +1,16 @@
 use async_graphql::{InputObject, Result, SimpleObject};
 use sqlx::PgPool;
 
-use crate::models::{GqlDate, GqlDateTime};
+use crate::models::GqlDate;
 
 #[derive(SimpleObject)]
 pub struct Semester {
     /// The name of the semester
     pub name: String,
     /// When the semester starts
-    pub start_date: GqlDateTime,
+    pub start_date: GqlDate,
     /// When the semester ends
-    pub end_date: GqlDateTime,
+    pub end_date: GqlDate,
     /// How many volunteer gigs are required for the semester (default: 5)
     pub gig_requirement: i64,
     /// Whether this is the current semester
