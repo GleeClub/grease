@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
 use crate::file::MusicFile;
 
@@ -34,7 +34,7 @@ pub enum Pitch {
 
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
 #[sqlx(rename_all = "snake_case")]
-pub enum Mode {
+pub enum SongMode {
     Major,
     Minor,
 }
@@ -43,7 +43,7 @@ pub enum Mode {
 #[graphql(complex)]
 pub struct Song {
     /// The ID of the song
-    pub id: i32,
+    pub id: i64,
     /// The title of the song
     pub title: String,
     /// Any information related to the song
@@ -56,14 +56,14 @@ pub struct Song {
     /// The starting pitch for the song
     pub starting_pitch: Option<Pitch>,
     /// The mode of the song (Major or Minor)
-    pub mode: Option<Mode>,
+    pub mode: Option<SongMode>,
 }
 
 #[ComplexObject]
 impl Song {
     /// The links connected to the song sorted into sections
     pub async fn links(&self, ctx: &Context<'_>) -> Result<Vec<SongLinkSection>> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
         let mut all_links = SongLink::for_song(self.id, pool).await?;
         let all_types = MediaType::all(pool).await?;
 
@@ -78,18 +78,18 @@ impl Song {
 }
 
 impl Song {
-    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+    pub async fn with_id(id: i64, pool: &PgPool) -> Result<Self> {
         Self::with_id_opt(id, pool)
             .await?
-            .ok_or_else(|| format!("No song with id {}", id).into())
+            .ok_or_else(|| format!("No song with ID {}", id).into())
     }
 
-    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i64, pool: &PgPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT id, title, info, current as \"current: bool\", `key` as \"key: _\",
+            "SELECT id, title, info, current, key as \"key: _\",
                  starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"
-             FROM song WHERE id = ?",
+             FROM song WHERE id = $1",
             id
         )
         .fetch_optional(pool)
@@ -97,10 +97,10 @@ impl Song {
         .map_err(Into::into)
     }
 
-    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
+    pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT id, title, info, current as \"current: bool\", `key` as \"key: _\",
+            "SELECT id, title, info, current, key as \"key: _\",
                  starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"
              FROM song ORDER BY title"
         )
@@ -110,13 +110,13 @@ impl Song {
     }
 
     // TODO: fix query
-    pub async fn setlist_for_event(event_id: i32, pool: &MySqlPool) -> Result<Vec<Self>> {
+    pub async fn setlist_for_event(event_id: i64, pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT s.id, s.title, s.info, s.current as \"current: bool\", s.`key` as \"key: _\",
+            "SELECT s.id, s.title, s.info, s.current, s.key as \"key: _\",
                  starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"
              FROM song s INNER JOIN gig_song ON s.id = gig_song.song
-             WHERE gig_song.event = ? ORDER BY gig_song.order ASC",
+             WHERE gig_song.event = $1 ORDER BY gig_song.order ASC",
             event_id
         )
         .fetch_all(pool)
@@ -124,9 +124,9 @@ impl Song {
         .map_err(Into::into)
     }
 
-    pub async fn create(new_song: NewSong, pool: &MySqlPool) -> Result<i32> {
+    pub async fn create(new_song: NewSong, pool: &PgPool) -> Result<i64> {
         sqlx::query!(
-            "INSERT INTO song (title, info) VALUES (?, ?)",
+            "INSERT INTO song (title, info) VALUES ($1, $2)",
             new_song.title,
             new_song.info
         )
@@ -139,18 +139,18 @@ impl Song {
             .map_err(Into::into)
     }
 
-    pub async fn update(id: i32, updated_song: SongUpdate, pool: &MySqlPool) -> Result<()> {
+    pub async fn update(id: i64, updated_song: SongUpdate, pool: &PgPool) -> Result<()> {
         sqlx::query!(
-            "UPDATE song SET title = ?, current = ?, info = ?, `key` = ?, starting_pitch = ?, mode = ? WHERE id = ?",
-            updated_song.title, updated_song.current, updated_song.info, updated_song.key, updated_song.starting_pitch, updated_song.mode, id
+            "UPDATE song SET title = $1, current = $2, info = $3, key = $4, starting_pitch = $5, mode = $6 WHERE id = $7",
+            updated_song.title, updated_song.current, updated_song.info, updated_song.key as _, updated_song.starting_pitch as _, updated_song.mode as _, id
         ).execute(pool).await?;
 
         Ok(())
     }
 
-    pub async fn delete(id: i32, pool: &MySqlPool) -> Result<()> {
+    pub async fn delete(id: i64, pool: &PgPool) -> Result<()> {
         // TODO: verify exists
-        sqlx::query!("DELETE FROM song WHERE id = ?", id)
+        sqlx::query!("DELETE FROM song WHERE id = $1", id)
             .execute(pool)
             .await?;
 
@@ -166,17 +166,16 @@ pub struct PublicSong {
 }
 
 impl PublicSong {
-    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
+    pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
         let mut all_public_videos = sqlx::query!(
-            "SELECT name, target, song FROM song_link WHERE `type` = ?",
+            "SELECT name, target, song FROM song_link WHERE type = $1",
             SongLink::PERFORMANCES
         )
         .fetch_all(pool)
         .await?;
-        let all_public_songs =
-            sqlx::query!("SELECT id, title, current as \"current: bool\" FROM song ORDER BY title")
-                .fetch_all(pool)
-                .await?;
+        let all_public_songs = sqlx::query!("SELECT id, title, current FROM song ORDER BY title")
+            .fetch_all(pool)
+            .await?;
 
         Ok(all_public_songs
             .into_iter()
@@ -209,9 +208,9 @@ pub struct SongLinkSection {
 
 #[derive(SimpleObject)]
 pub struct GigSong {
-    pub event: i32,
-    pub song: i32,
-    pub order: i32,
+    pub event: i64,
+    pub song: i64,
+    pub order: i64,
 }
 
 #[derive(SimpleObject)]
@@ -219,7 +218,7 @@ pub struct MediaType {
     /// The name of the type of media
     pub name: String,
     /// The order of where this media type appears in a song's link section
-    pub order: i32,
+    pub order: i64,
     /// The type of storage that this type of media points to
     pub storage: StorageType,
 }
@@ -232,17 +231,17 @@ pub enum StorageType {
 }
 
 impl MediaType {
-    pub async fn with_name(name: &str, pool: &MySqlPool) -> Result<Self> {
+    pub async fn with_name(name: &str, pool: &PgPool) -> Result<Self> {
         Self::with_name_opt(name, pool)
             .await?
             .ok_or_else(|| format!("No media type named {}", name).into())
     }
 
-    pub async fn with_name_opt(name: &str, pool: &MySqlPool) -> Result<Option<Self>> {
+    pub async fn with_name_opt(name: &str, pool: &PgPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT name, `order`, storage as \"storage: _\"
-             FROM media_type WHERE name = ?",
+            "SELECT name, \"order\", storage as \"storage: _\"
+             FROM media_type WHERE name = $1",
             name
         )
         .fetch_optional(pool)
@@ -250,12 +249,12 @@ impl MediaType {
         .map_err(Into::into)
     }
 
-    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
+    pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
         // TODO: grep ASC -> remove all instances
         sqlx::query_as!(
             Self,
-            "SELECT name, `order`, storage as \"storage: _\"
-             FROM media_type ORDER BY `order`"
+            "SELECT name, \"order\", storage as \"storage: _\"
+             FROM media_type ORDER BY \"order\""
         )
         .fetch_all(pool)
         .await
@@ -266,9 +265,9 @@ impl MediaType {
 #[derive(SimpleObject)]
 pub struct SongLink {
     /// The ID of the song link
-    pub id: i32,
+    pub id: i64,
     /// The ID of the song this link belongs to
-    pub song: i32,
+    pub song: i64,
     /// The type of this link (e.g. MIDI)
     pub r#type: String,
     /// The name of this link
@@ -280,27 +279,27 @@ pub struct SongLink {
 impl SongLink {
     pub const PERFORMANCES: &'static str = "Performances";
 
-    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+    pub async fn with_id(id: i64, pool: &PgPool) -> Result<Self> {
         Self::with_id_opt(id, pool)
             .await?
-            .ok_or_else(|| format!("No song link with id {}", id).into())
+            .ok_or_else(|| format!("No song link with ID {}", id).into())
     }
 
-    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM song_link WHERE id = ?", id)
+    pub async fn with_id_opt(id: i64, pool: &PgPool) -> Result<Option<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM song_link WHERE id = $1", id)
             .fetch_optional(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn for_song(song_id: i32, pool: &MySqlPool) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM song_link WHERE song = ?", song_id)
+    pub async fn for_song(song_id: i64, pool: &PgPool) -> Result<Vec<Self>> {
+        sqlx::query_as!(Self, "SELECT * FROM song_link WHERE song = $1", song_id)
             .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn create(song_id: i32, new_link: NewSongLink, pool: &MySqlPool) -> Result<i32> {
+    pub async fn create(song_id: i64, new_link: NewSongLink, pool: &PgPool) -> Result<i64> {
         let encoded_target = if let Some(file) = new_link.link_file() {
             file.save()?;
             file.path.to_string_lossy().to_string()
@@ -309,7 +308,7 @@ impl SongLink {
         };
 
         sqlx::query!(
-            "INSERT INTO song_link (song, type, name, target) VALUES (?, ?, ?, ?)",
+            "INSERT INTO song_link (song, type, name, target) VALUES ($1, $2, $3, $4)",
             song_id,
             new_link.r#type,
             new_link.name,
@@ -324,7 +323,7 @@ impl SongLink {
             .map_err(Into::into)
     }
 
-    pub async fn update(id: i32, update: SongLinkUpdate, pool: &MySqlPool) -> Result<()> {
+    pub async fn update(id: i64, update: SongLinkUpdate, pool: &PgPool) -> Result<()> {
         let song_link = SongLink::with_id(id, pool).await?;
 
         let media_type = MediaType::with_name(&song_link.r#type, pool).await?;
@@ -336,7 +335,7 @@ impl SongLink {
         };
 
         sqlx::query!(
-            "UPDATE song_link SET name = ?, target = ? WHERE id = ?",
+            "UPDATE song_link SET name = $1, target = $2 WHERE id = $3",
             update.name,
             new_target,
             id,
@@ -359,11 +358,11 @@ impl SongLink {
         Ok(())
     }
 
-    pub async fn delete(id: i32, pool: &MySqlPool) -> Result<()> {
+    pub async fn delete(id: i64, pool: &PgPool) -> Result<()> {
         let song_link = SongLink::with_id(id, pool).await?;
         let media_type = MediaType::with_name(&song_link.r#type, pool).await?;
 
-        sqlx::query!("DELETE FROM song_link WHERE id = ?", id)
+        sqlx::query!("DELETE FROM song_link WHERE id = $1", id)
             .execute(pool)
             .await?;
 
@@ -388,7 +387,7 @@ pub struct SongUpdate {
     pub info: Option<String>,
     pub key: Option<Pitch>,
     pub starting_pitch: Option<Pitch>,
-    pub mode: Option<Mode>,
+    pub mode: Option<SongMode>,
 }
 
 #[derive(InputObject)]

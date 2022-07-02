@@ -1,5 +1,5 @@
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
 use crate::models::event::uniform::Uniform;
 use crate::models::event::Event;
@@ -9,7 +9,7 @@ use crate::models::GqlDateTime;
 #[graphql(complex)]
 pub struct Gig {
     /// The ID of the event this gig belongs to
-    pub event: i32,
+    pub event: i64,
     /// When members are expected to actually perform
     pub performance_time: GqlDateTime,
     /// The name of the contact for this gig
@@ -19,7 +19,7 @@ pub struct Gig {
     /// The phone number of the contact for this gig
     pub contact_phone: Option<String>,
     /// The price we are charging for this gig
-    pub price: Option<i32>,
+    pub price: Option<i64>,
     /// Whether this gig is visible on the external website
     pub public: bool,
     /// A summary of this event for the external site (if it is public)
@@ -28,25 +28,25 @@ pub struct Gig {
     pub description: Option<String>,
 
     #[graphql(skip)]
-    pub uniform: i32,
+    pub uniform: i64,
 }
 
 #[ComplexObject]
 impl Gig {
     /// The uniform for this gig
     pub async fn uniform(&self, ctx: &Context<'_>) -> Result<Uniform> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
         Uniform::with_id(self.uniform, pool).await
     }
 }
 
 impl Gig {
-    pub async fn for_event(event_id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
+    pub async fn for_event(event_id: i64, pool: &PgPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT event, performance_time as \"performance_time: _\", contact_name, contact_email,
                  contact_phone, price, public as \"public: bool\", summary, description, uniform
-             FROM gig WHERE event = ?",
+             FROM gig WHERE event = $1",
             event_id
         )
         .fetch_optional(pool)
@@ -54,13 +54,13 @@ impl Gig {
         .map_err(Into::into)
     }
 
-    pub async fn for_semester(semester: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester: &str, pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT event, performance_time as \"performance_time: _\", contact_name, contact_email,
                  contact_phone, price, public as \"public: bool\", summary, description, uniform
              FROM gig WHERE event in
-                 (SELECT id FROM event WHERE semester = ?)",
+                 (SELECT id FROM event WHERE semester = $1)",
             semester
         )
         .fetch_all(pool)
@@ -70,7 +70,7 @@ impl Gig {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
-#[sqlx(rename_all = "snake_case")]
+#[sqlx(type_name = "gig_request_status", rename_all = "snake_case")]
 pub enum GigRequestStatus {
     Pending,
     Accepted,
@@ -81,7 +81,7 @@ pub enum GigRequestStatus {
 #[graphql(complex)]
 pub struct GigRequest {
     /// The ID of the gig request
-    pub id: i32,
+    pub id: i64,
     /// When the gig request was placed
     pub time: GqlDateTime,
     /// The name of the potential event
@@ -104,7 +104,7 @@ pub struct GigRequest {
     pub status: GigRequestStatus,
 
     #[graphql(skip)]
-    pub event: Option<i32>,
+    pub event: Option<i64>,
 }
 
 #[ComplexObject]
@@ -112,7 +112,7 @@ impl GigRequest {
     /// If and when an event is created from a request, this is the event
     pub async fn event(&self, ctx: &Context<'_>) -> Result<Option<Event>> {
         if let Some(event_id) = self.event {
-            let pool: &MySqlPool = ctx.data_unchecked();
+            let pool: &PgPool = ctx.data_unchecked();
             Ok(Some(Event::with_id(event_id, pool).await?))
         } else {
             Ok(None)
@@ -121,18 +121,18 @@ impl GigRequest {
 }
 
 impl GigRequest {
-    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+    pub async fn with_id(id: i64, pool: &PgPool) -> Result<Self> {
         Self::with_id_opt(id, pool)
             .await?
             .ok_or_else(|| format!("No gig request with ID {}", id).into())
     }
 
-    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i64, pool: &PgPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT id, `time` as \"time: _\", name, organization, contact_name, contact_phone, contact_email,
+            "SELECT id, \"time\" as \"time: _\", name, organization, contact_name, contact_phone, contact_email,
                  start_time as \"start_time: _\", location, comments, status as \"status: _\", event
-             FROM gig_request WHERE id = ?",
+             FROM gig_request WHERE id = $1",
             id
         )
             .fetch_optional(pool)
@@ -140,10 +140,10 @@ impl GigRequest {
             .map_err(Into::into)
     }
 
-    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
+    pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT id, `time` as \"time: _\", name, organization, contact_name, contact_phone, contact_email,
+            "SELECT id, \"time\" as \"time: _\", name, organization, contact_name, contact_phone, contact_email,
                  start_time as \"start_time: _\", location, comments, status as \"status: _\", event
              FROM gig_request ORDER BY time"
         )
@@ -152,18 +152,18 @@ impl GigRequest {
             .map_err(Into::into)
     }
 
-    pub async fn submit(new_request: NewGigRequest, pool: &MySqlPool) -> Result<i32> {
+    pub async fn submit(new_request: NewGigRequest, pool: &PgPool) -> Result<i64> {
         sqlx::query!(
             "INSERT INTO gig_request (
                 name, organization, contact_name, contact_phone,
                 contact_email, start_time, location, comments)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             new_request.name,
             new_request.organization,
             new_request.contact_name,
             new_request.contact_phone,
             new_request.contact_email,
-            new_request.start_time,
+            new_request.start_time.0,
             new_request.location,
             new_request.comments
         )
@@ -176,7 +176,7 @@ impl GigRequest {
             .map_err(Into::into)
     }
 
-    pub async fn set_status(id: i32, status: GigRequestStatus, pool: &MySqlPool) -> Result<()> {
+    pub async fn set_status(id: i64, status: GigRequestStatus, pool: &PgPool) -> Result<()> {
         let request = Self::with_id(id, pool).await?;
 
         if request.status == status {
@@ -200,16 +200,20 @@ impl GigRequest {
                 )
             }
             _ => {
-                sqlx::query!("UPDATE gig_request SET status = ? WHERE id = ?", status, id)
-                    .execute(pool)
-                    .await?;
+                sqlx::query!(
+                    "UPDATE gig_request SET status = $1 WHERE id = $2",
+                    status as _,
+                    id
+                )
+                .execute(pool)
+                .await?;
 
                 Ok(())
             }
         }
     }
 
-    pub async fn build_new_gig(&self, pool: &MySqlPool) -> Result<NewGig> {
+    pub async fn build_new_gig(&self, pool: &PgPool) -> Result<NewGig> {
         let default_uniform = Uniform::get_default(pool).await?;
 
         Ok(NewGig {
@@ -241,11 +245,11 @@ pub struct NewGigRequest {
 #[derive(InputObject)]
 pub struct NewGig {
     pub performance_time: GqlDateTime,
-    pub uniform: i32,
+    pub uniform: i64,
     pub contact_name: Option<String>,
     pub contact_email: Option<String>,
     pub contact_phone: Option<String>,
-    pub price: Option<i32>,
+    pub price: Option<i64>,
     pub public: bool,
     pub summary: Option<String>,
     pub description: Option<String>,

@@ -1,10 +1,10 @@
 use async_graphql::Result;
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
 use crate::email::{Email, MEMBER_LIST_ADDRESS};
 use crate::models::event::Event;
 
-pub async fn email_for_event(event: &Event, pool: &MySqlPool) -> Result<Email<'static>> {
+pub async fn email_for_event(event: &Event, pool: &PgPool) -> Result<Email<'static>> {
     let subject = format!("{} is in 48 Hours", event.name);
     let body = event_email_body(event, pool).await?;
 
@@ -15,7 +15,7 @@ pub async fn email_for_event(event: &Event, pool: &MySqlPool) -> Result<Email<'s
     })
 }
 
-async fn event_email_body(_event: &Event, _pool: &MySqlPool) -> Result<String> {
+async fn event_email_body(_event: &Event, _pool: &PgPool) -> Result<String> {
     Ok(String::new())
 
     // let url = format!(

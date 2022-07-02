@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use async_graphql::{Result, SimpleObject};
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 use time::OffsetDateTime;
 
 use crate::models::event::{Event, EventType};
 use crate::models::grades::context::GradesContext;
 use crate::models::grades::week::{EventWithAttendance, WeekOfAttendances};
+use crate::util::current_time;
 
 pub mod context;
 pub mod week;
@@ -42,10 +43,11 @@ pub struct GradeChange {
 }
 
 impl Grades {
-    pub async fn for_member(email: &str, semester: &str, pool: &MySqlPool) -> Result<Grades> {
-        let now = crate::util::now()?;
+    pub async fn for_member(email: &str, semester: &str, pool: &PgPool) -> Result<Grades> {
+        let now = current_time();
         let context =
-            GradesContext::for_members_during_semester(&vec![email], semester, pool).await?;
+            GradesContext::for_members_during_semester(&vec![email.to_owned()], semester, pool)
+                .await?;
         let mut grades = Grades {
             grade: 100.0,
             volunteer_gigs_attended: 0,
@@ -162,7 +164,7 @@ impl Grades {
         }
     }
 
-    fn points_lost_for_lateness(event: &Event, minutes_late: i32) -> f64 {
+    fn points_lost_for_lateness(event: &Event, minutes_late: i64) -> f64 {
         // Lose points equal to the percentage of the event missed, if they should have attended
         let event_duration = if let Some(release_time) = &event.release_time {
             if &release_time.0 <= &event.call_time.0 {

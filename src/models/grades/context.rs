@@ -2,10 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use async_graphql::Result;
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 use time::Duration;
 
-use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestState};
+use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestStatus};
 use crate::models::event::attendance::Attendance;
 use crate::models::event::gig::Gig;
 use crate::models::event::Event;
@@ -25,7 +25,7 @@ impl AttendanceContext {
             let approved_absence = self
                 .absence_request
                 .as_ref()
-                .map(|request| request.state == AbsenceRequestState::Approved)
+                .map(|request| request.state == AbsenceRequestStatus::Approved)
                 .unwrap_or(false);
             attendance.should_attend && !attendance.did_attend && !approved_absence
         } else {
@@ -37,14 +37,14 @@ impl AttendanceContext {
 pub struct GradesContext {
     pub semester: Semester,
     pub events: Vec<(Arc<Event>, Option<Gig>)>,
-    pub attendance: HashMap<i32, HashMap<String, AttendanceContext>>,
+    pub attendance: HashMap<i64, HashMap<String, AttendanceContext>>,
 }
 
 impl GradesContext {
     pub async fn for_members_during_semester(
-        emails: &Vec<&str>,
+        emails: &Vec<String>,
         semester: &str,
-        pool: &MySqlPool,
+        pool: &PgPool,
     ) -> Result<Self> {
         let semester = Semester::with_name(semester, pool).await?;
         let events = Event::for_semester(&semester.name, pool)
@@ -53,7 +53,7 @@ impl GradesContext {
             .map(Arc::new)
             .collect::<Vec<_>>();
         let mut gigs = Gig::for_semester(&semester.name, pool).await?;
-        let event_map: HashMap<i32, Arc<Event>> = events
+        let event_map: HashMap<i64, Arc<Event>> = events
             .iter()
             .map(|event| (event.id, event.clone()))
             .collect();
@@ -123,15 +123,15 @@ impl GradesContext {
 
 impl AttendanceContext {
     async fn for_members_during_semester(
-        emails: &Vec<&str>,
+        emails: &Vec<String>,
         semester: &str,
-        events: &HashMap<i32, Arc<Event>>,
-        pool: &MySqlPool,
-    ) -> Result<HashMap<i32, HashMap<String, Self>>> {
+        events: &HashMap<i64, Arc<Event>>,
+        pool: &PgPool,
+    ) -> Result<HashMap<i64, HashMap<String, Self>>> {
         let active_members: HashSet<String> = sqlx::query_scalar!(
             "SELECT member FROM active_semester
-             WHERE find_in_set(member, ?) AND semester = ?",
-            emails.join(","),
+             WHERE member = ANY($1) AND semester = $2",
+            &emails[..],
             semester
         )
         .fetch_all(pool)
@@ -141,12 +141,11 @@ impl AttendanceContext {
 
         let attendances: Vec<Attendance> = sqlx::query_as!(
             Attendance,
-            "SELECT should_attend as \"should_attend: bool\", did_attend as \"did_attend: bool\",
-                 confirmed as \"confirmed: bool\", minutes_late, member, event
+            "SELECT should_attend, did_attend, confirmed, minutes_late, member, event
              FROM attendance
-             WHERE find_in_set(member, ?) AND event IN
-             (SELECT id FROM event WHERE semester = ?)",
-            emails.join(","),
+             WHERE member = Any($1) AND event IN
+             (SELECT id FROM event WHERE semester = $2)",
+            &emails[..],
             semester
         )
         .fetch_all(pool)
@@ -154,17 +153,17 @@ impl AttendanceContext {
 
         let absence_requests: Vec<AbsenceRequest> = sqlx::query_as!(
             AbsenceRequest,
-            "SELECT member, event, `time` as \"time: _\", reason, state as \"state: _\"
+            "SELECT member, event, \"time\" as \"time: _\", reason, state as \"state: _\"
              FROM absence_request
-             WHERE find_in_set(member, ?) AND event IN
-             (SELECT id FROM event WHERE semester = ?)",
-            emails.join(","),
+             WHERE member = ANY($1) AND event IN
+             (SELECT id FROM event WHERE semester = $2)",
+            emails,
             semester
         )
         .fetch_all(pool)
         .await?;
 
-        let mut all_context: HashMap<i32, HashMap<String, Self>> = HashMap::new();
+        let mut all_context: HashMap<i64, HashMap<String, Self>> = HashMap::new();
 
         for attendance in attendances {
             let context = all_context
@@ -174,7 +173,7 @@ impl AttendanceContext {
                 .or_default();
             let is_active = active_members.contains(&attendance.member);
             let rsvp_issue = if let Some(event) = events.get(&attendance.event) {
-                event.rsvp_issue_for(Some(&attendance), is_active)?
+                event.rsvp_issue_for(Some(&attendance), is_active)
             } else {
                 None
             };

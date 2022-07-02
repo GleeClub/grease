@@ -1,5 +1,7 @@
 use async_graphql::{InputValueError, InputValueResult, Scalar, ScalarType, Value};
-use time::{Date, Format, OffsetDateTime};
+use time::format_description::FormatItem;
+use time::macros::format_description;
+use time::{Date, OffsetDateTime, UtcOffset};
 
 pub mod event;
 pub mod grades;
@@ -13,7 +15,8 @@ pub mod song;
 pub mod static_data;
 pub mod variable;
 
-pub const DATE_FORMAT: &str = "%Y-%m-%d";
+pub const DATE_FORMAT: &[FormatItem] = format_description!("%Y-%m-%d");
+pub const DATETIME_FORMAT: &[FormatItem] = format_description!("%Y-%m-%dT%H:%M:%SZ");
 
 #[derive(sqlx::Type, Clone)]
 #[sqlx(transparent)]
@@ -32,7 +35,7 @@ impl ScalarType for GqlDate {
     }
 
     fn to_value(&self) -> Value {
-        Value::String(self.0.format(DATE_FORMAT))
+        Value::String(self.0.format(DATE_FORMAT).unwrap())
     }
 }
 
@@ -44,7 +47,7 @@ pub struct GqlDateTime(pub OffsetDateTime);
 impl ScalarType for GqlDateTime {
     fn parse(value: Value) -> InputValueResult<Self> {
         if let Value::String(date_str) = &value {
-            if let Ok(date) = OffsetDateTime::parse(date_str, Format::Rfc3339) {
+            if let Ok(date) = OffsetDateTime::parse(date_str, DATETIME_FORMAT) {
                 return Ok(GqlDateTime(date));
             }
         }
@@ -53,6 +56,11 @@ impl ScalarType for GqlDateTime {
     }
 
     fn to_value(&self) -> Value {
-        Value::String(self.0.format(Format::Rfc3339))
+        Value::String(
+            self.0
+                .to_offset(UtcOffset::UTC)
+                .format(DATETIME_FORMAT)
+                .unwrap(),
+        )
     }
 }

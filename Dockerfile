@@ -1,4 +1,4 @@
-FROM rust:latest as builder
+FROM rustlang/rust:nightly-bullseye-slim as builder
 
 # Make a fake Rust app to keep a cached layer of compiled crates
 RUN USER=root cargo new app
@@ -14,13 +14,13 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # Copy the rest
 COPY . .
 # Build (install) the actual binaries
-RUN cargo install --path .
+RUN SQLX_OFFLINE=true cargo install --path .
 
 # Runtime image
 FROM debian:bullseye-slim
 
 # Run as "app" user
-RUN useradd -ms /bin/bash app
+RUN useradd -m -s /bin/bash app
 
 USER app
 WORKDIR /app

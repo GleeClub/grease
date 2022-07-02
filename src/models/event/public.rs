@@ -1,16 +1,19 @@
 use async_graphql::{ComplexObject, Result, SimpleObject};
-use sqlx::MySqlPool;
+use sqlx::PgPool;
+use time::format_description::FormatItem;
+use time::macros::format_description;
 use time::{OffsetDateTime, UtcOffset};
 use uuid::Uuid;
 
 use crate::models::GqlDateTime;
+use crate::util::current_time;
 
-pub const DATETIME_FORMAT: &str = "%Y%m%dT%H%M%SZ";
+pub const DATETIME_FORMAT: &[FormatItem] = format_description!("%Y%m%dT%H%M%SZ");
 
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct PublicEvent {
-    pub id: i32,
+    pub id: i64,
     pub name: String,
     pub start_time: GqlDateTime,
     pub end_time: Option<GqlDateTime>,
@@ -21,8 +24,8 @@ pub struct PublicEvent {
 
 #[ComplexObject]
 impl PublicEvent {
-    pub async fn invite(&self) -> Result<String> {
-        let now = Self::format_datetime(&crate::util::now()?);
+    pub async fn invite(&self) -> String {
+        let now = Self::format_datetime(&current_time());
         let start_time = Self::format_datetime(&self.start_time.0);
         let end_time = self
             .end_time
@@ -57,15 +60,12 @@ impl PublicEvent {
             Uuid::new_v4(),
         );
 
-        Ok(format!(
-            "data:text/calendar;base64,{}",
-            base64::encode(&details)
-        ))
+        format!("data:text/calendar;base64,{}", base64::encode(&details))
     }
 }
 
 impl PublicEvent {
-    pub async fn all_for_current_semester(pool: &MySqlPool) -> Result<Vec<Self>> {
+    pub async fn all_for_current_semester(pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT event.id, event.name, gig.performance_time as \"start_time: _\",
@@ -81,6 +81,9 @@ impl PublicEvent {
     }
 
     pub fn format_datetime(datetime: &OffsetDateTime) -> String {
-        datetime.to_offset(UtcOffset::UTC).format(DATETIME_FORMAT)
+        datetime
+            .to_offset(UtcOffset::UTC)
+            .format(DATETIME_FORMAT)
+            .unwrap()
     }
 }

@@ -1,5 +1,5 @@
 use async_graphql::{Context, Guard, Result};
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
 use crate::models::member::Member;
 use crate::models::permissions::MemberPermission;
@@ -37,7 +37,7 @@ impl Permission {
         }
     }
 
-    pub async fn granted_to(&self, member: &str, pool: &MySqlPool) -> Result<bool> {
+    pub async fn granted_to(&self, member: &str, pool: &PgPool) -> Result<bool> {
         let permissions = MemberPermission::for_member(member, pool).await?;
 
         Ok(permissions.iter().any(|permission| {
@@ -46,7 +46,7 @@ impl Permission {
         }))
     }
 
-    pub async fn ensure_granted_to(&self, member: &str, pool: &MySqlPool) -> Result<()> {
+    pub async fn ensure_granted_to(&self, member: &str, pool: &PgPool) -> Result<()> {
         if self.granted_to(member, pool).await? {
             Ok(())
         } else {
@@ -95,7 +95,7 @@ impl Permission {
 impl Guard for Permission {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
         if let Some(user) = ctx.data_opt::<Member>() {
-            let pool: &MySqlPool = ctx.data_unchecked();
+            let pool: &PgPool = ctx.data_unchecked();
             if self.granted_to(&user.email, pool).await? {
                 return Ok(());
             }

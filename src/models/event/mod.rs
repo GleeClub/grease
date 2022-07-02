@@ -1,5 +1,5 @@
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 use time::{Duration, OffsetDateTime};
 
 use crate::models::event::attendance::Attendance;
@@ -9,7 +9,7 @@ use crate::models::member::Member;
 use crate::models::semester::Semester;
 use crate::models::song::Song;
 use crate::models::GqlDateTime;
-use crate::util::now;
+use crate::util::current_time;
 
 pub mod absence_request;
 pub mod attendance;
@@ -32,7 +32,7 @@ pub struct EventType {
     /// The name of the type of event
     pub name: String,
     /// The amount of points this event is normally worth
-    pub weight: i32,
+    pub weight: i64,
 }
 
 impl EventType {
@@ -43,7 +43,7 @@ impl EventType {
     pub const OMBUDS: &'static str = "Ombuds";
     pub const OTHER: &'static str = "Other";
 
-    pub async fn all(pool: &MySqlPool) -> Result<Vec<Self>> {
+    pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(Self, "SELECT * FROM event_type ORDER BY name")
             .fetch_all(pool)
             .await
@@ -55,7 +55,7 @@ impl EventType {
 #[graphql(complex)]
 pub struct Event {
     /// The ID of the event
-    pub id: i32,
+    pub id: i64,
     /// The name of the event
     pub name: String,
     /// The name of the semester this event belongs to
@@ -67,7 +67,7 @@ pub struct Event {
     /// When members are probably going to be released
     pub release_time: Option<GqlDateTime>,
     /// How many points attendance of this event is worth
-    pub points: i32,
+    pub points: i64,
     /// General information or details about this event
     pub comments: Option<String>,
     /// Where this event will be held
@@ -82,13 +82,13 @@ pub struct Event {
 impl Event {
     /// The gig for this event, if it is a gig
     pub async fn gig(&self, ctx: &Context<'_>) -> Result<Option<Gig>> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
         Gig::for_event(self.id, pool).await
     }
 
     /// The attendance for the current user at this event
     pub async fn user_attendance(&self, ctx: &Context<'_>) -> Result<Option<Attendance>> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
 
         if let Some(user) = ctx.data_opt::<Member>() {
             Attendance::for_member_at_event_opt(&user.email, self.id, pool).await
@@ -99,41 +99,41 @@ impl Event {
 
     /// The attendance for a specific member at this event
     pub async fn attendance(&self, ctx: &Context<'_>, member: String) -> Result<Attendance> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
         Attendance::for_member_at_event(&member, self.id, &pool).await
     }
 
     pub async fn all_attendance(&self, ctx: &Context<'_>) -> Result<Vec<Attendance>> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
         Attendance::for_event(self.id, pool).await
     }
 
     pub async fn carpools(&self, ctx: &Context<'_>) -> Result<Vec<Carpool>> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
         Carpool::for_event(self.id, pool).await
     }
 
     pub async fn setlist(&self, ctx: &Context<'_>) -> Result<Vec<Song>> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
         Song::setlist_for_event(self.id, pool).await
     }
 }
 
 impl Event {
-    pub async fn with_id(id: i32, pool: &MySqlPool) -> Result<Self> {
+    pub async fn with_id(id: i64, pool: &PgPool) -> Result<Self> {
         Self::with_id_opt(id, pool)
             .await?
             .ok_or_else(|| format!("No event with id {}", id))
             .map_err(Into::into)
     }
 
-    pub async fn with_id_opt(id: i32, pool: &MySqlPool) -> Result<Option<Self>> {
+    pub async fn with_id_opt(id: i64, pool: &PgPool) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT id, name, semester, `type`, call_time as \"call_time: _\",
+            "SELECT id, name, semester, type, call_time as \"call_time: _\",
                   release_time as \"release_time: _\", points, comments, location,
-                  gig_count as \"gig_count: bool\", default_attend as \"default_attend: bool\"
-             FROM event WHERE id = ?",
+                  gig_count, default_attend
+             FROM event WHERE id = $1",
             id
         )
         .fetch_optional(pool)
@@ -141,16 +141,16 @@ impl Event {
         .map_err(Into::into)
     }
 
-    pub async fn for_semester(semester: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester: &str, pool: &PgPool) -> Result<Vec<Self>> {
         // TODO: verify_exists
         Semester::with_name(semester, pool).await?;
 
         sqlx::query_as!(
             Self,
-            "SELECT id, name, semester, `type`, call_time as \"call_time: _\",
+            "SELECT id, name, semester, \"type\", call_time as \"call_time: _\",
                   release_time as \"release_time: _\", points, comments, location,
-                  gig_count as \"gig_count: bool\", default_attend as \"default_attend: bool\"
-             FROM event WHERE semester = ? ORDER BY call_time",
+                  gig_count, default_attend
+             FROM event WHERE semester = $1 ORDER BY call_time",
             semester
         )
         .fetch_all(pool)
@@ -167,7 +167,7 @@ impl Event {
         attendance: Option<&Attendance>,
         is_active: bool,
     ) -> Result<()> {
-        if let Some(rsvp_issue) = self.rsvp_issue_for(attendance, is_active)? {
+        if let Some(rsvp_issue) = self.rsvp_issue_for(attendance, is_active) {
             Err(rsvp_issue.into())
         } else {
             Ok(())
@@ -178,28 +178,26 @@ impl Event {
         &self,
         attendance: Option<&Attendance>,
         is_active: bool,
-    ) -> Result<Option<String>> {
-        let issue = if !is_active {
-            Some("Member must be active to RSVP to events.".to_owned())
+    ) -> Option<String> {
+        if !is_active {
+            Some("Member must be active to RSVP to events".to_owned())
         } else if !attendance.map(|a| a.should_attend).unwrap_or(true) {
             None
-        } else if now()? + Duration::days(1) > self.call_time.0 {
-            Some("Responses are closed for this event.".to_owned())
+        } else if current_time() + Duration::days(1) > self.call_time.0 {
+            Some("Responses are closed for this event".to_owned())
         } else if ["Tutti Gig", "Sectional", "Rehearsal"].contains(&self.r#type.as_str()) {
             // TODO: update event types to constants
-            Some(format!("You cannot RSVP for {} events.", self.r#type))
+            Some(format!("You cannot RSVP for {} events", self.r#type))
         } else {
             None
-        };
-
-        Ok(issue)
+        }
     }
 
     pub async fn create(
         new_event: NewEvent,
         from_request: Option<GigRequest>,
-        pool: &MySqlPool,
-    ) -> Result<i32> {
+        pool: &PgPool,
+    ) -> Result<i64> {
         if let Some(release_time) = &new_event.event.release_time {
             if &release_time.0 <= &new_event.event.call_time.0 {
                 return Err("Release time must be after call time".into());
@@ -224,12 +222,13 @@ impl Event {
             return Err("The repeat setting would render no events".into());
         }
 
-        for (call_time, release_time) in call_and_release_times.iter() {
+        let new_event_count = call_and_release_times.len();
+        for (call_time, release_time) in call_and_release_times {
             sqlx::query!(
                 "INSERT INTO event
-                     (name, semester, `type`, call_time, release_time, points,
+                     (name, semester, \"type\", call_time, release_time, points,
                       comments, location, gig_count, default_attend)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                 new_event.event.name,
                 new_event.event.semester,
                 new_event.event.r#type,
@@ -246,8 +245,8 @@ impl Event {
         }
 
         let new_ids = sqlx::query_scalar!(
-            "SELECT id FROM event ORDER BY id DESC LIMIT ?",
-            call_and_release_times.len() as i32
+            "SELECT id FROM event ORDER BY id DESC LIMIT $1",
+            new_event_count as i64
         )
         .fetch_all(pool)
         .await?;
@@ -268,10 +267,10 @@ impl Event {
                 sqlx::query!(
                     "INSERT INTO gig
                         (event, performance_time, uniform, contact_name, contact_email,
-                         contact_phone, price, `public`, summary, description)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                         contact_phone, price, \"public\", summary, description)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                     new_id,
-                    gig.performance_time,
+                    gig.performance_time.0,
                     gig.uniform,
                     gig.contact_name,
                     gig.contact_email,
@@ -296,18 +295,18 @@ impl Event {
             .ok_or_else(|| "Failed to find latest event ID".into())
     }
 
-    pub async fn update(id: i32, update: NewEvent, pool: &MySqlPool) -> Result<()> {
+    pub async fn update(id: i64, update: NewEvent, pool: &PgPool) -> Result<()> {
         Self::with_id(id, pool).await?;
 
         sqlx::query!(
-            "UPDATE event SET name = ?, semester = ?, `type` = ?, call_time = ?, release_time = ?,
-                 points = ?, comments = ?, location = ?, gig_count = ?, default_attend = ?
-             WHERE id = ?",
+            "UPDATE event SET name = $1, semester = $2, \"type\" = $3, call_time = $4, release_time = $5,
+                 points = $6, comments = $7, location = $8, gig_count = $9, default_attend = $10
+             WHERE id = $11",
             update.event.name,
             update.event.semester,
             update.event.r#type,
-            update.event.call_time,
-            update.event.release_time,
+            update.event.call_time.0,
+            update.event.release_time.map(|rt| rt.0),
             update.event.points,
             update.event.comments,
             update.event.location,
@@ -321,9 +320,9 @@ impl Event {
         if Gig::for_event(id, pool).await?.is_some() {
             if let Some(gig) = update.gig {
                 sqlx::query!(
-                    "UPDATE gig SET performance_time = ?, uniform = ?, contact_name = ?, contact_email = ?,
-                     contact_phone = ?, price = ?, public = ?, summary = ?, description = ?
-                     WHERE event = ?", gig.performance_time, gig.uniform, gig.contact_name, gig.contact_email,
+                    "UPDATE gig SET performance_time = $1, uniform = $2, contact_name = $3, contact_email = $4,
+                     contact_phone = $5, price = $6, public = $7, summary = $8, description = $9
+                     WHERE event = $10", gig.performance_time.0, gig.uniform, gig.contact_name, gig.contact_email,
                     gig.contact_phone, gig.price, gig.public, gig.summary, gig.description, id).execute(pool).await?;
             }
         }
@@ -331,11 +330,11 @@ impl Event {
         Ok(())
     }
 
-    pub async fn delete(id: i32, pool: &MySqlPool) -> Result<()> {
+    pub async fn delete(id: i64, pool: &PgPool) -> Result<()> {
         // TODO: verify exists?
         Event::with_id(id, pool).await?;
 
-        sqlx::query!("DELETE FROM event WHERE id = ?", id)
+        sqlx::query!("DELETE FROM event WHERE id = $1", id)
             .execute(pool)
             .await?;
 
@@ -357,7 +356,7 @@ pub struct NewEventFields {
     pub r#type: String,
     pub call_time: GqlDateTime,
     pub release_time: Option<GqlDateTime>,
-    pub points: i32,
+    pub points: i64,
     pub comments: Option<String>,
     pub location: Option<String>,
     pub gig_count: Option<bool>,

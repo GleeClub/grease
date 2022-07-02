@@ -1,5 +1,5 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
 use crate::models::event::Event;
 use crate::models::member::Member;
@@ -8,9 +8,9 @@ use crate::models::member::Member;
 #[graphql(complex)]
 pub struct Carpool {
     /// The ID of the carpool
-    pub id: i32,
+    pub id: i64,
     /// The event it belongs to
-    pub event: i32,
+    pub event: i64,
 
     #[graphql(skip)]
     pub driver: String,
@@ -20,20 +20,20 @@ pub struct Carpool {
 impl Carpool {
     /// The driver of the carpool
     pub async fn driver(&self, ctx: &Context<'_>) -> Result<Member> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
         Member::with_email(&self.driver, &pool).await
     }
 
     /// The passengers of the carpool
     pub async fn passengers(&self, ctx: &Context<'_>) -> Result<Vec<Member>> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
         sqlx::query_as!(
             Member,
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
                  location, on_campus as \"on_campus: bool\", about, major, minor, hometown,
                  arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash
              FROM member WHERE email IN
-             (SELECT member FROM rides_in WHERE carpool = ?)
+             (SELECT member FROM rides_in WHERE carpool = $1)
              ORDER BY last_name, preferred_name, first_name",
             self.id
         )
@@ -44,29 +44,29 @@ impl Carpool {
 }
 
 impl Carpool {
-    pub async fn for_event(event_id: i32, pool: &MySqlPool) -> Result<Vec<Carpool>> {
-        sqlx::query_as!(Self, "SELECT * FROM carpool WHERE event = ?", event_id)
+    pub async fn for_event(event_id: i64, pool: &PgPool) -> Result<Vec<Carpool>> {
+        sqlx::query_as!(Self, "SELECT * FROM carpool WHERE event = $1", event_id)
             .fetch_all(pool)
             .await
             .map_err(Into::into)
     }
 
     pub async fn update(
-        event_id: i32,
+        event_id: i64,
         updated_carpools: Vec<UpdatedCarpool>,
-        pool: &MySqlPool,
+        pool: &PgPool,
     ) -> Result<()> {
         // TODO: verify exists?
         Event::with_id(event_id, pool).await?;
 
-        sqlx::query!("DELETE FROM carpool WHERE event = ?", event_id)
+        sqlx::query!("DELETE FROM carpool WHERE event = $1", event_id)
             .execute(pool)
             .await?;
 
         // TODO: batch?
         for carpool in updated_carpools {
             sqlx::query!(
-                "INSERT INTO carpool (event, driver) VALUES (?, ?)",
+                "INSERT INTO carpool (event, driver) VALUES ($1, $2)",
                 event_id,
                 carpool.driver
             )
@@ -78,7 +78,7 @@ impl Carpool {
 
             for passenger in carpool.passengers {
                 sqlx::query!(
-                    "INSERT INTO rides_in (member, carpool) VALUES (?, ?)",
+                    "INSERT INTO rides_in (member, carpool) VALUES ($1, $2)",
                     passenger,
                     new_carpool_id
                 )

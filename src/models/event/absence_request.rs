@@ -1,5 +1,5 @@
 use async_graphql::{ComplexObject, Context, Enum, Result, SimpleObject};
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
 use crate::models::event::Event;
 use crate::models::member::Member;
@@ -13,39 +13,39 @@ pub struct AbsenceRequest {
     /// The reason the member petitioned for absence with
     pub reason: String,
     /// The current state of the request
-    pub state: AbsenceRequestState,
+    pub state: AbsenceRequestStatus,
 
     #[graphql(skip)]
     pub member: String,
     #[graphql(skip)]
-    pub event: i32,
+    pub event: i64,
 }
 
 #[ComplexObject]
 impl AbsenceRequest {
     /// The event they requested absence from
     pub async fn event(&self, ctx: &Context<'_>) -> Result<Event> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
         Event::with_id(self.event, pool).await
     }
 
     /// The member that requested an absence
     pub async fn member(&self, ctx: &Context<'_>) -> Result<Member> {
-        let pool: &MySqlPool = ctx.data_unchecked();
+        let pool: &PgPool = ctx.data_unchecked();
         Member::with_email(&self.member, pool).await
     }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
-#[sqlx(rename_all = "snake_case")]
-pub enum AbsenceRequestState {
+#[sqlx(type_name = "absence_request_status", rename_all = "snake_case")]
+pub enum AbsenceRequestStatus {
     Pending,
     Approved,
     Denied,
 }
 
 impl AbsenceRequest {
-    pub async fn for_member_at_event(email: &str, event_id: i32, pool: &MySqlPool) -> Result<Self> {
+    pub async fn for_member_at_event(email: &str, event_id: i64, pool: &PgPool) -> Result<Self> {
         Self::for_member_at_event_opt(email, event_id, pool)
             .await?
             .ok_or_else(|| {
@@ -59,13 +59,13 @@ impl AbsenceRequest {
 
     pub async fn for_member_at_event_opt(
         email: &str,
-        event_id: i32,
-        pool: &MySqlPool,
+        event_id: i64,
+        pool: &PgPool,
     ) -> Result<Option<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT `time` as \"time: _\", reason, state as \"state: _\", member, event
-             FROM absence_request WHERE member = ? AND event = ?",
+            "SELECT \"time\" as \"time: _\", reason, state as \"state: _\", member, event
+             FROM absence_request WHERE member = $1 AND event = $2",
             email,
             event_id
         )
@@ -74,12 +74,12 @@ impl AbsenceRequest {
         .map_err(Into::into)
     }
 
-    pub async fn for_semester(semester_name: &str, pool: &MySqlPool) -> Result<Vec<Self>> {
+    pub async fn for_semester(semester_name: &str, pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT `time` as \"time: _\", reason, state as \"state: _\", member, event
+            "SELECT \"time\" as \"time: _\", reason, state as \"state: _\", member, event
              FROM absence_request
-             WHERE event IN (SELECT id FROM event WHERE semester = ?)
+             WHERE event IN (SELECT id FROM event WHERE semester = $1)
              ORDER BY time",
             semester_name
         )
@@ -88,9 +88,9 @@ impl AbsenceRequest {
         .map_err(Into::into)
     }
 
-    pub async fn submit(event_id: i32, email: &str, reason: &str, pool: &MySqlPool) -> Result<()> {
+    pub async fn submit(event_id: i64, email: &str, reason: &str, pool: &PgPool) -> Result<()> {
         sqlx::query!(
-            "INSERT INTO absence_request (member, event, reason) VALUES (?, ?, ?)",
+            "INSERT INTO absence_request (member, event, reason) VALUES ($1, $2, $3)",
             email,
             event_id,
             reason
@@ -102,16 +102,16 @@ impl AbsenceRequest {
     }
 
     pub async fn set_state(
-        event_id: i32,
+        event_id: i64,
         member: &str,
-        state: AbsenceRequestState,
-        pool: &MySqlPool,
+        state: AbsenceRequestStatus,
+        pool: &PgPool,
     ) -> Result<()> {
         AbsenceRequest::for_member_at_event(member, event_id, pool).await?;
 
         sqlx::query!(
-            "UPDATE absence_request SET state = ? WHERE event = ? AND member = ?",
-            state,
+            "UPDATE absence_request SET state = $1 WHERE event = $2 AND member = $3",
+            state as _,
             event_id,
             member
         )

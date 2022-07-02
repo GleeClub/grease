@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::models::event::absence_request::AbsenceRequestState;
+use crate::models::event::absence_request::AbsenceRequestStatus;
 use crate::models::event::gig::Gig;
 use crate::models::event::{Event, EventType};
 use crate::models::grades::context::AttendanceContext;
@@ -16,7 +16,7 @@ impl<'a> EventWithAttendance<'a> {
         self.attendance
             .as_ref()
             .and_then(|a| a.absence_request.as_ref())
-            .map(|ar| ar.state == AbsenceRequestState::Approved)
+            .map(|ar| ar.state == AbsenceRequestStatus::Approved)
             .unwrap_or(false)
     }
 
@@ -44,7 +44,7 @@ impl<'a> EventWithAttendance<'a> {
             .unwrap_or(false)
     }
 
-    pub fn minutes_late(&self) -> i32 {
+    pub fn minutes_late(&self) -> i64 {
         self.attendance
             .as_ref()
             .and_then(|a| a.attendance.as_ref())

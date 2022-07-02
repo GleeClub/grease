@@ -1,6 +1,6 @@
 //! The backend for the Georgia Tech Glee Club's website
 
-#![feature(drain_filter, path_try_exists, once_cell, generic_associated_types)]
+#![feature(drain_filter, fs_try_exists, once_cell, generic_associated_types)]
 
 mod email;
 mod error;
@@ -9,42 +9,60 @@ mod graphql;
 mod models;
 mod util;
 
+use std::env::var;
 use std::net::SocketAddr;
 
+use anyhow::Context;
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
-use async_graphql::{Request, Response};
-use axum::headers::HeaderMap;
-use axum::http::StatusCode;
+use async_graphql::{Request, Response as GraphQLResponse};
+use axum::headers::{ContentType, HeaderMap};
 use axum::routing::get;
-use axum::{Json, Router};
-use sqlx::MySqlPool;
-use time::{Duration, OffsetDateTime};
+use axum::{Extension, Json, Router, TypedHeader};
+use sqlx::PgPool;
 
+use crate::email::run_email_loop;
 use crate::error::{GreaseError, GreaseResult};
 use crate::graphql::build_schema;
-use crate::models::event::Event;
 use crate::models::member::Member;
-use crate::models::semester::Semester;
-use crate::util::{connect_to_db, now};
 
 const GREASE_TOKEN: &'static str = "GREASE_TOKEN";
-const API_URL: &'static str = "api.glubhub.org";
+const API_URL: &'static str = "https://api.glubhub.org";
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
+    dotenv::dotenv().ok();
+
+    let db_uri = var("DATABASE_URL").context("DATABASE_URL not set")?;
+    let pool = PgPool::connect(&db_uri)
+        .await
+        .context("Failed to connect to database")?;
+
+    // Only run the email sending loop if an interval time is set
+    if let Ok(email_send_interval_seconds) = var("EMAIL_SEND_INTERVAL_SECONDS") {
+        let email_send_interval_seconds = email_send_interval_seconds
+            .parse()
+            .context("EMAIL_SEND_INTERVAL_SECONDS must be an integer")?;
+        tokio::spawn(run_email_loop(email_send_interval_seconds, pool.clone()));
+    }
+
     let app = Router::new()
         .route("/", get(playground).post(query))
-        .route("/send-emails", get(send_emails));
+        .layer(Extension(pool));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
         .unwrap();
+
+    Ok(())
 }
 
-async fn query(Json(request): Json<Request>, headers: HeaderMap) -> GreaseResult<Json<Response>> {
-    let pool = connect_to_db().await?;
+async fn query(
+    Json(request): Json<Request>,
+    headers: HeaderMap,
+    Extension(pool): Extension<PgPool>,
+) -> GreaseResult<Json<GraphQLResponse>> {
     let user = if let Some(token) = get_token(&headers)? {
         Some(
             Member::with_token(token, &pool)
@@ -67,42 +85,13 @@ async fn query(Json(request): Json<Request>, headers: HeaderMap) -> GreaseResult
     Ok(Json(build_schema().execute(request).await))
 }
 
-async fn playground(headers: HeaderMap) -> GreaseResult<String> {
+async fn playground(headers: HeaderMap) -> GreaseResult<(TypedHeader<ContentType>, String)> {
     let mut config = GraphQLPlaygroundConfig::new(API_URL);
     if let Some(header) = get_token(&headers)? {
         config = config.with_header(GREASE_TOKEN, header);
     }
 
-    Ok(playground_source(config))
-}
-
-// TODO: make it so this can only be called systematically
-async fn send_emails() -> GreaseResult<StatusCode> {
-    // TODO: handle commit
-    let pool = connect_to_db().await?;
-    let since = now()? - Duration::hours(1);
-
-    for _event in events_to_notify_about(&pool, since).await {
-        // let email = email_for_event(&event, &pool).await?;
-        // email.send().await?;
-    }
-
-    Ok(StatusCode::NO_CONTENT)
-}
-
-async fn events_to_notify_about(
-    pool: &MySqlPool,
-    since: OffsetDateTime,
-) -> async_graphql::Result<impl Iterator<Item = Event>> {
-    let current_semester = Semester::get_current(&pool).await?;
-    let all_events = Event::for_semester(&current_semester.name, &pool).await?;
-
-    let two_days_from_now = now()? + Duration::days(2);
-    let two_days_from_last_checked = since + Duration::days(2);
-
-    Ok(all_events.into_iter().filter(move |event| {
-        event.call_time.0 < two_days_from_now && event.call_time.0 > two_days_from_last_checked
-    }))
+    Ok((TypedHeader(ContentType::html()), playground_source(config)))
 }
 
 fn get_token(headers: &HeaderMap) -> GreaseResult<Option<&str>> {
