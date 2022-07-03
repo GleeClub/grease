@@ -31,18 +31,30 @@ impl Semester {
     }
 
     pub async fn get_previous(pool: &PgPool) -> Result<Option<Self>> {
-        sqlx::query_as!(
-            Self,
-            "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",
-                 gig_requirement, current
-             FROM semester WHERE name = (
-                SELECT LAG(name, 1) OVER (ORDER BY start_date) previous_name
-                FROM semester WHERE current = true
-             )"
-        )
-        .fetch_optional(pool)
-        .await
-        .map_err(Into::into)
+        let semesters: Vec<_> =
+            sqlx::query!("SELECT name, start_date, current FROM semester ORDER BY start_date")
+                .fetch_all(pool)
+                .await?;
+        let previous_semester = semesters
+            .iter()
+            .position(|s| s.current)
+            .and_then(|index| semesters.get(index - 1));
+
+        if let Some(previous) = previous_semester {
+            sqlx::query_as!(
+                Self,
+                "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",
+                     gig_requirement, current
+                 FROM semester WHERE name = $1",
+                previous.name
+            )
+            .fetch_one(pool)
+            .await
+            .map(Some)
+            .map_err(Into::into)
+        } else {
+            Ok(None)
+        }
     }
 
     pub async fn with_name(name: &str, pool: &PgPool) -> Result<Self> {
