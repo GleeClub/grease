@@ -110,7 +110,7 @@ impl MemberRole {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
-#[sqlx(rename_all = "snake_case")]
+#[sqlx(type_name = "permission_type", rename_all = "snake_case")]
 pub enum PermissionType {
     Static,
     Event,

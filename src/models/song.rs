@@ -7,7 +7,7 @@ use sqlx::PgPool;
 use crate::file::MusicFile;
 
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
-#[sqlx(rename_all = "snake_case")]
+#[sqlx(type_name = "pitch", rename_all = "snake_case")]
 pub enum Pitch {
     AFlat,
     A,
@@ -33,7 +33,7 @@ pub enum Pitch {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
-#[sqlx(rename_all = "snake_case")]
+#[sqlx(type_name = "song_mode", rename_all = "snake_case")]
 pub enum SongMode {
     Major,
     Minor,
@@ -224,7 +224,7 @@ pub struct MediaType {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
-#[sqlx(rename_all = "snake_case")]
+#[sqlx(type_name = "storage_type", rename_all = "snake_case")]
 pub enum StorageType {
     Local,
     Remote,
