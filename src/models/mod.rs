@@ -1,4 +1,5 @@
 use async_graphql::{InputValueError, InputValueResult, Scalar, ScalarType, Value};
+use time::format_description::well_known::Rfc3339;
 use time::format_description::FormatItem;
 use time::macros::format_description;
 use time::{Date, OffsetDateTime, UtcOffset};
@@ -15,8 +16,7 @@ pub mod song;
 pub mod static_data;
 pub mod variable;
 
-pub const DATE_FORMAT: &[FormatItem] = format_description!("%Y-%m-%d");
-pub const DATETIME_FORMAT: &[FormatItem] = format_description!("%Y-%m-%dT%H:%M:%SZ");
+pub const DATE_FORMAT: &[FormatItem] = format_description!("[year]-[month]-[day]");
 
 #[derive(sqlx::Type, Clone)]
 #[sqlx(transparent)]
@@ -47,7 +47,7 @@ pub struct GqlDateTime(pub OffsetDateTime);
 impl ScalarType for GqlDateTime {
     fn parse(value: Value) -> InputValueResult<Self> {
         if let Value::String(date_str) = &value {
-            if let Ok(date) = OffsetDateTime::parse(date_str, DATETIME_FORMAT) {
+            if let Ok(date) = OffsetDateTime::parse(date_str, &Rfc3339) {
                 return Ok(GqlDateTime(date));
             }
         }
@@ -56,11 +56,6 @@ impl ScalarType for GqlDateTime {
     }
 
     fn to_value(&self) -> Value {
-        Value::String(
-            self.0
-                .to_offset(UtcOffset::UTC)
-                .format(DATETIME_FORMAT)
-                .unwrap(),
-        )
+        Value::String(self.0.to_offset(UtcOffset::UTC).format(&Rfc3339).unwrap())
     }
 }

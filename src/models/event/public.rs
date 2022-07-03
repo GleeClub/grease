@@ -8,7 +8,8 @@ use uuid::Uuid;
 use crate::models::GqlDateTime;
 use crate::util::current_time;
 
-pub const DATETIME_FORMAT: &[FormatItem] = format_description!("%Y%m%dT%H%M%SZ");
+pub const DATETIME_FORMAT: &[FormatItem] =
+    format_description!("[year][month][day]T[hour][minute][second]Z");
 
 #[derive(SimpleObject)]
 #[graphql(complex)]
