@@ -22,12 +22,27 @@ impl Semester {
         sqlx::query_as!(
             Self,
             "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",
-                 gig_requirement, current as \"current: bool\"
+                 gig_requirement, current
              FROM semester WHERE current = true"
         )
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| "No current semester set".into())
+    }
+
+    pub async fn get_previous(pool: &PgPool) -> Result<Option<Self>> {
+        sqlx::query_as!(
+            Self,
+            "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",
+                 gig_requirement, current
+             FROM semester WHERE name = (
+                SELECT LAG(name, 1) OVER (ORDER BY start_date) previous_name
+                FROM semester WHERE current = true
+             )"
+        )
+        .fetch_optional(pool)
+        .await
+        .map_err(Into::into)
     }
 
     pub async fn with_name(name: &str, pool: &PgPool) -> Result<Self> {

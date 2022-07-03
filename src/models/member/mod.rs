@@ -99,6 +99,16 @@ impl Member {
         ActiveSemester::all_for_member(&self.email, pool).await
     }
 
+    pub async fn previous_semester(&self, ctx: &Context<'_>) -> Result<Option<ActiveSemester>> {
+        let pool: &PgPool = ctx.data_unchecked();
+
+        if let Some(last_semester) = Semester::get_previous(pool).await? {
+            ActiveSemester::for_member_during_semester(&self.email, &last_semester.name, pool).await
+        } else {
+            Ok(None)
+        }
+    }
+
     /// The grades for the member in the given semester (default the current semester)
     #[graphql(guard = "LoggedIn")]
     pub async fn grades(&self, ctx: &Context<'_>, semester: Option<String>) -> Result<Grades> {

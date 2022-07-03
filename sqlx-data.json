@@ -3624,6 +3624,48 @@
     },
     "query": "INSERT INTO uniform (name, color, description) VALUES ($1, $2, $3)"
   },
+  "ce5e301c679a421298f8d858e5ae145455bad398400ff4b364f542e7bed22e71": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_date: _",
+          "ordinal": 1,
+          "type_info": "Date"
+        },
+        {
+          "name": "end_date: _",
+          "ordinal": 2,
+          "type_info": "Date"
+        },
+        {
+          "name": "gig_requirement",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "current",
+          "ordinal": 4,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                 gig_requirement, current\n             FROM semester WHERE current = true"
+  },
   "ceda94d27e0bd5594f4e694013eb80ee5b4d841bda55156b724740e24639bb04": {
     "describe": {
       "columns": [],
@@ -3883,6 +3925,48 @@
     },
     "query": "SELECT s.id, s.title, s.info, s.current, s.key as \"key: _\",\n                 starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"\n             FROM song s INNER JOIN gig_song ON s.id = gig_song.song\n             WHERE gig_song.event = $1 ORDER BY gig_song.order ASC"
   },
+  "d71c2ab890c0b113b7eb7238505d34fb9fe1fce146fe0c8f67c9377eb941e787": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_date: _",
+          "ordinal": 1,
+          "type_info": "Date"
+        },
+        {
+          "name": "end_date: _",
+          "ordinal": 2,
+          "type_info": "Date"
+        },
+        {
+          "name": "gig_requirement",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "current",
+          "ordinal": 4,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                 gig_requirement, current\n             FROM semester WHERE name = (\n                SELECT LAG(name, 1) OVER (ORDER BY start_date) previous_name\n                FROM semester WHERE current = true\n             )"
+  },
   "dae028e957c2d8a1878016337aa398e9454c44d102ff1aacd85984abd875f680": {
     "describe": {
       "columns": [
@@ -4035,48 +4119,6 @@
       }
     },
     "query": "SELECT id FROM uniform ORDER BY id DESC"
-  },
-  "e0b3fdfd00a6ea57fa3b4bf61e31dd325335a1db52bdb5527ce71085674f0d91": {
-    "describe": {
-      "columns": [
-        {
-          "name": "name",
-          "ordinal": 0,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "start_date: _",
-          "ordinal": 1,
-          "type_info": "Date"
-        },
-        {
-          "name": "end_date: _",
-          "ordinal": 2,
-          "type_info": "Date"
-        },
-        {
-          "name": "gig_requirement",
-          "ordinal": 3,
-          "type_info": "Int8"
-        },
-        {
-          "name": "current: bool",
-          "ordinal": 4,
-          "type_info": "Bool"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        false,
-        false
-      ],
-      "parameters": {
-        "Left": []
-      }
-    },
-    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                 gig_requirement, current as \"current: bool\"\n             FROM semester WHERE current = true"
   },
   "e1f77d0d7e184bf7b91d6309d913cd469cff01e6882ee120ea78eda5b813a607": {
     "describe": {

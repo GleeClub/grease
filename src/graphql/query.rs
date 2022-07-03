@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use crate::graphql::guards::{LoggedIn, Permission};
 use crate::models::event::absence_request::AbsenceRequest;
 use crate::models::event::gig::GigRequest;
+use crate::models::event::public::PublicEvent;
 use crate::models::event::uniform::Uniform;
 use crate::models::event::Event;
 use crate::models::link::DocumentLink;
@@ -74,6 +75,11 @@ impl QueryRoot {
         let pool: &PgPool = ctx.data_unchecked();
         let semester = Semester::get_current(pool).await?;
         Event::for_semester(&semester.name, pool).await
+    }
+
+    pub async fn public_events(&self, ctx: &Context<'_>) -> Result<Vec<PublicEvent>> {
+        let pool: &PgPool = ctx.data_unchecked();
+        PublicEvent::all_for_current_semester(pool).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::PROCESS_ABSENCE_REQUESTS)")]

@@ -213,6 +213,25 @@ impl MutationRoot {
     }
 
     #[graphql(guard = "LoggedIn")]
+    pub async fn excuse_unconfirmed_for_event(
+        &self,
+        ctx: &Context<'_>,
+        event_id: i64,
+    ) -> Result<&'static str> {
+        let pool: &PgPool = ctx.data_unchecked();
+        let user = ctx.data_unchecked::<Member>();
+        let event = Event::with_id(event_id, pool).await?;
+        Permission::EDIT_ATTENDANCE
+            .for_type(event.r#type)
+            .ensure_granted_to(&user.email, pool)
+            .await?;
+
+        Attendance::excuse_unconfirmed(event_id, pool).await?;
+
+        Ok(SUCCESS_MESSAGE)
+    }
+
+    #[graphql(guard = "LoggedIn")]
     pub async fn rsvp_for_event(
         &self,
         ctx: &Context<'_>,
