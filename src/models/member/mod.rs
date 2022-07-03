@@ -385,7 +385,7 @@ pub struct NewMember {
     pub picture: Option<String>,
     pub passengers: i64,
     pub location: String,
-    pub on_campus: Option<bool>,
+    pub on_campus: bool,
     pub about: Option<String>,
     pub major: Option<String>,
     pub minor: Option<String>,
@@ -409,7 +409,7 @@ pub struct MemberUpdate {
     pub picture: Option<String>,
     pub passengers: i64,
     pub location: String,
-    pub on_campus: Option<bool>,
+    pub on_campus: bool,
     pub about: Option<String>,
     pub major: Option<String>,
     pub minor: Option<String>,
@@ -425,7 +425,7 @@ pub struct MemberUpdate {
 #[derive(InputObject)]
 pub struct RegisterForSemesterForm {
     pub location: String,
-    pub on_campus: Option<bool>,
+    pub on_campus: bool,
     pub conflicts: String,
     pub dietary_restrictions: String,
     pub enrollment: Enrollment,
