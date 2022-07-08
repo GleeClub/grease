@@ -2284,6 +2284,36 @@
     },
     "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus as \"on_campus: bool\", about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM member ORDER BY last_name, first_name"
   },
+  "8e051520e0b42dcc5559cc2eaddda11ea223dec8961dd9e2aed5d56e72553dd6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_date",
+          "ordinal": 1,
+          "type_info": "Date"
+        },
+        {
+          "name": "current",
+          "ordinal": 2,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT name, start_date, current FROM semester ORDER BY start_date"
+  },
   "8e0cb05b9bb4b8b4213fe79cd941f71b65179c194d6b95713517cdd116b94da8": {
     "describe": {
       "columns": [
@@ -2516,6 +2546,50 @@
       }
     },
     "query": "INSERT INTO rides_in (member, carpool) VALUES ($1, $2)"
+  },
+  "9433f1f603b8ea6c28b1617658070d499092136686d2f01219ed5a50bece08a6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_date: _",
+          "ordinal": 1,
+          "type_info": "Date"
+        },
+        {
+          "name": "end_date: _",
+          "ordinal": 2,
+          "type_info": "Date"
+        },
+        {
+          "name": "gig_requirement",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "current",
+          "ordinal": 4,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                     gig_requirement, current\n                 FROM semester WHERE name = $1"
   },
   "9505abdca7ce240f77ba0c25095ce4ebe4d943cdc7c516af1902dec48f768173": {
     "describe": {
@@ -3924,48 +3998,6 @@
       }
     },
     "query": "SELECT s.id, s.title, s.info, s.current, s.key as \"key: _\",\n                 starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"\n             FROM song s INNER JOIN gig_song ON s.id = gig_song.song\n             WHERE gig_song.event = $1 ORDER BY gig_song.order ASC"
-  },
-  "d71c2ab890c0b113b7eb7238505d34fb9fe1fce146fe0c8f67c9377eb941e787": {
-    "describe": {
-      "columns": [
-        {
-          "name": "name",
-          "ordinal": 0,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "start_date: _",
-          "ordinal": 1,
-          "type_info": "Date"
-        },
-        {
-          "name": "end_date: _",
-          "ordinal": 2,
-          "type_info": "Date"
-        },
-        {
-          "name": "gig_requirement",
-          "ordinal": 3,
-          "type_info": "Int8"
-        },
-        {
-          "name": "current",
-          "ordinal": 4,
-          "type_info": "Bool"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        false,
-        false
-      ],
-      "parameters": {
-        "Left": []
-      }
-    },
-    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                 gig_requirement, current\n             FROM semester WHERE name = (\n                SELECT LAG(name, 1) OVER (ORDER BY start_date) previous_name\n                FROM semester WHERE current = true\n             )"
   },
   "dae028e957c2d8a1878016337aa398e9454c44d102ff1aacd85984abd875f680": {
     "describe": {

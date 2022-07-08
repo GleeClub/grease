@@ -2,6 +2,7 @@ use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObj
 use sqlx::PgPool;
 use time::{Duration, OffsetDateTime};
 
+use crate::graphql::guards::{LoggedIn, Permission};
 use crate::models::event::attendance::Attendance;
 use crate::models::event::carpool::Carpool;
 use crate::models::event::gig::{Gig, GigRequest, GigRequestStatus, NewGig};
@@ -103,8 +104,27 @@ impl Event {
         Attendance::for_member_at_event(&member, self.id, &pool).await
     }
 
-    pub async fn all_attendance(&self, ctx: &Context<'_>) -> Result<Vec<Attendance>> {
+    // TODO: permissions (should return empty list if not allowed, for convenience?)
+    #[graphql(guard = "LoggedIn")]
+    pub async fn all_attendance(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default = false)] empty_if_not_permitted: bool,
+    ) -> Result<Vec<Attendance>> {
         let pool: &PgPool = ctx.data_unchecked();
+        let user: &Member = ctx.data_unchecked();
+        if !Permission::EDIT_ATTENDANCE
+            .for_type(&self.r#type)
+            .granted_to(&user.email, pool)
+            .await?
+        {
+            if empty_if_not_permitted {
+                return Ok(vec![]);
+            } else {
+                return Err(Permission::EDIT_ATTENDANCE.error());
+            }
+        }
+
         Attendance::for_event(self.id, pool).await
     }
 

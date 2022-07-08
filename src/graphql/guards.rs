@@ -50,8 +50,12 @@ impl Permission {
         if self.granted_to(member, pool).await? {
             Ok(())
         } else {
-            Err(format!("Permission {} required", self.name).into())
+            Err(self.error())
         }
+    }
+
+    pub fn error(&self) -> async_graphql::Error {
+        format!("Permission {} required", self.name).into()
     }
 
     pub const PROCESS_GIG_REQUESTS: Self = Self::new("process-gig-requests");
@@ -101,6 +105,6 @@ impl Guard for Permission {
             }
         }
 
-        Err(format!("Permission {} required", self.name).into())
+        Err(self.error())
     }
 }
