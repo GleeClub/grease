@@ -20,8 +20,8 @@ pub struct Grades {
     pub grade: f64,
     /// The events of the semester, with the grade changes for those events
     pub events_with_changes: Vec<EventWithGradeChange>,
-    /// The number of volunteer gigs attended over the semester
-    pub volunteer_gigs_attended: usize,
+    /// The volunteer gigs attended over the semester
+    pub volunteer_gigs_attended: Vec<Arc<Event>>,
 }
 
 #[derive(SimpleObject)]
@@ -50,7 +50,7 @@ impl Grades {
                 .await?;
         let mut grades = Grades {
             grade: 100.0,
-            volunteer_gigs_attended: 0,
+            volunteer_gigs_attended: vec![],
             events_with_changes: vec![],
         };
 
@@ -59,12 +59,14 @@ impl Grades {
                 let change = Self::calculate_grade_change(event, &week, grades.grade, &now);
                 grades.grade = change.partial_score;
                 grades.events_with_changes.push(EventWithGradeChange {
-                    event: event.event.clone(),
+                    event: Arc::clone(&event.event),
                     change,
                 });
 
                 if week.attended_volunteer_gig(event) {
-                    grades.volunteer_gigs_attended += 1;
+                    grades
+                        .volunteer_gigs_attended
+                        .push(Arc::clone(&event.event));
                 }
             }
         }

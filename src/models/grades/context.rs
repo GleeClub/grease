@@ -55,7 +55,7 @@ impl GradesContext {
         let mut gigs = Gig::for_semester(&semester.name, pool).await?;
         let event_map: HashMap<i64, Arc<Event>> = events
             .iter()
-            .map(|event| (event.id, event.clone()))
+            .map(|event| (event.id, Arc::clone(event)))
             .collect();
         let attendance = AttendanceContext::for_members_during_semester(
             emails,
@@ -108,7 +108,7 @@ impl GradesContext {
                     .skip_while(|(event, _gig)| event.call_time.0.date() < sunday)
                     .take_while(|(event, _gig)| event.call_time.0.date() < next_sunday)
                     .map(|(event, gig)| EventWithAttendance {
-                        event: event.clone(),
+                        event: Arc::clone(event),
                         gig: gig.as_ref(),
                         attendance: self
                             .attendance
