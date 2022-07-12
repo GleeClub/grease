@@ -61,8 +61,8 @@ pub struct Song {
 
 #[ComplexObject]
 impl Song {
-    /// The links connected to the song sorted into sections
-    pub async fn links(&self, ctx: &Context<'_>) -> Result<Vec<SongLinkSection>> {
+    /// The sorted sections of links belonging to the song
+    pub async fn link_sections(&self, ctx: &Context<'_>) -> Result<Vec<SongLinkSection>> {
         let pool: &PgPool = ctx.data_unchecked();
         let mut all_links = SongLink::for_song(self.id, pool).await?;
         let all_types = MediaType::all(pool).await?;
@@ -293,10 +293,14 @@ impl SongLink {
     }
 
     pub async fn for_song(song_id: i64, pool: &PgPool) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM song_link WHERE song = $1", song_id)
-            .fetch_all(pool)
-            .await
-            .map_err(Into::into)
+        sqlx::query_as!(
+            Self,
+            "SELECT * FROM song_link WHERE song = $1 ORDER BY type",
+            song_id
+        )
+        .fetch_all(pool)
+        .await
+        .map_err(Into::into)
     }
 
     pub async fn create(song_id: i64, new_link: NewSongLink, pool: &PgPool) -> Result<i64> {

@@ -1438,50 +1438,6 @@
     },
     "query": "UPDATE google_docs SET url = $1 WHERE name = $2"
   },
-  "63045437bfb5d767334a2ab42bb02ff84b84a11cccaf392fec764544cb89f43c": {
-    "describe": {
-      "columns": [
-        {
-          "name": "id",
-          "ordinal": 0,
-          "type_info": "Int8"
-        },
-        {
-          "name": "song",
-          "ordinal": 1,
-          "type_info": "Int8"
-        },
-        {
-          "name": "type",
-          "ordinal": 2,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "name",
-          "ordinal": 3,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "target",
-          "ordinal": 4,
-          "type_info": "Varchar"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        false,
-        false
-      ],
-      "parameters": {
-        "Left": [
-          "Int8"
-        ]
-      }
-    },
-    "query": "SELECT * FROM song_link WHERE song = $1"
-  },
   "65c72295562f2cbd00d63eb5d88036fee7c1f610b19dc2931c9ba00b200f738d": {
     "describe": {
       "columns": [
@@ -3094,6 +3050,50 @@
       }
     },
     "query": "UPDATE attendance SET should_attend = $1, confirmed = true WHERE event = $2 AND member = $3"
+  },
+  "af2d90d5faae9b99da20bc6dde00fcb359904469d965f42a56de6dae68375e5d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "song",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "type",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "target",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM song_link WHERE song = $1 ORDER BY type"
   },
   "af4b895da5d18f8f9b5479cc8fbcb07ae21363527e9ce5259ded97a1b68c9219": {
     "describe": {
