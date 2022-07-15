@@ -139,9 +139,19 @@ impl MutationRoot {
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::CREATE_EVENT.for_type(&new_event.event.r#type))")]
-    pub async fn create_event(&self, ctx: &Context<'_>, new_event: NewEvent) -> Result<Event> {
+    pub async fn create_event(
+        &self,
+        ctx: &Context<'_>,
+        new_event: NewEvent,
+        request_id: Option<i64>,
+    ) -> Result<Event> {
         let pool: &PgPool = ctx.data_unchecked();
-        let new_id = Event::create(new_event, None, pool).await?;
+        let gig_request = if let Some(request_id) = request_id {
+            Some(GigRequest::with_id(request_id, pool).await?)
+        } else {
+            None
+        };
+        let new_id = Event::create(new_event, gig_request, pool).await?;
 
         Event::with_id(new_id, pool).await
     }
@@ -326,20 +336,6 @@ impl MutationRoot {
         GigRequest::set_status(id, GigRequestStatus::Pending, pool).await?;
 
         GigRequest::with_id(id, pool).await
-    }
-
-    #[graphql(guard = "LoggedIn.and(Permission::CREATE_EVENT.for_type(&new_event.event.r#type))")]
-    pub async fn create_event_from_gig_request(
-        &self,
-        ctx: &Context<'_>,
-        request_id: i64,
-        new_event: NewEvent,
-    ) -> Result<Event> {
-        let pool: &PgPool = ctx.data_unchecked();
-        let request = GigRequest::with_id(request_id, pool).await?;
-        let new_id = Event::create(new_event, Some(request), pool).await?;
-
-        Event::with_id(new_id, pool).await
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_LINKS)")]
