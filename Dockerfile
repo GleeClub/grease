@@ -1,5 +1,9 @@
 FROM rustlang/rust:nightly-bullseye-slim as builder
 
+# Ensure that queries have been cached already with
+# `cargo sqlx prepare`
+ENV SQLX_OFFLINE=true
+
 # Make a fake Rust app to keep a cached layer of compiled crates
 RUN USER=root cargo new app
 WORKDIR /usr/src/app
@@ -14,7 +18,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # Copy the rest
 COPY . .
 # Build (install) the actual binaries
-RUN SQLX_OFFLINE=true cargo install --path .
+RUN cargo install --path .
 
 # Runtime image
 FROM debian:bullseye-slim
