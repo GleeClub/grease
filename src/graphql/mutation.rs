@@ -143,10 +143,10 @@ impl MutationRoot {
         &self,
         ctx: &Context<'_>,
         new_event: NewEvent,
-        request_id: Option<i64>,
+        gig_request_id: Option<i64>,
     ) -> Result<Event> {
         let pool: &PgPool = ctx.data_unchecked();
-        let gig_request = if let Some(request_id) = request_id {
+        let gig_request = if let Some(request_id) = gig_request_id {
             Some(GigRequest::with_id(request_id, pool).await?)
         } else {
             None
