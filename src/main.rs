@@ -16,11 +16,14 @@ use anyhow::Context;
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use async_graphql::{Request, Response as GraphQLResponse};
 use axum::extract::Query;
-use axum::headers::{ContentType, HeaderMap};
+use axum::headers::{ContentType, HeaderMap, HeaderValue};
+use axum::http::header::CONTENT_TYPE;
+use axum::http::Method;
 use axum::routing::get;
 use axum::{Extension, Json, Router, TypedHeader};
 use serde::Deserialize;
 use sqlx::PgPool;
+use tower_http::cors::CorsLayer;
 
 use crate::email::run_email_loop;
 use crate::error::{GreaseError, GreaseResult};
@@ -49,7 +52,13 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/", get(playground).post(query))
-        .layer(Extension(pool));
+        .layer(Extension(pool))
+        .layer(
+            CorsLayer::new()
+                .allow_origin("*".parse::<HeaderValue>().unwrap())
+                .allow_headers([CONTENT_TYPE])
+                .allow_methods([Method::GET, Method::POST]),
+        );
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     axum::Server::bind(&addr)
