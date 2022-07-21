@@ -113,7 +113,6 @@ impl QueryRoot {
         Minutes::all(pool).await
     }
 
-    #[graphql(guard = "LoggedIn")]
     pub async fn current_semester(&self, ctx: &Context<'_>) -> Result<Semester> {
         let pool: &PgPool = ctx.data_unchecked();
         Semester::get_current(pool).await
