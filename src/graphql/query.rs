@@ -172,7 +172,6 @@ impl QueryRoot {
         PublicSong::all(pool).await
     }
 
-    #[graphql(guard = "LoggedIn")]
     pub async fn r#static(&self) -> StaticData {
         StaticData
     }
