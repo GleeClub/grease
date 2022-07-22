@@ -62,7 +62,7 @@ impl Minutes {
         sqlx::query_as!(
             Self,
             "SELECT id, name, date as \"date: _\", public, private
-             FROM minutes ORDER BY date"
+             FROM minutes ORDER BY date DESC"
         )
         .fetch_all(pool)
         .await

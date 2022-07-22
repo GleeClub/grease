@@ -2855,48 +2855,6 @@
     },
     "query": "SELECT should_attend, did_attend, confirmed, minutes_late, member, event\n             FROM attendance WHERE member = $1 AND event = $2"
   },
-  "a33ce975f8e24ccb33335e16382a7f9121ec034fdfe311f307567c9a5605c0de": {
-    "describe": {
-      "columns": [
-        {
-          "name": "id",
-          "ordinal": 0,
-          "type_info": "Int8"
-        },
-        {
-          "name": "name",
-          "ordinal": 1,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "date: _",
-          "ordinal": 2,
-          "type_info": "Date"
-        },
-        {
-          "name": "public",
-          "ordinal": 3,
-          "type_info": "Text"
-        },
-        {
-          "name": "private",
-          "ordinal": 4,
-          "type_info": "Text"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        true,
-        true
-      ],
-      "parameters": {
-        "Left": []
-      }
-    },
-    "query": "SELECT id, name, date as \"date: _\", public, private\n             FROM minutes ORDER BY date"
-  },
   "a39a98b317d0636256bc64590e4988a9be05eb7fa693d0d7f087c4907d86638f": {
     "describe": {
       "columns": [
@@ -3009,6 +2967,48 @@
       }
     },
     "query": "SELECT member FROM active_semester\n             WHERE member = ANY($1) AND semester = $2"
+  },
+  "aa5f05464f44fe20481e8817fe4c22d2fa6e67ead8dc5723bc8564e47cbb90b0": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "date: _",
+          "ordinal": 2,
+          "type_info": "Date"
+        },
+        {
+          "name": "public",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "private",
+          "ordinal": 4,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id, name, date as \"date: _\", public, private\n             FROM minutes ORDER BY date DESC"
   },
   "ab1b0b17ea686174e0f0c65d1fdbe36ce6480ee6b4d90ab0804f80a5a527ba02": {
     "describe": {
