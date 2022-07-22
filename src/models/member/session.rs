@@ -20,6 +20,10 @@ impl Session {
     }
 
     pub async fn with_token_opt(token: &str, pool: &PgPool) -> Result<Option<Self>> {
+        if token.contains('X') {
+            return Ok(None);
+        }
+
         sqlx::query_as!(Self, "SELECT * FROM session WHERE key = $1", token)
             .fetch_optional(pool)
             .await
