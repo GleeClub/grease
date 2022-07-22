@@ -56,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
         .layer(
             CorsLayer::new()
                 .allow_origin("*".parse::<HeaderValue>().unwrap())
-                .allow_headers([CONTENT_TYPE])
+                .allow_headers([CONTENT_TYPE, GREASE_TOKEN.parse().unwrap()])
                 .allow_methods([Method::GET, Method::POST]),
         );
 
