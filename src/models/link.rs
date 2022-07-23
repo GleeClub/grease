@@ -18,14 +18,14 @@ impl DocumentLink {
     }
 
     pub async fn with_name_opt(name: &str, pool: &PgPool) -> Result<Option<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM google_docs WHERE name = $1", name)
+        sqlx::query_as!(Self, "SELECT * FROM document_links WHERE name = $1", name)
             .fetch_optional(pool)
             .await
             .map_err(Into::into)
     }
 
     pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM google_docs ORDER BY name")
+        sqlx::query_as!(Self, "SELECT * FROM document_links ORDER BY name")
             .fetch_all(pool)
             .await
             .map_err(Into::into)
@@ -37,7 +37,7 @@ impl DocumentLink {
         }
 
         sqlx::query!(
-            "INSERT INTO google_docs (name, url) VALUES ($1, $2)",
+            "INSERT INTO document_links (name, url) VALUES ($1, $2)",
             name,
             url
         )
@@ -51,9 +51,13 @@ impl DocumentLink {
         // TODO: verify exists
         Self::with_name(name, pool).await?;
 
-        sqlx::query!("UPDATE google_docs SET url = $1 WHERE name = $2", url, name)
-            .execute(pool)
-            .await?;
+        sqlx::query!(
+            "UPDATE document_links SET url = $1 WHERE name = $2",
+            url,
+            name
+        )
+        .execute(pool)
+        .await?;
 
         Ok(())
     }
@@ -62,7 +66,7 @@ impl DocumentLink {
         // TODO: verify exists
         Self::with_name(name, pool).await?;
 
-        sqlx::query!("DELETE FROM google_docs WHERE name = $1", name)
+        sqlx::query!("DELETE FROM document_links WHERE name = $1", name)
             .execute(pool)
             .await?;
 

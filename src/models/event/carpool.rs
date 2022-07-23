@@ -30,9 +30,9 @@ impl Carpool {
         sqlx::query_as!(
             Member,
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
-                 location, on_campus as \"on_campus: bool\", about, major, minor, hometown,
+                 location, on_campus, about, major, minor, hometown,
                  arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash
-             FROM member WHERE email IN
+             FROM members WHERE email IN
              (SELECT member FROM rides_in WHERE carpool = $1)
              ORDER BY last_name, preferred_name, first_name",
             self.id
@@ -45,7 +45,7 @@ impl Carpool {
 
 impl Carpool {
     pub async fn for_event(event_id: i64, pool: &PgPool) -> Result<Vec<Carpool>> {
-        sqlx::query_as!(Self, "SELECT * FROM carpool WHERE event = $1", event_id)
+        sqlx::query_as!(Self, "SELECT * FROM carpools WHERE event = $1", event_id)
             .fetch_all(pool)
             .await
             .map_err(Into::into)
@@ -59,20 +59,20 @@ impl Carpool {
         // TODO: verify exists?
         Event::with_id(event_id, pool).await?;
 
-        sqlx::query!("DELETE FROM carpool WHERE event = $1", event_id)
+        sqlx::query!("DELETE FROM carpools WHERE event = $1", event_id)
             .execute(pool)
             .await?;
 
         // TODO: batch?
         for carpool in updated_carpools {
             sqlx::query!(
-                "INSERT INTO carpool (event, driver) VALUES ($1, $2)",
+                "INSERT INTO carpools (event, driver) VALUES ($1, $2)",
                 event_id,
                 carpool.driver
             )
             .execute(pool)
             .await?;
-            let new_carpool_id = sqlx::query_scalar!("SELECT id FROM carpool ORDER BY id DESC")
+            let new_carpool_id = sqlx::query_scalar!("SELECT id FROM carpools ORDER BY id DESC")
                 .fetch_one(pool)
                 .await?;
 

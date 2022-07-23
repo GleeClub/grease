@@ -129,7 +129,7 @@ impl AttendanceContext {
         pool: &PgPool,
     ) -> Result<HashMap<i64, HashMap<String, Self>>> {
         let active_members: HashSet<String> = sqlx::query_scalar!(
-            "SELECT member FROM active_semester
+            "SELECT member FROM active_semesters
              WHERE member = ANY($1) AND semester = $2",
             &emails[..],
             semester
@@ -144,7 +144,7 @@ impl AttendanceContext {
             "SELECT should_attend, did_attend, confirmed, minutes_late, member, event
              FROM attendance
              WHERE member = Any($1) AND event IN
-             (SELECT id FROM event WHERE semester = $2)",
+             (SELECT id FROM events WHERE semester = $2)",
             &emails[..],
             semester
         )
@@ -154,9 +154,9 @@ impl AttendanceContext {
         let absence_requests: Vec<AbsenceRequest> = sqlx::query_as!(
             AbsenceRequest,
             "SELECT member, event, \"time\" as \"time: _\", reason, state as \"state: _\"
-             FROM absence_request
+             FROM absence_requests
              WHERE member = ANY($1) AND event IN
-             (SELECT id FROM event WHERE semester = $2)",
+             (SELECT id FROM events WHERE semester = $2)",
             emails,
             semester
         )

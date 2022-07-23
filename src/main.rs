@@ -4,10 +4,12 @@
 
 mod email;
 mod error;
-mod file;
 mod graphql;
 mod models;
 mod util;
+
+#[cfg(test)]
+mod tests;
 
 use std::env::var;
 use std::net::SocketAddr;

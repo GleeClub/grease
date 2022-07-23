@@ -45,7 +45,7 @@ impl EventType {
     pub const OTHER: &'static str = "Other";
 
     pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM event_type ORDER BY name")
+        sqlx::query_as!(Self, "SELECT * FROM event_types ORDER BY name")
             .fetch_all(pool)
             .await
             .map_err(Into::into)
@@ -70,9 +70,9 @@ pub struct Event {
     /// How many points attendance of this event is worth
     pub points: i64,
     /// General information or details about this event
-    pub comments: Option<String>,
+    pub comments: String,
     /// Where this event will be held
-    pub location: Option<String>,
+    pub location: String,
     /// Whether this event counts toward the volunteer gig count for the semester
     pub gig_count: bool,
     /// Whether members are assumed to attend (we assume as much for most events)
@@ -153,7 +153,7 @@ impl Event {
             "SELECT id, name, semester, type, call_time as \"call_time: _\",
                   release_time as \"release_time: _\", points, comments, location,
                   gig_count, default_attend
-             FROM event WHERE id = $1",
+             FROM events WHERE id = $1",
             id
         )
         .fetch_optional(pool)
@@ -170,7 +170,7 @@ impl Event {
             "SELECT id, name, semester, \"type\", call_time as \"call_time: _\",
                   release_time as \"release_time: _\", points, comments, location,
                   gig_count, default_attend
-             FROM event WHERE semester = $1 ORDER BY call_time",
+             FROM events WHERE semester = $1 ORDER BY call_time",
             semester
         )
         .fetch_all(pool)
@@ -245,7 +245,7 @@ impl Event {
         let new_event_count = call_and_release_times.len();
         for (call_time, release_time) in call_and_release_times {
             sqlx::query!(
-                "INSERT INTO event
+                "INSERT INTO events
                      (name, semester, \"type\", call_time, release_time, points,
                       comments, location, gig_count, default_attend)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
@@ -265,7 +265,7 @@ impl Event {
         }
 
         let new_ids = sqlx::query_scalar!(
-            "SELECT id FROM event ORDER BY id DESC LIMIT $1",
+            "SELECT id FROM events ORDER BY id DESC LIMIT $1",
             new_event_count as i64
         )
         .fetch_all(pool)
@@ -285,7 +285,7 @@ impl Event {
         if let Some(gig) = gig {
             for new_id in &new_ids {
                 sqlx::query!(
-                    "INSERT INTO gig
+                    "INSERT INTO gigs
                         (event, performance_time, uniform, contact_name, contact_email,
                          contact_phone, price, \"public\", summary, description)
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
@@ -319,7 +319,7 @@ impl Event {
         Self::with_id(id, pool).await?;
 
         sqlx::query!(
-            "UPDATE event SET name = $1, semester = $2, \"type\" = $3, call_time = $4, release_time = $5,
+            "UPDATE events SET name = $1, semester = $2, \"type\" = $3, call_time = $4, release_time = $5,
                  points = $6, comments = $7, location = $8, gig_count = $9, default_attend = $10
              WHERE id = $11",
             update.event.name,
@@ -340,7 +340,7 @@ impl Event {
         if Gig::for_event(id, pool).await?.is_some() {
             if let Some(gig) = update.gig {
                 sqlx::query!(
-                    "UPDATE gig SET performance_time = $1, uniform = $2, contact_name = $3, contact_email = $4,
+                    "UPDATE gigs SET performance_time = $1, uniform = $2, contact_name = $3, contact_email = $4,
                      contact_phone = $5, price = $6, public = $7, summary = $8, description = $9
                      WHERE event = $10", gig.performance_time.0, gig.uniform, gig.contact_name, gig.contact_email,
                     gig.contact_phone, gig.price, gig.public, gig.summary, gig.description, id).execute(pool).await?;
@@ -354,7 +354,7 @@ impl Event {
         // TODO: verify exists?
         Event::with_id(id, pool).await?;
 
-        sqlx::query!("DELETE FROM event WHERE id = $1", id)
+        sqlx::query!("DELETE FROM events WHERE id = $1", id)
             .execute(pool)
             .await?;
 

@@ -13,19 +13,19 @@ pub struct Gig {
     /// When members are expected to actually perform
     pub performance_time: GqlDateTime,
     /// The name of the contact for this gig
-    pub contact_name: Option<String>,
+    pub contact_name: String,
     /// The email of the contact for this gig
-    pub contact_email: Option<String>,
+    pub contact_email: String,
     /// The phone number of the contact for this gig
-    pub contact_phone: Option<String>,
+    pub contact_phone: String,
     /// The price we are charging for this gig
     pub price: Option<i64>,
     /// Whether this gig is visible on the external website
     pub public: bool,
     /// A summary of this event for the external site (if it is public)
-    pub summary: Option<String>,
+    pub summary: String,
     /// A description of this event for the external site (if it is public)
-    pub description: Option<String>,
+    pub description: String,
 
     #[graphql(skip)]
     pub uniform: i64,
@@ -46,7 +46,7 @@ impl Gig {
             Self,
             "SELECT event, performance_time as \"performance_time: _\", contact_name, contact_email,
                  contact_phone, price, public as \"public: bool\", summary, description, uniform
-             FROM gig WHERE event = $1",
+             FROM gigs WHERE event = $1",
             event_id
         )
         .fetch_optional(pool)
@@ -59,8 +59,8 @@ impl Gig {
             Self,
             "SELECT event, performance_time as \"performance_time: _\", contact_name, contact_email,
                  contact_phone, price, public as \"public: bool\", summary, description, uniform
-             FROM gig WHERE event in
-                 (SELECT id FROM event WHERE semester = $1)",
+             FROM gigs WHERE event in
+                 (SELECT id FROM events WHERE semester = $1)",
             semester
         )
         .fetch_all(pool)
@@ -99,7 +99,7 @@ pub struct GigRequest {
     /// Where the event will be happening
     pub location: String,
     /// Any comments about the event
-    pub comments: Option<String>,
+    pub comments: String,
     /// The current status of whether the request was accepted
     pub status: GigRequestStatus,
 
@@ -132,7 +132,7 @@ impl GigRequest {
             Self,
             "SELECT id, \"time\" as \"time: _\", name, organization, contact_name, contact_phone, contact_email,
                  start_time as \"start_time: _\", location, comments, status as \"status: _\", event
-             FROM gig_request WHERE id = $1",
+             FROM gig_requests WHERE id = $1",
             id
         )
             .fetch_optional(pool)
@@ -145,7 +145,7 @@ impl GigRequest {
             Self,
             "SELECT id, \"time\" as \"time: _\", name, organization, contact_name, contact_phone, contact_email,
                  start_time as \"start_time: _\", location, comments, status as \"status: _\", event
-             FROM gig_request ORDER BY time"
+             FROM gig_requests ORDER BY time"
         )
             .fetch_all(pool)
             .await
@@ -154,7 +154,7 @@ impl GigRequest {
 
     pub async fn submit(new_request: NewGigRequest, pool: &PgPool) -> Result<i64> {
         sqlx::query!(
-            "INSERT INTO gig_request (
+            "INSERT INTO gig_requests (
                 name, organization, contact_name, contact_phone,
                 contact_email, start_time, location, comments)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
@@ -170,7 +170,7 @@ impl GigRequest {
         .execute(pool)
         .await?;
 
-        sqlx::query_scalar!("SELECT id FROM gig_request ORDER BY id DESC")
+        sqlx::query_scalar!("SELECT id FROM gig_requests ORDER BY id DESC")
             .fetch_one(pool)
             .await
             .map_err(Into::into)
@@ -201,7 +201,7 @@ impl GigRequest {
             }
             _ => {
                 sqlx::query!(
-                    "UPDATE gig_request SET status = $1 WHERE id = $2",
+                    "UPDATE gig_requests SET status = $1 WHERE id = $2",
                     status as _,
                     id
                 )
@@ -219,12 +219,12 @@ impl GigRequest {
         Ok(NewGig {
             performance_time: self.start_time.clone(),
             uniform: default_uniform.id,
-            contact_name: Some(self.contact_name.clone()),
-            contact_email: Some(self.contact_email.clone()),
-            contact_phone: Some(self.contact_phone.clone()),
+            contact_name: self.contact_name.clone(),
+            contact_email: self.contact_email.clone(),
+            contact_phone: self.contact_phone.clone(),
             price: Some(0),
             public: false,
-            summary: None,
+            summary: self.name.clone(),
             description: self.comments.clone(),
         })
     }
@@ -239,18 +239,18 @@ pub struct NewGigRequest {
     pub contact_phone: String,
     pub start_time: GqlDateTime,
     pub location: String,
-    pub comments: Option<String>,
+    pub comments: String,
 }
 
 #[derive(InputObject)]
 pub struct NewGig {
     pub performance_time: GqlDateTime,
     pub uniform: i64,
-    pub contact_name: Option<String>,
-    pub contact_email: Option<String>,
-    pub contact_phone: Option<String>,
+    pub contact_name: String,
+    pub contact_email: String,
+    pub contact_phone: String,
     pub price: Option<i64>,
     pub public: bool,
-    pub summary: Option<String>,
-    pub description: Option<String>,
+    pub summary: String,
+    pub description: String,
 }

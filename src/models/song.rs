@@ -1,10 +1,5 @@
-use std::fs;
-use std::path::PathBuf;
-
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
 use sqlx::PgPool;
-
-use crate::file::MusicFile;
 
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
 #[sqlx(type_name = "pitch", rename_all = "snake_case")]
@@ -48,7 +43,7 @@ pub struct Song {
     pub title: String,
     /// Any information related to the song
     /// (minor changes to the music, who wrote it, soloists, etc.)
-    pub info: Option<String>,
+    pub info: String,
     /// Whether it is in this semester's repertoire
     pub current: bool,
     /// The key of the song
@@ -89,7 +84,7 @@ impl Song {
             Self,
             "SELECT id, title, info, current, key as \"key: _\",
                  starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"
-             FROM song WHERE id = $1",
+             FROM songs WHERE id = $1",
             id
         )
         .fetch_optional(pool)
@@ -102,7 +97,7 @@ impl Song {
             Self,
             "SELECT id, title, info, current, key as \"key: _\",
                  starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"
-             FROM song ORDER BY title"
+             FROM songs ORDER BY title"
         )
         .fetch_all(pool)
         .await
@@ -114,9 +109,9 @@ impl Song {
         sqlx::query_as!(
             Self,
             "SELECT s.id, s.title, s.info, s.current, s.key as \"key: _\",
-                 starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"
-             FROM song s INNER JOIN gig_song ON s.id = gig_song.song
-             WHERE gig_song.event = $1 ORDER BY gig_song.order ASC",
+                 s.starting_pitch as \"starting_pitch: _\", s.mode as \"mode: _\"
+             FROM songs s INNER JOIN gig_songs ON s.id = gig_songs.song
+             WHERE gig_songs.event = $1 ORDER BY gig_songs.order ASC",
             event_id
         )
         .fetch_all(pool)
@@ -126,14 +121,14 @@ impl Song {
 
     pub async fn create(new_song: NewSong, pool: &PgPool) -> Result<i64> {
         sqlx::query!(
-            "INSERT INTO song (title, info) VALUES ($1, $2)",
+            "INSERT INTO songs (title, info) VALUES ($1, $2)",
             new_song.title,
             new_song.info
         )
         .execute(pool)
         .await?;
 
-        sqlx::query_scalar!("SELECT id FROM song ORDER BY id DESC")
+        sqlx::query_scalar!("SELECT id FROM songs ORDER BY id DESC")
             .fetch_one(pool)
             .await
             .map_err(Into::into)
@@ -141,7 +136,7 @@ impl Song {
 
     pub async fn update(id: i64, updated_song: SongUpdate, pool: &PgPool) -> Result<()> {
         sqlx::query!(
-            "UPDATE song SET title = $1, current = $2, info = $3, key = $4, starting_pitch = $5, mode = $6 WHERE id = $7",
+            "UPDATE songs SET title = $1, current = $2, info = $3, key = $4, starting_pitch = $5, mode = $6 WHERE id = $7",
             updated_song.title, updated_song.current, updated_song.info, updated_song.key as _, updated_song.starting_pitch as _, updated_song.mode as _, id
         ).execute(pool).await?;
 
@@ -150,7 +145,7 @@ impl Song {
 
     pub async fn delete(id: i64, pool: &PgPool) -> Result<()> {
         // TODO: verify exists
-        sqlx::query!("DELETE FROM song WHERE id = $1", id)
+        sqlx::query!("DELETE FROM songs WHERE id = $1", id)
             .execute(pool)
             .await?;
 
@@ -168,12 +163,12 @@ pub struct PublicSong {
 impl PublicSong {
     pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
         let mut all_public_videos = sqlx::query!(
-            "SELECT name, target, song FROM song_link WHERE type = $1",
+            "SELECT name, url, song FROM song_links WHERE type = $1",
             SongLink::PERFORMANCES
         )
         .fetch_all(pool)
         .await?;
-        let all_public_songs = sqlx::query!("SELECT id, title, current FROM song ORDER BY title")
+        let all_public_songs = sqlx::query!("SELECT id, title, current FROM songs ORDER BY title")
             .fetch_all(pool)
             .await?;
 
@@ -186,7 +181,7 @@ impl PublicSong {
                     .drain_filter(|pv| pv.song == ps.id)
                     .map(|pv| PublicVideo {
                         title: pv.name,
-                        url: pv.target,
+                        url: pv.url.unwrap(),
                     })
                     .collect(),
             })
@@ -241,7 +236,7 @@ impl MediaType {
         sqlx::query_as!(
             Self,
             "SELECT name, \"order\", storage as \"storage: _\"
-             FROM media_type WHERE name = $1",
+             FROM media_types WHERE name = $1",
             name
         )
         .fetch_optional(pool)
@@ -254,7 +249,7 @@ impl MediaType {
         sqlx::query_as!(
             Self,
             "SELECT name, \"order\", storage as \"storage: _\"
-             FROM media_type ORDER BY \"order\""
+             FROM media_types ORDER BY \"order\""
         )
         .fetch_all(pool)
         .await
@@ -263,6 +258,7 @@ impl MediaType {
 }
 
 #[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct SongLink {
     /// The ID of the song link
     pub id: i64,
@@ -272,8 +268,25 @@ pub struct SongLink {
     pub r#type: String,
     /// The name of this link
     pub name: String,
-    /// The target this link points to
-    pub target: String,
+
+    #[graphql(skip)]
+    pub url: Option<String>,
+    #[graphql(skip)]
+    pub file: Option<String>,
+}
+
+#[ComplexObject]
+impl SongLink {
+    /// The URL this link points to
+    pub async fn url(&self) -> Result<String> {
+        if let Some(url) = &self.url {
+            Ok(url.clone())
+        } else if let Some(file) = &self.file {
+            Ok(format!("https://api.glubhub.org/files/{}", file))
+        } else {
+            Err("Song link is malformed and has no URL".into())
+        }
+    }
 }
 
 impl SongLink {
@@ -286,7 +299,7 @@ impl SongLink {
     }
 
     pub async fn with_id_opt(id: i64, pool: &PgPool) -> Result<Option<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM song_link WHERE id = $1", id)
+        sqlx::query_as!(Self, "SELECT * FROM song_links WHERE id = $1", id)
             .fetch_optional(pool)
             .await
             .map_err(Into::into)
@@ -295,7 +308,7 @@ impl SongLink {
     pub async fn for_song(song_id: i64, pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT * FROM song_link WHERE song = $1 ORDER BY type",
+            "SELECT * FROM song_links WHERE song = $1 ORDER BY type",
             song_id
         )
         .fetch_all(pool)
@@ -304,24 +317,45 @@ impl SongLink {
     }
 
     pub async fn create(song_id: i64, new_link: NewSongLink, pool: &PgPool) -> Result<i64> {
-        let encoded_target = if let Some(file) = new_link.link_file() {
-            file.save()?;
-            file.path.to_string_lossy().to_string()
+        MediaType::with_name(&new_link.name, pool).await?;
+
+        if let Some(content) = new_link.content {
+            let data = base64::decode(&content)
+                .map_err(|err| format!("Failed to decode file content: {err}"))?;
+
+            sqlx::query!(
+                "INSERT INTO song_files (name, data) VALUES ($1, $2)",
+                new_link.url,
+                data
+            )
+            .execute(pool)
+            .await?;
+            sqlx::query!(
+                "INSERT INTO song_links (song, type, name, url, file)
+                 VALUES ($1, $2, $3, $4, $5)",
+                song_id,
+                new_link.r#type,
+                new_link.name,
+                Option::<String>::None,
+                new_link.url,
+            )
+            .execute(pool)
+            .await?;
         } else {
-            new_link.target
-        };
+            sqlx::query!(
+                "INSERT INTO song_links (song, type, name, url, file)
+                 VALUES ($1, $2, $3, $4, $5)",
+                song_id,
+                new_link.r#type,
+                new_link.name,
+                new_link.url,
+                Option::<String>::None,
+            )
+            .execute(pool)
+            .await?;
+        }
 
-        sqlx::query!(
-            "INSERT INTO song_link (song, type, name, target) VALUES ($1, $2, $3, $4)",
-            song_id,
-            new_link.r#type,
-            new_link.name,
-            encoded_target
-        )
-        .execute(pool)
-        .await?;
-
-        sqlx::query_scalar!("SELECT id FROM song_link ORDER BY id DESC")
+        sqlx::query_scalar!("SELECT id FROM song_links ORDER BY id DESC")
             .fetch_one(pool)
             .await
             .map_err(Into::into)
@@ -330,33 +364,34 @@ impl SongLink {
     pub async fn update(id: i64, update: SongLinkUpdate, pool: &PgPool) -> Result<()> {
         let song_link = SongLink::with_id(id, pool).await?;
 
-        let media_type = MediaType::with_name(&song_link.r#type, pool).await?;
-        let new_target = if media_type.storage == StorageType::Local {
-            // TODO: is this correct?
-            base64::encode(&update.target)
+        if song_link.url.is_some() {
+            sqlx::query!(
+                "UPDATE song_links SET name = $1, url = $2 WHERE id = $3",
+                update.name,
+                update.url,
+                id
+            )
+            .execute(pool)
+            .await?;
         } else {
-            update.target
-        };
+            let old_file_name = song_link
+                .file
+                .ok_or_else(|| "Can't update file name because old name is missing")?;
 
-        sqlx::query!(
-            "UPDATE song_link SET name = $1, target = $2 WHERE id = $3",
-            update.name,
-            new_target,
-            id,
-        )
-        .execute(pool)
-        .await?;
-
-        if song_link.target != new_target && media_type.storage == StorageType::Local {
-            let old_path = MusicFile::named(&song_link.target)?;
-            let new_path = MusicFile::named(&new_target)?;
-
-            // TODO: verify behavior
-            if MusicFile::exists(&old_path)? {
-                return Err(format!("Song link {} has no associated file", id).into());
-            } else {
-                fs::rename(old_path, new_path)?;
-            }
+            sqlx::query!(
+                "UPDATE song_links SET name = $1 WHERE id = $2",
+                update.name,
+                id
+            )
+            .execute(pool)
+            .await?;
+            sqlx::query!(
+                "UPDATE song_files SET name = $1 WHERE name = $2",
+                update.url,
+                old_file_name,
+            )
+            .execute(pool)
+            .await?;
         }
 
         Ok(())
@@ -364,15 +399,16 @@ impl SongLink {
 
     pub async fn delete(id: i64, pool: &PgPool) -> Result<()> {
         let song_link = SongLink::with_id(id, pool).await?;
-        let media_type = MediaType::with_name(&song_link.r#type, pool).await?;
 
-        sqlx::query!("DELETE FROM song_link WHERE id = $1", id)
+        if let Some(file) = song_link.file {
+            sqlx::query!("DELETE FROM song_files WHERE name = $1", file)
+                .execute(pool)
+                .await?;
+        }
+
+        sqlx::query!("DELETE FROM song_links WHERE id = $1", id)
             .execute(pool)
             .await?;
-
-        if media_type.storage == StorageType::Local && MusicFile::exists(&song_link.target)? {
-            fs::remove_file(MusicFile::named(song_link.target)?)?;
-        }
 
         Ok(())
     }
@@ -398,28 +434,12 @@ pub struct SongUpdate {
 pub struct NewSongLink {
     pub r#type: String,
     pub name: String,
-    pub target: String,
+    pub url: String,
     pub content: Option<String>,
-}
-
-impl NewSongLink {
-    pub fn link_file(&self) -> Option<MusicFile> {
-        if let Some(data) = &self.content {
-            let data = base64::decode(&data).ok()?;
-            let path = PathBuf::from(&self.target);
-
-            Some(MusicFile {
-                path,
-                content: data,
-            })
-        } else {
-            None
-        }
-    }
 }
 
 #[derive(InputObject)]
 pub struct SongLinkUpdate {
     pub name: String,
-    pub target: String,
+    pub url: String,
 }

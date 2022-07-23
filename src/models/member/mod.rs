@@ -27,29 +27,29 @@ pub struct Member {
     /// The member's phone number
     pub phone_number: String,
     /// An optional link to a profile picture for the member
-    pub picture: Option<String>,
+    pub picture: String,
     /// How many people the member can drive to events (besides themself)
     pub passengers: i64,
     /// Where the member lives
     pub location: String,
     /// Whether the member lives on campus
-    pub on_campus: Option<bool>,
+    pub on_campus: bool,
     /// A short biography written by the member
-    pub about: Option<String>,
+    pub about: String,
     /// The member's academic major
-    pub major: Option<String>,
+    pub major: String,
     /// The member's academic minor
-    pub minor: Option<String>,
+    pub minor: String,
     /// Where the member came from
-    pub hometown: Option<String>,
+    pub hometown: String,
     /// What year the member arrived at Georgia Tech
     pub arrived_at_tech: Option<i64>,
     /// What got them to join Glee Club
-    pub gateway_drug: Option<String>,
+    pub gateway_drug: String,
     /// What conflicts with rehearsal the member may have
-    pub conflicts: Option<String>,
+    pub conflicts: String,
     /// Any dietary restrictions the member may have
-    pub dietary_restrictions: Option<String>,
+    pub dietary_restrictions: String,
 
     #[graphql(skip)]
     pub pass_hash: String,
@@ -61,7 +61,10 @@ impl Member {
     pub async fn full_name(&self) -> String {
         format!(
             "{} {}",
-            self.preferred_name.as_deref().unwrap_or(&self.first_name),
+            self.preferred_name
+                .as_deref()
+                .filter(|pn| !pn.is_empty())
+                .unwrap_or(&self.first_name),
             self.last_name
         )
     }
@@ -155,9 +158,9 @@ impl Member {
         sqlx::query_as!(
             Member,
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
-                 location, on_campus as \"on_campus: bool\", about, major, minor, hometown,
+                 location, on_campus, about, major, minor, hometown,
                  arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash
-             FROM member WHERE email = $1",
+             FROM members WHERE email = $1",
             email
         )
         .fetch_optional(pool)
@@ -174,9 +177,9 @@ impl Member {
         sqlx::query_as!(
             Self,
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
-                 location, on_campus as \"on_campus: bool\", about, major, minor, hometown,
+                 location, on_campus, about, major, minor, hometown,
                  arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash
-             FROM member ORDER BY last_name, first_name"
+             FROM members ORDER BY last_name, first_name"
         )
         .fetch_all(pool)
         .await
@@ -188,10 +191,10 @@ impl Member {
         sqlx::query_as!(
             Self,
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
-                 location, on_campus as \"on_campus: bool\", about, major, minor, hometown,
+                 location, on_campus, about, major, minor, hometown,
                  arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash
-             FROM member WHERE email IN
-             (SELECT member FROM active_semester WHERE semester = $1)",
+             FROM members WHERE email IN
+             (SELECT member FROM active_semesters WHERE semester = $1)",
             semester
         )
         .fetch_all(pool)
@@ -201,7 +204,7 @@ impl Member {
 
     pub async fn login_is_valid(email: &str, pass_hash: &str, pool: &PgPool) -> Result<bool> {
         if let Some(hash) =
-            sqlx::query_scalar!("SELECT pass_hash FROM member WHERE email = $1", email)
+            sqlx::query_scalar!("SELECT pass_hash FROM members WHERE email = $1", email)
                 .fetch_optional(pool)
                 .await?
         {
@@ -213,7 +216,7 @@ impl Member {
 
     pub async fn register(new_member: NewMember, pool: &PgPool) -> Result<()> {
         if sqlx::query!(
-            "SELECT email FROM member WHERE email = $1",
+            "SELECT email FROM members WHERE email = $1",
             new_member.email
         )
         .fetch_optional(pool)
@@ -229,7 +232,7 @@ impl Member {
             .map_err(|err| format!("Failed to hash password: {}", err))?;
 
         sqlx::query!(
-            "INSERT INTO member
+            "INSERT INTO members
              (email, first_name, preferred_name, last_name, pass_hash, phone_number,
               picture, passengers, location, on_campus, about, major, minor, hometown,
               arrived_at_tech, gateway_drug, conflicts, dietary_restrictions)
@@ -274,7 +277,7 @@ impl Member {
         .await?;
 
         sqlx::query!(
-            "UPDATE member SET location = $1, on_campus = $2, conflicts = $3, dietary_restrictions = $4
+            "UPDATE members SET location = $1, on_campus = $2, conflicts = $3, dietary_restrictions = $4
              WHERE email = $5",
             form.location,
             form.on_campus,
@@ -295,7 +298,7 @@ impl Member {
         pool: &PgPool,
     ) -> Result<()> {
         if email != &update.email
-            && sqlx::query!("SELECT email FROM member WHERE email = $1", update.email)
+            && sqlx::query!("SELECT email FROM members WHERE email = $1", update.email)
                 .fetch_optional(pool)
                 .await?
                 .is_some()
@@ -315,13 +318,13 @@ impl Member {
                 return Err("Only members themselves can change their own passwords".into());
             }
         } else {
-            sqlx::query_scalar!("SELECT pass_hash FROM member WHERE email = $1", email)
+            sqlx::query_scalar!("SELECT pass_hash FROM members WHERE email = $1", email)
                 .fetch_one(pool)
                 .await?
         };
 
         sqlx::query!(
-            "UPDATE member SET
+            "UPDATE members SET
              email = $1, first_name = $2, preferred_name = $3, last_name = $4,
              phone_number = $5, picture = $6, passengers = $7, location = $8,
              about = $9, major = $10, minor = $11, hometown = $12, arrived_at_tech = $13,
@@ -351,17 +354,17 @@ impl Member {
         let active_semester_update = NewActiveSemester {
             member: email.to_owned(),
             semester: current_semester.name,
-            enrollment: update.enrollment,
+            enrollment: Some(update.enrollment),
             section: update.section,
         };
         ActiveSemester::update(active_semester_update, pool).await
     }
 
     pub async fn delete(email: &str, pool: &PgPool) -> Result<()> {
-        // TODO: verify exists
+        // verify member exists
         Member::with_email(email, pool).await?;
 
-        sqlx::query!("DELETE FROM member WHERE email = $1", email)
+        sqlx::query!("DELETE FROM members WHERE email = $1", email)
             .execute(pool)
             .await?;
 
@@ -377,7 +380,7 @@ pub struct SectionType {
 
 impl SectionType {
     pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM section_type ORDER BY name")
+        sqlx::query_as!(Self, "SELECT * FROM section_types ORDER BY name")
             .fetch_all(pool)
             .await
             .map_err(Into::into)
@@ -392,18 +395,18 @@ pub struct NewMember {
     pub last_name: String,
     pub pass_hash: String,
     pub phone_number: String,
-    pub picture: Option<String>,
+    pub picture: String,
     pub passengers: i64,
     pub location: String,
     pub on_campus: bool,
-    pub about: Option<String>,
-    pub major: Option<String>,
-    pub minor: Option<String>,
-    pub hometown: Option<String>,
+    pub about: String,
+    pub major: String,
+    pub minor: String,
+    pub hometown: String,
     pub arrived_at_tech: Option<i64>,
-    pub gateway_drug: Option<String>,
-    pub conflicts: Option<String>,
-    pub dietary_restrictions: Option<String>,
+    pub gateway_drug: String,
+    pub conflicts: String,
+    pub dietary_restrictions: String,
     pub enrollment: Enrollment,
     pub section: Option<String>,
 }
@@ -416,20 +419,20 @@ pub struct MemberUpdate {
     pub last_name: String,
     pub pass_hash: Option<String>,
     pub phone_number: String,
-    pub picture: Option<String>,
+    pub picture: String,
     pub passengers: i64,
     pub location: String,
     pub on_campus: bool,
-    pub about: Option<String>,
-    pub major: Option<String>,
-    pub minor: Option<String>,
-    pub hometown: Option<String>,
+    pub about: String,
+    pub major: String,
+    pub minor: String,
+    pub hometown: String,
     pub arrived_at_tech: Option<i64>,
-    pub gateway_drug: Option<String>,
-    pub conflicts: Option<String>,
-    pub dietary_restrictions: Option<String>,
-    pub enrollment: Option<Enrollment>,
-    pub section: Option<String>,
+    pub gateway_drug: String,
+    pub conflicts: String,
+    pub dietary_restrictions: String,
+    pub enrollment: Enrollment,
+    pub section: String,
 }
 
 #[derive(InputObject)]
@@ -448,7 +451,7 @@ impl RegisterForSemesterForm {
             member,
             semester,
             enrollment: Some(self.enrollment),
-            section: Some(self.section.clone()),
+            section: self.section.clone(),
         }
     }
 }

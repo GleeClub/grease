@@ -17,7 +17,7 @@ pub struct Role {
 
 impl Role {
     pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM role ORDER BY rank")
+        sqlx::query_as!(Self, "SELECT * FROM roles ORDER BY rank")
             .fetch_all(pool)
             .await
             .map_err(Into::into)
@@ -26,8 +26,8 @@ impl Role {
     pub async fn for_member(email: &str, pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT * FROM role WHERE name in 
-             (SELECT role FROM member_role WHERE member = $1) 
+            "SELECT * FROM roles WHERE name in 
+             (SELECT role FROM member_roles WHERE member = $1) 
              ORDER BY rank",
             email
         )
@@ -58,7 +58,7 @@ impl MemberRole {
 
 impl MemberRole {
     pub async fn current_officers(pool: &PgPool) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM member_role ORDER BY role, member")
+        sqlx::query_as!(Self, "SELECT * FROM member_roles ORDER BY role, member")
             .fetch_all(pool)
             .await
             .map_err(Into::into)
@@ -66,7 +66,7 @@ impl MemberRole {
 
     pub async fn member_has_role(member: &str, role: &str, pool: &PgPool) -> Result<bool> {
         let member_role = sqlx::query!(
-            "SELECT * FROM member_role WHERE member = $1 AND role = $2",
+            "SELECT * FROM member_roles WHERE member = $1 AND role = $2",
             member,
             role
         )
@@ -82,7 +82,7 @@ impl MemberRole {
         }
 
         sqlx::query!(
-            "INSERT INTO member_role (member, role) VALUES ($1, $2)",
+            "INSERT INTO member_roles (member, role) VALUES ($1, $2)",
             member,
             role
         )
@@ -98,7 +98,7 @@ impl MemberRole {
         }
 
         sqlx::query!(
-            "DELETE FROM member_role WHERE member = $1 AND role = $2",
+            "DELETE FROM member_roles WHERE member = $1 AND role = $2",
             member,
             role
         )
@@ -131,7 +131,7 @@ impl Permission {
         sqlx::query_as!(
             Self,
             "SELECT name, description, type as \"type: _\"
-             FROM permission ORDER BY name"
+             FROM permissions ORDER BY name"
         )
         .fetch_all(pool)
         .await
@@ -163,7 +163,7 @@ pub struct RolePermission {
 
 impl RolePermission {
     pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM role_permission")
+        sqlx::query_as!(Self, "SELECT * FROM role_permissions")
             .fetch_all(pool)
             .await
             .map_err(Into::into)
@@ -172,7 +172,7 @@ impl RolePermission {
     pub async fn add(role_permission: NewRolePermission, pool: &PgPool) -> Result<()> {
         sqlx::query_as!(
             Self,
-            "INSERT INTO role_permission (role, permission, event_type)
+            "INSERT INTO role_permissions (role, permission, event_type)
              VALUES ($1, $2, $3)
              ON CONFLICT(role, permission, event_type) DO NOTHING",
             role_permission.role,
@@ -188,7 +188,7 @@ impl RolePermission {
     pub async fn remove(role_permission: NewRolePermission, pool: &PgPool) -> Result<()> {
         sqlx::query_as!(
             Self,
-            "DELETE FROM role_permission WHERE role = $1 AND permission = $2 AND event_type = $3",
+            "DELETE FROM role_permissions WHERE role = $1 AND permission = $2 AND event_type = $3",
             role_permission.role,
             role_permission.permission,
             role_permission.event_type
@@ -212,9 +212,9 @@ impl MemberPermission {
     pub async fn for_member(member: &str, pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT permission as name, event_type FROM role_permission
-             INNER JOIN member_role ON role_permission.role = member_role.role
-             WHERE member_role.member = $1",
+            "SELECT permission as name, event_type FROM role_permissions
+             INNER JOIN member_roles ON role_permissions.role = member_roles.role
+             WHERE member_roles.member = $1",
             member
         )
         .fetch_all(pool)

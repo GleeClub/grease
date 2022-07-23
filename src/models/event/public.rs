@@ -18,9 +18,9 @@ pub struct PublicEvent {
     pub name: String,
     pub start_time: GqlDateTime,
     pub end_time: Option<GqlDateTime>,
-    pub location: Option<String>,
-    pub summary: Option<String>,
-    pub description: Option<String>,
+    pub location: String,
+    pub summary: String,
+    pub description: String,
 }
 
 #[ComplexObject]
@@ -33,9 +33,6 @@ impl PublicEvent {
             .as_ref()
             .map(|et| Self::format_datetime(&et.0))
             .unwrap_or_default();
-        let location = self.location.clone().unwrap_or_default();
-        let summary = self.summary.clone().unwrap_or_default();
-        let description = self.description.clone().unwrap_or_default();
 
         let details = format!(
             "VERSION:2.0\n\
@@ -53,11 +50,11 @@ impl PublicEvent {
              END:VCALENDAR\n\
             ",
             now,
-            summary,
+            self.summary,
             end_time,
             start_time,
-            location,
-            description,
+            self.location,
+            self.description,
             Uuid::new_v4(),
         );
 
@@ -69,12 +66,12 @@ impl PublicEvent {
     pub async fn all_for_current_semester(pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
-            "SELECT event.id, event.name, gig.performance_time as \"start_time: _\",
-                 event.release_time as \"end_time: _\", event.location, gig.summary, gig.description
-             FROM event
-             INNER JOIN gig ON event.id = gig.event
-             WHERE gig.public = true AND event.semester =
-                 (SELECT name FROM semester WHERE current = true)"
+            "SELECT events.id, events.name, gigs.performance_time as \"start_time: _\",
+                 events.release_time as \"end_time: _\", events.location, gigs.summary, gigs.description
+             FROM events
+             INNER JOIN gigs ON events.id = gigs.event
+             WHERE gigs.public = true AND events.semester =
+                 (SELECT name FROM semesters WHERE current = true)"
         )
         .fetch_all(pool)
         .await

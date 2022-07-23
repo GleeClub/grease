@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use crate::models::event::absence_request::AbsenceRequestStatus;
+use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestStatus};
+use crate::models::event::attendance::Attendance;
 use crate::models::event::gig::Gig;
 use crate::models::event::{Event, EventType};
 use crate::models::grades::context::AttendanceContext;
@@ -12,44 +13,34 @@ pub struct EventWithAttendance<'a> {
 }
 
 impl<'a> EventWithAttendance<'a> {
-    pub fn approved_absence(&self) -> bool {
+    fn get_attendance(&self) -> Option<&'a Attendance> {
+        self.attendance.as_ref().and_then(|a| a.attendance.as_ref())
+    }
+
+    fn get_absence_request(&self) -> Option<&'a AbsenceRequest> {
         self.attendance
             .as_ref()
             .and_then(|a| a.absence_request.as_ref())
+    }
+
+    pub fn approved_absence(&self) -> bool {
+        self.get_absence_request()
             .map(|ar| ar.state == AbsenceRequestStatus::Approved)
             .unwrap_or(false)
     }
 
     pub fn should_attend(&self) -> bool {
-        self.attendance
-            .as_ref()
-            .and_then(|a| a.attendance.as_ref())
+        self.get_attendance()
             .map(|a| a.should_attend)
             .unwrap_or(false)
     }
 
     pub fn did_attend(&self) -> bool {
-        self.attendance
-            .as_ref()
-            .and_then(|a| a.attendance.as_ref())
-            .map(|a| a.did_attend)
-            .unwrap_or(false)
-    }
-
-    pub fn confirmed(&self) -> bool {
-        self.attendance
-            .as_ref()
-            .and_then(|a| a.attendance.as_ref())
-            .map(|a| a.confirmed)
-            .unwrap_or(false)
+        self.get_attendance().map(|a| a.did_attend).unwrap_or(false)
     }
 
     pub fn minutes_late(&self) -> i64 {
-        self.attendance
-            .as_ref()
-            .and_then(|a| a.attendance.as_ref())
-            .map(|a| a.minutes_late)
-            .unwrap_or(0)
+        self.get_attendance().map(|a| a.minutes_late).unwrap_or(0)
     }
 }
 

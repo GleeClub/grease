@@ -13,7 +13,7 @@ pub struct Uniform {
     /// The associated color (In the format #HHH, H being a hex digit)
     pub color: Option<UniformColor>,
     /// The explanation of what to wear when wearing the uniform
-    pub description: Option<String>,
+    pub description: String,
 }
 
 /// A color for a uniform when rendered on the site
@@ -54,7 +54,7 @@ impl Uniform {
         sqlx::query_as!(
             Self,
             "SELECT id, name, color as \"color: _\", description
-             FROM uniform WHERE id = $1",
+             FROM uniforms WHERE id = $1",
             id
         )
         .fetch_optional(pool)
@@ -66,7 +66,7 @@ impl Uniform {
         sqlx::query_as!(
             Self,
             "SELECT id, name, color as \"color: _\", description
-             FROM uniform ORDER BY name"
+             FROM uniforms ORDER BY name"
         )
         .fetch_all(pool)
         .await
@@ -77,7 +77,7 @@ impl Uniform {
         sqlx::query_as!(
             Self,
             "SELECT id, name, color as \"color: _\", description
-             FROM uniform ORDER BY name"
+             FROM uniforms ORDER BY name"
         )
         .fetch_optional(pool)
         .await?
@@ -86,7 +86,7 @@ impl Uniform {
 
     pub async fn create(new_uniform: NewUniform, pool: &PgPool) -> Result<i64> {
         sqlx::query!(
-            "INSERT INTO uniform (name, color, description) VALUES ($1, $2, $3)",
+            "INSERT INTO uniforms (name, color, description) VALUES ($1, $2, $3)",
             new_uniform.name,
             new_uniform.color.map(|c| c.0),
             new_uniform.description
@@ -94,7 +94,7 @@ impl Uniform {
         .execute(pool)
         .await?;
 
-        sqlx::query_scalar!("SELECT id FROM uniform ORDER BY id DESC")
+        sqlx::query_scalar!("SELECT id FROM uniforms ORDER BY id DESC")
             .fetch_one(pool)
             .await
             .map_err(Into::into)
@@ -104,7 +104,7 @@ impl Uniform {
         // TODO: verify exists?
         // TODO: mutation?
         sqlx::query!(
-            "UPDATE uniform SET name = $1, color = $2, description = $3 WHERE id = $4",
+            "UPDATE uniforms SET name = $1, color = $2, description = $3 WHERE id = $4",
             update.name,
             update.color.map(|c| c.0),
             update.description,
@@ -117,7 +117,7 @@ impl Uniform {
     }
 
     pub async fn delete(id: i64, pool: &PgPool) -> Result<()> {
-        sqlx::query!("DELETE FROM uniform WHERE id = $1", id)
+        sqlx::query!("DELETE FROM uniforms WHERE id = $1", id)
             .execute(pool)
             .await?;
 
@@ -129,5 +129,5 @@ impl Uniform {
 pub struct NewUniform {
     pub name: String,
     pub color: Option<UniformColor>,
-    pub description: Option<String>,
+    pub description: String,
 }

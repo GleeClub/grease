@@ -1,99 +1,150 @@
-use async_graphql::Result;
+use askama::Template;
+use lettre::message::Mailbox;
 use sqlx::PgPool;
+use time::macros::format_description;
 
-use crate::email::{Email, MEMBER_LIST_ADDRESS};
+use crate::email::{Email, MEMBER_LIST_ADDRESS, MEMBER_LIST_NAME};
 use crate::models::event::Event;
+use crate::models::GqlDateTime;
 
-pub async fn email_for_event(event: &Event, pool: &PgPool) -> Result<Email<'static>> {
-    let subject = format!("{} is in 48 Hours", event.name);
-    let body = event_email_body(event, pool).await?;
-
-    Ok(Email {
-        subject,
-        body,
-        address: MEMBER_LIST_ADDRESS,
-    })
+#[derive(Template)]
+#[template(path = "event-in-48-hours.html")]
+pub struct EventIn48HoursEmail<'a> {
+    event: &'a Event,
+    uniform_name: Option<String>,
+    start_time: String,
+    end_time: Option<String>,
 }
 
-async fn event_email_body(_event: &Event, _pool: &PgPool) -> Result<String> {
-    Ok(String::new())
+impl<'a> EventIn48HoursEmail<'a> {
+    pub async fn for_event(
+        event: &'a Event,
+        pool: &PgPool,
+    ) -> anyhow::Result<EventIn48HoursEmail<'a>> {
+        let uniform_name: Option<String> = sqlx::query_scalar!(
+            "SELECT uniforms.name FROM uniforms
+             INNER JOIN gigs ON gigs.uniform = uniforms.id
+             INNER JOIN events ON gigs.event = events.id
+             WHERE events.id = $1",
+            event.id
+        )
+        .fetch_optional(pool)
+        .await?;
 
-    // let url = format!(
-    //     "https://gleeclub.gatech.edu/glubhub/#/events/{}",
-    //     event.event.id
-    // );
-    // let format_time = |time: &NaiveDateTime| time.format("").to_string();
-    // let uniform = if let Some(uniform) = event.gig.as_ref().map(|gig| &gig.uniform) {
-    //     Some(Uniform::load(*uniform, pool)?)
-    // } else {
-    //     None
-    // };
+        Ok(Self {
+            event,
+            uniform_name,
+            start_time: format_event_time(&event.call_time),
+            end_time: event.release_time.as_ref().map(format_event_time),
+        })
+    }
+}
 
-    // Ok(html! {
-    //     <div>
-    //         <h2>
-    //             <a href=url target="_blank">
-    //                 { text!("{}", event.event.name) }
-    //             </a>
-    //         </h2>
-    //         <p>
-    //             <b>{ text!("{}", event.event.type_) }</b>
-    //             ", "
-    //             {
-    //                 if let Some(release_time) = &event.event.release_time {
-    //                     html! {
-    //                         <span>
-    //                             "from"
-    //                             <b> { text!("{}", format_time(&event.event.call_time)) } </b>
-    //                             "to"
-    //                             <b> { text!("{}", format_time(release_time)) } </b>
-    //                         </span>
-    //                     }
-    //                 } else {
-    //                     html! {
-    //                         <span>
-    //                             <b> { text!("{}", format_time(&event.event.call_time)) } </b>
-    //                         </span>
-    //                     }
-    //                 }
-    //             }
-    //             {
-    //                 if let Some(location) = &event.event.location {
-    //                     html! {
-    //                         <span>
-    //                             "at"
-    //                             <b>{ text!("{}", location) }</b>
-    //                         </span>
-    //                     }
-    //                 } else {
-    //                     html! {
-    //                         <span></span>
-    //                     }
-    //                 }
-    //             }
-    //         </p>
-    //         {
-    //             if let Some(uniform) = uniform {
-    //                 html! {
-    //                     <p> { text!("Uniform: {}", uniform.name) } </p>
-    //                 }
-    //             } else {
-    //                 html! {
-    //                     <p></p>
-    //                 }
-    //             }
-    //         }
-    //         {
-    //             if let Some(comments) = &event.event.comments {
-    //                 html! {
-    //                     <p> { text!("{}", comments) } </p>
-    //                 }
-    //             } else {
-    //                 html! {
-    //                     <p></p>
-    //                 }
-    //             }
-    //         }
-    //     </div>
-    // })
+impl<'a> Email for EventIn48HoursEmail<'a> {
+    fn subject(&self) -> String {
+        format!("{} is in 48 Hours", self.event.name)
+    }
+
+    fn address(&self) -> Mailbox {
+        Mailbox {
+            name: Some(MEMBER_LIST_NAME.to_owned()),
+            email: MEMBER_LIST_ADDRESS.parse().unwrap(),
+        }
+    }
+}
+
+#[derive(Template)]
+#[template(path = "new-event.html")]
+pub struct NewEventEmail<'a> {
+    event: &'a Event,
+    uniform_name: Option<String>,
+    start_time: String,
+    end_time: Option<String>,
+}
+
+impl<'a> NewEventEmail<'a> {
+    pub async fn for_event(event: &'a Event, pool: &PgPool) -> anyhow::Result<NewEventEmail<'a>> {
+        let uniform_name: Option<String> = sqlx::query_scalar!(
+            "SELECT uniforms.name FROM uniforms
+             INNER JOIN gigs ON gigs.uniform = uniforms.id
+             INNER JOIN events ON gigs.event = events.id
+             WHERE events.id = $1",
+            event.id
+        )
+        .fetch_optional(pool)
+        .await?;
+
+        Ok(Self {
+            event,
+            uniform_name,
+            start_time: format_event_time(&event.call_time),
+            end_time: event.release_time.as_ref().map(format_event_time),
+        })
+    }
+}
+
+impl<'a> Email for NewEventEmail<'a> {
+    fn subject(&self) -> String {
+        format!("New Glee Club Event - {}", self.event.name)
+    }
+
+    fn address(&self) -> Mailbox {
+        Mailbox {
+            name: Some(MEMBER_LIST_NAME.to_owned()),
+            email: MEMBER_LIST_ADDRESS.parse().unwrap(),
+        }
+    }
+}
+
+fn format_event_time(event_time: &GqlDateTime) -> String {
+    let time_format = format_description!(
+        "[weekday repr:short], [month repr:short] [day] \
+         [hour]:[minute padding:zero] [period case:upper]"
+    );
+    event_time.0.format(time_format).unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use askama::Template;
+
+    use super::EventIn48HoursEmail;
+    use crate::tests::mock::mock_event;
+
+    #[test]
+    fn event_in_48_hours_email_content_correct() {
+        let event = mock_event();
+        let email = EventIn48HoursEmail {
+            event: &event,
+            uniform_name: Some("Black Slacks".to_owned()),
+            start_time: "Jan 1st, 2000 at 8:00 PM".to_owned(),
+            end_time: Some("Jan 2nd, 2000 at 12:00 AM".to_owned()),
+        };
+
+        assert_eq!(
+            email.render().unwrap(),
+            "\
+<html>
+  <head></head>
+  <body>
+    <h2>
+      <a href=\"https://glubhub.org/#/events/1\">
+        Mock Event
+      </a>
+    </h2>
+    <p>
+      <b>Tutti Gig</b>
+      from
+      <b>Sun, Sep 27 1:00 pm</b>
+      to
+      Sun, Sep 27 5:00 pm
+      at
+      <b>Ferst Center</b>
+    </p>
+    <p>Uniform: Black Slacks</p>
+    <p></p>
+  </body>
+</html>"
+        );
+    }
 }

@@ -73,20 +73,18 @@ impl Permission {
     pub const VIEW_TRANSACTIONS: Self = Self::new("view-transactions");
     pub const EDIT_TRANSACTION: Self = Self::new("edit-transaction");
 
-    pub const ADD_MULTI_TODO: Self = Self::new("add-multi-todo");
-
     pub const EDIT_MINUTES: Self = Self::new("edit-minutes");
     pub const VIEW_COMPLETE_MINUTES: Self = Self::new("view-complete-minutes");
 
     pub const EDIT_USER: Self = Self::new("edit-user");
     pub const SWITCH_USER: Self = Self::new("switch-user");
     pub const DELETE_USER: Self = Self::new("delete-user");
-    pub const VIEW_USERS: Self = Self::new("view-users");
+    // pub const VIEW_USERS: Self = Self::new("view-users");
     pub const VIEW_USER_PRIVATE_DETAILS: Self = Self::new("view-user-private-details");
 
     pub const CREATE_EVENT: Self = Self::new("create-event");
     pub const MODIFY_EVENT: Self = Self::new("modify-event");
-    pub const EDIT_ALL_EVENTS: Self = Self::new("edit-all-events");
+    // pub const EDIT_ALL_EVENTS: Self = Self::new("edit-all-events");
     pub const DELETE_EVENT: Self = Self::new("delete-event");
 
     pub const EDIT_ATTENDANCE: Self = Self::new("edit-attendance");

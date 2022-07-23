@@ -23,7 +23,7 @@ impl Semester {
             Self,
             "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",
                  gig_requirement, current
-             FROM semester WHERE current = true"
+             FROM semesters WHERE current = true"
         )
         .fetch_optional(pool)
         .await?
@@ -32,7 +32,7 @@ impl Semester {
 
     pub async fn get_previous(pool: &PgPool) -> Result<Option<Self>> {
         let semesters: Vec<_> =
-            sqlx::query!("SELECT name, start_date, current FROM semester ORDER BY start_date")
+            sqlx::query!("SELECT name, start_date, current FROM semesters ORDER BY start_date")
                 .fetch_all(pool)
                 .await?;
         let previous_semester = semesters
@@ -45,7 +45,7 @@ impl Semester {
                 Self,
                 "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",
                      gig_requirement, current
-                 FROM semester WHERE name = $1",
+                 FROM semesters WHERE name = $1",
                 previous.name
             )
             .fetch_one(pool)
@@ -68,7 +68,7 @@ impl Semester {
             Self,
             "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",
                  gig_requirement, current as \"current: bool\"
-             FROM semester WHERE name = $1",
+             FROM semesters WHERE name = $1",
             name
         )
         .fetch_optional(pool)
@@ -81,7 +81,7 @@ impl Semester {
             Self,
             "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",
                  gig_requirement, current as \"current: bool\"
-             FROM semester ORDER BY start_date"
+             FROM semesters ORDER BY start_date"
         )
         .fetch_all(pool)
         .await
@@ -97,7 +97,7 @@ impl Semester {
         }
 
         sqlx::query!(
-            "INSERT INTO semester (name, start_date, end_date, gig_requirement)
+            "INSERT INTO semesters (name, start_date, end_date, gig_requirement)
              VALUES ($1, $2, $3, $4)",
             new_semester.name,
             new_semester.start_date.0,
@@ -119,7 +119,7 @@ impl Semester {
         }
 
         sqlx::query!(
-            "UPDATE semester SET
+            "UPDATE semesters SET
              name = $1, start_date = $2, end_date = $3, gig_requirement = $4
              WHERE name = $5",
             update.name,
@@ -135,7 +135,7 @@ impl Semester {
     }
 
     pub async fn set_current(name: &str, pool: &PgPool) -> Result<()> {
-        if sqlx::query!("SELECT name FROM semester WHERE name = $1", name)
+        if sqlx::query!("SELECT name FROM semesters WHERE name = $1", name)
             .fetch_optional(pool)
             .await?
             .is_none()
@@ -143,10 +143,10 @@ impl Semester {
             return Err(format!("No semester named {}", name).into());
         }
 
-        sqlx::query!("UPDATE semester SET current = false")
+        sqlx::query!("UPDATE semesters SET current = false")
             .execute(pool)
             .await?;
-        sqlx::query!("UPDATE semester SET current = true WHERE name = $1", name)
+        sqlx::query!("UPDATE semesters SET current = true WHERE name = $1", name)
             .execute(pool)
             .await?;
 

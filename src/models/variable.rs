@@ -19,7 +19,7 @@ impl Variable {
     }
 
     pub async fn with_key_opt(key: &str, pool: &PgPool) -> Result<Option<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM variable WHERE key = $1", key)
+        sqlx::query_as!(Self, "SELECT * FROM variables WHERE key = $1", key)
             .fetch_optional(pool)
             .await
             .map_err(Into::into)
@@ -27,12 +27,12 @@ impl Variable {
 
     pub async fn set(key: &str, value: &str, pool: &PgPool) -> Result<()> {
         if Self::with_key_opt(key, pool).await?.is_some() {
-            sqlx::query!("UPDATE variable SET value = $1 WHERE key = $2", value, key)
+            sqlx::query!("UPDATE variables SET value = $1 WHERE key = $2", value, key)
                 .execute(pool)
                 .await?;
         } else {
             sqlx::query!(
-                "INSERT INTO variable (key, value) VALUES ($1, $2)",
+                "INSERT INTO variables (key, value) VALUES ($1, $2)",
                 key,
                 value
             )
@@ -44,7 +44,7 @@ impl Variable {
     }
 
     pub async fn unset(key: &str, pool: &PgPool) -> Result<()> {
-        sqlx::query!("DELETE FROM variable WHERE key = $1", key)
+        sqlx::query!("DELETE FROM variables WHERE key = $1", key)
             .execute(pool)
             .await?;
 

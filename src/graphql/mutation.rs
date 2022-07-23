@@ -1,6 +1,8 @@
 use async_graphql::{Context, Object, Result};
 use sqlx::PgPool;
 
+use crate::email::event::NewEventEmail;
+use crate::email::send_email;
 use crate::graphql::guards::{LoggedIn, Permission};
 use crate::graphql::SUCCESS_MESSAGE;
 use crate::models::event::absence_request::{AbsenceRequest, AbsenceRequestStatus};
@@ -11,7 +13,7 @@ use crate::models::event::uniform::{NewUniform, Uniform};
 use crate::models::event::{Event, NewEvent};
 use crate::models::link::DocumentLink;
 use crate::models::member::active_semester::ActiveSemester;
-use crate::models::member::session::Session;
+use crate::models::member::session::{PasswordReset, Session};
 use crate::models::member::{Member, MemberUpdate, NewMember, RegisterForSemesterForm};
 use crate::models::minutes::{Minutes, UpdatedMeetingMinutes};
 use crate::models::money::{ClubTransaction, Fee, TransactionBatch};
@@ -52,7 +54,7 @@ impl MutationRoot {
 
     pub async fn forgot_password(&self, ctx: &Context<'_>, email: String) -> Result<&'static str> {
         let pool: &PgPool = ctx.data_unchecked();
-        Session::generate_for_forgotten_password(&email, pool).await?;
+        PasswordReset::generate(&email, pool).await?;
 
         Ok(SUCCESS_MESSAGE)
     }
@@ -64,7 +66,7 @@ impl MutationRoot {
         pass_hash: String,
     ) -> Result<&'static str> {
         let pool: &PgPool = ctx.data_unchecked();
-        Session::reset_password(&token, &pass_hash, pool).await?;
+        PasswordReset::reset_from_token(&token, &pass_hash, pool).await?;
 
         Ok(SUCCESS_MESSAGE)
     }
@@ -152,8 +154,12 @@ impl MutationRoot {
             None
         };
         let new_id = Event::create(new_event, gig_request, pool).await?;
+        let event = Event::with_id(new_id, pool).await?;
 
-        Event::with_id(new_id, pool).await
+        let email = NewEventEmail::for_event(&event, pool).await?;
+        send_email(email).await?;
+
+        Ok(event)
     }
 
     #[graphql(guard = "LoggedIn.and(Permission::MODIFY_EVENT.for_type(&new_event.event.r#type))")]

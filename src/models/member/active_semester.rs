@@ -13,7 +13,7 @@ pub struct ActiveSemester {
     /// Whether the member was registered for the class
     pub enrollment: Enrollment,
     /// What section the member sang in
-    pub section: Option<String>,
+    pub section: String,
 }
 
 #[ComplexObject]
@@ -37,8 +37,8 @@ impl ActiveSemester {
         sqlx::query_as!(
             Self,
             "SELECT a.member, a.semester, a.enrollment as \"enrollment: _\", a.section
-             FROM active_semester a
-             JOIN semester s ON a.semester = s.name
+             FROM active_semesters a
+             JOIN semesters s ON a.semester = s.name
              WHERE member = $1
              ORDER BY s.start_date",
             member
@@ -56,7 +56,7 @@ impl ActiveSemester {
         sqlx::query_as!(
             Self,
             "SELECT member, semester, enrollment as \"enrollment: _\", section
-             FROM active_semester WHERE member = $1 AND semester = $2",
+             FROM active_semesters WHERE member = $1 AND semester = $2",
             member,
             semester
         )
@@ -76,7 +76,7 @@ impl ActiveSemester {
         // TODO: create attendance or something?
 
         sqlx::query!(
-            "INSERT INTO active_semester (member, semester, enrollment, section) VALUES ($1, $2, $3, $4)",
+            "INSERT INTO active_semesters (member, semester, enrollment, section) VALUES ($1, $2, $3, $4)",
             new_semester.member, new_semester.semester, new_semester.enrollment as _, new_semester.section
         ).execute(pool).await?;
 
@@ -90,19 +90,19 @@ impl ActiveSemester {
         match (update.enrollment, active_semester) {
             (Some(enrollment), Some(_active_semester)) => {
                 sqlx::query!(
-                    "UPDATE active_semester SET enrollment = $1, section = $2 WHERE member = $3 AND semester = $4",
+                    "UPDATE active_semesters SET enrollment = $1, section = $2 WHERE member = $3 AND semester = $4",
                     enrollment as _, update.section, update.member, update.semester
                 ).execute(pool).await?;
             }
             (Some(enrollment), None) => {
                 sqlx::query!(
-                    "INSERT INTO active_semester (member, semester, enrollment, section) VALUES ($1, $2, $3, $4)",
+                    "INSERT INTO active_semesters (member, semester, enrollment, section) VALUES ($1, $2, $3, $4)",
                     update.member, update.semester, enrollment as _, update.section
                 ).execute(pool).await?;
             }
             (None, Some(_active_semester)) => {
                 sqlx::query!(
-                    "DELETE FROM active_semester WHERE member = $1 AND semester = $2",
+                    "DELETE FROM active_semesters WHERE member = $1 AND semester = $2",
                     update.member,
                     update.semester
                 )
@@ -121,5 +121,5 @@ pub struct NewActiveSemester {
     pub member: String,
     pub semester: String,
     pub enrollment: Option<Enrollment>,
-    pub section: Option<String>,
+    pub section: String,
 }

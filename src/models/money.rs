@@ -31,14 +31,14 @@ impl Fee {
     }
 
     pub async fn with_name_opt(name: &str, pool: &PgPool) -> Result<Option<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM fee WHERE name = $1", name)
+        sqlx::query_as!(Self, "SELECT * FROM fees WHERE name = $1", name)
             .fetch_optional(pool)
             .await
             .map_err(Into::into)
     }
 
     pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM fee ORDER BY NAME")
+        sqlx::query_as!(Self, "SELECT * FROM fees ORDER BY NAME")
             .fetch_all(pool)
             .await
             .map_err(Into::into)
@@ -46,7 +46,7 @@ impl Fee {
 
     pub async fn set_amount(name: &str, new_amount: i64, pool: &PgPool) -> Result<()> {
         sqlx::query!(
-            "UPDATE fee SET amount = $1 WHERE name = $2",
+            "UPDATE fees SET amount = $1 WHERE name = $2",
             new_amount,
             name
         )
@@ -61,8 +61,8 @@ impl Fee {
         let current_semester = Semester::get_current(pool).await?;
 
         let members_who_havent_paid = sqlx::query_scalar!(
-            "SELECT member FROM active_semester WHERE semester = $1 AND member NOT IN \
-                 (SELECT member FROM transaction WHERE type = $2 AND description = $3)",
+            "SELECT member FROM active_semesters WHERE semester = $1 AND member NOT IN \
+                 (SELECT member FROM transactions WHERE type = $2 AND description = $3)",
             current_semester.name,
             Self::DUES_NAME,
             Self::DUES_DESCRIPTION
@@ -72,7 +72,7 @@ impl Fee {
 
         for email in members_who_havent_paid {
             sqlx::query!(
-                "INSERT INTO transaction (member, amount, type, description, semester)
+                "INSERT INTO transactions (member, amount, type, description, semester)
                      VALUES ($1, $2, $3, $4, $5)",
                 email,
                 dues.amount,
@@ -92,8 +92,8 @@ impl Fee {
         let current_semester = Semester::get_current(pool).await?;
 
         let members_who_havent_paid = sqlx::query_scalar!(
-            "SELECT member FROM active_semester WHERE semester = $1 AND member NOT IN \
-                 (SELECT member FROM transaction WHERE type = $2 AND description = $3)",
+            "SELECT member FROM active_semesters WHERE semester = $1 AND member NOT IN \
+                 (SELECT member FROM transactions WHERE type = $2 AND description = $3)",
             current_semester.name,
             Self::DUES_NAME,
             Self::DUES_DESCRIPTION
@@ -103,7 +103,7 @@ impl Fee {
 
         for email in members_who_havent_paid {
             sqlx::query!(
-                "INSERT INTO transaction (member, amount, type, description, semester)
+                "INSERT INTO transactions (member, amount, type, description, semester)
                      VALUES ($1, $2, $3, $4, $5)",
                 email,
                 late_dues.amount,
@@ -126,7 +126,7 @@ pub struct TransactionType {
 
 impl TransactionType {
     pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM transaction_type ORDER BY name")
+        sqlx::query_as!(Self, "SELECT * FROM transaction_types ORDER BY name")
             .fetch_all(pool)
             .await
             .map_err(Into::into)
@@ -140,10 +140,14 @@ impl TransactionType {
     }
 
     pub async fn with_name_opt(name: &str, pool: &PgPool) -> Result<Option<Self>> {
-        sqlx::query_as!(Self, "SELECT * FROM transaction_type WHERE name = $1", name)
-            .fetch_optional(pool)
-            .await
-            .map_err(Into::into)
+        sqlx::query_as!(
+            Self,
+            "SELECT * FROM transaction_types WHERE name = $1",
+            name
+        )
+        .fetch_optional(pool)
+        .await
+        .map_err(Into::into)
     }
 }
 
@@ -189,7 +193,7 @@ impl ClubTransaction {
         sqlx::query_as!(
             Self,
             "SELECT id, member, \"time\" as \"time: _\", amount, description, semester, type, resolved
-             FROM transaction WHERE id = $1",
+             FROM transactions WHERE id = $1",
             id
         )
         .fetch_optional(pool)
@@ -201,7 +205,7 @@ impl ClubTransaction {
         sqlx::query_as!(
             Self,
             "SELECT id, member, \"time\" as \"time: _\", amount, description, semester, type, resolved
-             FROM transaction WHERE semester = $1 ORDER BY time",
+             FROM transactions WHERE semester = $1 ORDER BY time",
             semester
         )
         .fetch_all(pool)
@@ -213,7 +217,7 @@ impl ClubTransaction {
         sqlx::query_as!(
             Self,
             "SELECT id, member, \"time\" as \"time: _\", amount, description, semester, type, resolved
-             FROM transaction WHERE member = $1 ORDER BY time",
+             FROM transactions WHERE member = $1 ORDER BY time",
             member
         )
         .fetch_all(pool)
@@ -225,9 +229,10 @@ impl ClubTransaction {
         let current_semester = Semester::get_current(pool).await?;
         let transaction_type = TransactionType::with_name(&batch.r#type, pool).await?;
 
+        // TODO: make batch request
         for member in batch.members {
             sqlx::query!(
-                "INSERT INTO transaction (member, amount, type, description, semester) VALUES ($1, $2, $3, $4, $5)",
+                "INSERT INTO transactions (member, amount, type, description, semester) VALUES ($1, $2, $3, $4, $5)",
                 member, batch.amount, transaction_type.name, batch.description, current_semester.name)
                 .execute(pool).await?;
         }
@@ -237,7 +242,7 @@ impl ClubTransaction {
 
     pub async fn resolve(id: i64, resolved: bool, pool: &PgPool) -> Result<()> {
         sqlx::query!(
-            "UPDATE transaction SET resolved = $1 WHERE id = $2",
+            "UPDATE transactions SET resolved = $1 WHERE id = $2",
             resolved,
             id
         )

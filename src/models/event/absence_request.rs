@@ -65,7 +65,7 @@ impl AbsenceRequest {
         sqlx::query_as!(
             Self,
             "SELECT \"time\" as \"time: _\", reason, state as \"state: _\", member, event
-             FROM absence_request WHERE member = $1 AND event = $2",
+             FROM absence_requests WHERE member = $1 AND event = $2",
             email,
             event_id
         )
@@ -78,8 +78,8 @@ impl AbsenceRequest {
         sqlx::query_as!(
             Self,
             "SELECT \"time\" as \"time: _\", reason, state as \"state: _\", member, event
-             FROM absence_request
-             WHERE event IN (SELECT id FROM event WHERE semester = $1)
+             FROM absence_requests
+             WHERE event IN (SELECT id FROM events WHERE semester = $1)
              ORDER BY time",
             semester_name
         )
@@ -90,7 +90,7 @@ impl AbsenceRequest {
 
     pub async fn submit(event_id: i64, email: &str, reason: &str, pool: &PgPool) -> Result<()> {
         sqlx::query!(
-            "INSERT INTO absence_request (member, event, reason) VALUES ($1, $2, $3)",
+            "INSERT INTO absence_requests (member, event, reason) VALUES ($1, $2, $3)",
             email,
             event_id,
             reason
@@ -110,7 +110,7 @@ impl AbsenceRequest {
         AbsenceRequest::for_member_at_event(member, event_id, pool).await?;
 
         sqlx::query!(
-            "UPDATE absence_request SET state = $1 WHERE event = $2 AND member = $3",
+            "UPDATE absence_requests SET state = $1 WHERE event = $2 AND member = $3",
             state as _,
             event_id,
             member
