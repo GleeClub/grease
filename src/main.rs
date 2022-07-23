@@ -135,7 +135,7 @@ async fn song_file(
         Ok(None) => (
             StatusCode::NOT_FOUND,
             TypedHeader(ContentType::text()),
-            vec![],
+            format!("File `{name}` not found").into_bytes(),
         ),
         Err(db_error) => (
             StatusCode::INTERNAL_SERVER_ERROR,

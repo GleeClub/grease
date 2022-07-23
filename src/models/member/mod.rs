@@ -354,7 +354,7 @@ impl Member {
         let active_semester_update = NewActiveSemester {
             member: email.to_owned(),
             semester: current_semester.name,
-            enrollment: Some(update.enrollment),
+            enrollment: update.enrollment,
             section: update.section,
         };
         ActiveSemester::update(active_semester_update, pool).await
@@ -431,8 +431,8 @@ pub struct MemberUpdate {
     pub gateway_drug: String,
     pub conflicts: String,
     pub dietary_restrictions: String,
-    pub enrollment: Enrollment,
-    pub section: String,
+    pub enrollment: Option<Enrollment>,
+    pub section: Option<String>,
 }
 
 #[derive(InputObject)]
@@ -451,7 +451,7 @@ impl RegisterForSemesterForm {
             member,
             semester,
             enrollment: Some(self.enrollment),
-            section: self.section.clone(),
+            section: Some(self.section.clone()),
         }
     }
 }

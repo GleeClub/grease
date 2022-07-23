@@ -121,5 +121,5 @@ pub struct NewActiveSemester {
     pub member: String,
     pub semester: String,
     pub enrollment: Option<Enrollment>,
-    pub section: String,
+    pub section: Option<String>,
 }
