@@ -1017,6 +1017,26 @@
     },
     "query": "INSERT INTO semesters (name, start_date, end_date, gig_requirement)\n             VALUES ($1, $2, $3, $4)"
   },
+  "2946f1755ea6132ee66d2f2e18a2ea545ce6256cda2d6ccefe12fb291e68a046": {
+    "describe": {
+      "columns": [
+        {
+          "name": "data",
+          "ordinal": 0,
+          "type_info": "Bytea"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT data FROM song_files WHERE name = $1"
+  },
   "29d59e16493e551fd89e16542a9a87b7ed5c7e24e10b298052075947e7cc3fab": {
     "describe": {
       "columns": [],

@@ -17,10 +17,10 @@ use std::net::SocketAddr;
 use anyhow::Context;
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use async_graphql::{Request, Response as GraphQLResponse};
-use axum::extract::Query;
+use axum::extract::{Path, Query};
 use axum::headers::{ContentType, HeaderMap, HeaderValue};
 use axum::http::header::CONTENT_TYPE;
-use axum::http::Method;
+use axum::http::{Method, StatusCode};
 use axum::routing::get;
 use axum::{Extension, Json, Router, TypedHeader};
 use serde::Deserialize;
@@ -53,7 +53,8 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let app = Router::new()
-        .route("/", get(playground).post(query))
+        .route("/", get(graphql_playground).post(query_graphql))
+        .route("/files/:name", get(song_file))
         .layer(Extension(pool))
         .layer(
             CorsLayer::new()
@@ -71,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn query(
+async fn query_graphql(
     Json(request): Json<Request>,
     headers: HeaderMap,
     Extension(pool): Extension<PgPool>,
@@ -104,7 +105,7 @@ struct OptionalToken {
     pub token: Option<String>,
 }
 
-async fn playground(
+async fn graphql_playground(
     headers: HeaderMap,
     params: Query<OptionalToken>,
 ) -> GreaseResult<(TypedHeader<ContentType>, String)> {
@@ -114,6 +115,34 @@ async fn playground(
     }
 
     Ok((TypedHeader(ContentType::html()), playground_source(config)))
+}
+
+async fn song_file(
+    Path(name): Path<String>,
+    Extension(pool): Extension<PgPool>,
+) -> (StatusCode, TypedHeader<ContentType>, Vec<u8>) {
+    let file_result: sqlx::Result<Option<Vec<u8>>> =
+        sqlx::query_scalar!("SELECT data FROM song_files WHERE name = $1", name)
+            .fetch_optional(&pool)
+            .await;
+
+    match file_result {
+        Ok(Some(file)) => (
+            StatusCode::OK,
+            TypedHeader(ContentType::octet_stream()),
+            file,
+        ),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            TypedHeader(ContentType::text()),
+            vec![],
+        ),
+        Err(db_error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            TypedHeader(ContentType::text()),
+            db_error.to_string().into_bytes(),
+        ),
+    }
 }
 
 fn get_token(headers: &HeaderMap) -> GreaseResult<Option<&str>> {
