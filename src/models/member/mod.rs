@@ -182,13 +182,12 @@ impl Member {
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
                  location, on_campus, about, major, minor, hometown,
                  arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash
-             FROM members 
-             LEFT JOIN active_semesters ON email = member
-             WHERE 0 < (
-                 CASE WHEN enrollment = 'class' AND $1 THEN 1 ELSE 0 END +
-                 CASE WHEN enrollment = 'club'  AND $2 THEN 1 ELSE 0 END +
-                 CASE WHEN enrollment IS NULL   AND $3 THEN 1 ELSE 0 END
-             ) AND semester = $4
+             FROM members
+             FULL OUTER JOIN active_semesters ON email = member
+             WHERE ((enrollment = 'class' AND $1)
+                OR (enrollment = 'club' AND $2)
+                OR (enrollment IS NULL AND $3))
+                AND (semester = $4 OR semester IS NULL)
              ORDER BY last_name, first_name",
             included.class, included.club, included.inactive, semester
         )

@@ -2541,131 +2541,6 @@
     },
     "query": "SELECT * FROM transaction_types ORDER BY name"
   },
-  "91017e249906d25f386d783483a3cd2fd8f1045583afc9cd0072a99f4e87bf23": {
-    "describe": {
-      "columns": [
-        {
-          "name": "email",
-          "ordinal": 0,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "first_name",
-          "ordinal": 1,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "preferred_name",
-          "ordinal": 2,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "last_name",
-          "ordinal": 3,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "phone_number",
-          "ordinal": 4,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "picture",
-          "ordinal": 5,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "passengers",
-          "ordinal": 6,
-          "type_info": "Int8"
-        },
-        {
-          "name": "location",
-          "ordinal": 7,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "on_campus",
-          "ordinal": 8,
-          "type_info": "Bool"
-        },
-        {
-          "name": "about",
-          "ordinal": 9,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "major",
-          "ordinal": 10,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "minor",
-          "ordinal": 11,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "hometown",
-          "ordinal": 12,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "arrived_at_tech",
-          "ordinal": 13,
-          "type_info": "Int8"
-        },
-        {
-          "name": "gateway_drug",
-          "ordinal": 14,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "conflicts",
-          "ordinal": 15,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "dietary_restrictions",
-          "ordinal": 16,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "pass_hash",
-          "ordinal": 17,
-          "type_info": "Varchar"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        true,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        true,
-        false,
-        false,
-        false,
-        false
-      ],
-      "parameters": {
-        "Left": [
-          "Bool",
-          "Bool",
-          "Bool",
-          "Text"
-        ]
-      }
-    },
-    "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus, about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM members \n             LEFT JOIN active_semesters ON email = member\n             WHERE 0 < (\n                 CASE WHEN enrollment = 'class' AND $1 THEN 1 ELSE 0 END +\n                 CASE WHEN enrollment = 'club'  AND $2 THEN 1 ELSE 0 END +\n                 CASE WHEN enrollment IS NULL   AND $3 THEN 1 ELSE 0 END\n             ) AND semester = $4\n             ORDER BY last_name, first_name"
-  },
   "914c3b5317898057f533a66bb9e49ee2aaf40cbfe1bc6e8615664f58f4221703": {
     "describe": {
       "columns": [
@@ -3180,6 +3055,131 @@
       }
     },
     "query": "INSERT INTO role_permissions (role, permission, event_type)\n             VALUES ($1, $2, $3)\n             ON CONFLICT(role, permission, event_type) DO NOTHING"
+  },
+  "a698ba019d2706e1cebeeccd2129c8755c3d40448e2695e71ddf160bbc4b383e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "email",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "first_name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "preferred_name",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "last_name",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "phone_number",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "picture",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "passengers",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "location",
+          "ordinal": 7,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "on_campus",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "about",
+          "ordinal": 9,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "major",
+          "ordinal": 10,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "minor",
+          "ordinal": 11,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "hometown",
+          "ordinal": 12,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "arrived_at_tech",
+          "ordinal": 13,
+          "type_info": "Int8"
+        },
+        {
+          "name": "gateway_drug",
+          "ordinal": 14,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "conflicts",
+          "ordinal": 15,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "dietary_restrictions",
+          "ordinal": 16,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "pass_hash",
+          "ordinal": 17,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Bool",
+          "Bool",
+          "Bool",
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus, about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM members\n             FULL OUTER JOIN active_semesters ON email = member\n             WHERE ((enrollment = 'class' AND $1)\n                OR (enrollment = 'club' AND $2)\n                OR (enrollment IS NULL AND $3))\n                AND (semester = $4 OR semester IS NULL)\n             ORDER BY last_name, first_name"
   },
   "aa5f05464f44fe20481e8817fe4c22d2fa6e67ead8dc5723bc8564e47cbb90b0": {
     "describe": {
