@@ -229,7 +229,6 @@ impl ClubTransaction {
         let current_semester = Semester::get_current(pool).await?;
         let transaction_type = TransactionType::with_name(&batch.r#type, pool).await?;
 
-        // TODO: make batch request
         for member in batch.members {
             sqlx::query!(
                 "INSERT INTO transactions (member, amount, type, description, semester) VALUES ($1, $2, $3, $4, $5)",

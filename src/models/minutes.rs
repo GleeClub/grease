@@ -101,10 +101,6 @@ impl Minutes {
 
         Ok(())
     }
-
-    // def email
-    //   # TODO: implement
-    // end
 }
 
 #[derive(InputObject)]

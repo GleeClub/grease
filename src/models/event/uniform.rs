@@ -101,12 +101,13 @@ impl Uniform {
     }
 
     pub async fn update(id: i64, update: NewUniform, pool: &PgPool) -> Result<()> {
-        // TODO: verify exists?
-        // TODO: mutation?
+        // verify exists
+        Uniform::with_id(id, pool).await?;
+
         sqlx::query!(
             "UPDATE uniforms SET name = $1, color = $2, description = $3 WHERE id = $4",
             update.name,
-            update.color.map(|c| c.0),
+            update.color as _,
             update.description,
             id
         )

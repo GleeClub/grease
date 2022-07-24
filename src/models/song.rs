@@ -104,14 +104,13 @@ impl Song {
         .map_err(Into::into)
     }
 
-    // TODO: fix query
     pub async fn setlist_for_event(event_id: i64, pool: &PgPool) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT s.id, s.title, s.info, s.current, s.key as \"key: _\",
                  s.starting_pitch as \"starting_pitch: _\", s.mode as \"mode: _\"
              FROM songs s INNER JOIN gig_songs ON s.id = gig_songs.song
-             WHERE gig_songs.event = $1 ORDER BY gig_songs.order ASC",
+             WHERE gig_songs.event = $1 ORDER BY gig_songs.order",
             event_id
         )
         .fetch_all(pool)
@@ -144,7 +143,9 @@ impl Song {
     }
 
     pub async fn delete(id: i64, pool: &PgPool) -> Result<()> {
-        // TODO: verify exists
+        // verify exists
+        Song::with_id(id, pool).await?;
+
         sqlx::query!("DELETE FROM songs WHERE id = $1", id)
             .execute(pool)
             .await?;
@@ -245,7 +246,6 @@ impl MediaType {
     }
 
     pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
-        // TODO: grep ASC -> remove all instances
         sqlx::query_as!(
             Self,
             "SELECT name, \"order\", storage as \"storage: _\"

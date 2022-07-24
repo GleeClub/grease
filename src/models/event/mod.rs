@@ -104,7 +104,6 @@ impl Event {
         Attendance::for_member_at_event(&member, self.id, &pool).await
     }
 
-    // TODO: permissions (should return empty list if not allowed, for convenience?)
     #[graphql(guard = "LoggedIn")]
     pub async fn all_attendance(
         &self,
@@ -162,7 +161,7 @@ impl Event {
     }
 
     pub async fn for_semester(semester: &str, pool: &PgPool) -> Result<Vec<Self>> {
-        // TODO: verify_exists
+        // verify_exists
         Semester::with_name(semester, pool).await?;
 
         sqlx::query_as!(
@@ -205,8 +204,13 @@ impl Event {
             None
         } else if current_time() + Duration::days(1) > self.call_time.0 {
             Some("Responses are closed for this event".to_owned())
-        } else if ["Tutti Gig", "Sectional", "Rehearsal"].contains(&self.r#type.as_str()) {
-            // TODO: update event types to constants
+        } else if [
+            EventType::TUTTI_GIG,
+            EventType::SECTIONAL,
+            EventType::REHEARSAL,
+        ]
+        .contains(&self.r#type.as_str())
+        {
             Some(format!("You cannot RSVP for {} events", self.r#type))
         } else {
             None
@@ -351,7 +355,7 @@ impl Event {
     }
 
     pub async fn delete(id: i64, pool: &PgPool) -> Result<()> {
-        // TODO: verify exists?
+        // verify exists
         Event::with_id(id, pool).await?;
 
         sqlx::query!("DELETE FROM events WHERE id = $1", id)

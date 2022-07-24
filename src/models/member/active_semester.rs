@@ -73,8 +73,6 @@ impl ActiveSemester {
             return Err("Member is already active for the current semester".into());
         }
 
-        // TODO: create attendance or something?
-
         sqlx::query!(
             "INSERT INTO active_semesters (member, semester, enrollment, section) VALUES ($1, $2, $3, $4)",
             new_semester.member, new_semester.semester, new_semester.enrollment as _, new_semester.section

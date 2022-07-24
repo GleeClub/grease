@@ -97,7 +97,7 @@ impl Attendance {
     }
 
     pub async fn for_event(event_id: i64, pool: &PgPool) -> Result<Vec<Self>> {
-        // TODO: verify_exists
+        // verify_exists
         Event::with_id(event_id, pool).await?;
 
         sqlx::query_as!(
@@ -114,7 +114,7 @@ impl Attendance {
     pub async fn create_for_new_member(email: &str, semester: &str, pool: &PgPool) -> Result<()> {
         let events = Event::for_semester(semester, pool).await?;
 
-        // TODO: make batch query
+        // make batch query
         let now = current_time();
         for event in events {
             let should_attend = if event.call_time.0 < now {
@@ -140,7 +140,6 @@ impl Attendance {
         let event = Event::with_id(event_id, pool).await?;
         let active_members = Member::active_during(&event.semester, pool).await?;
 
-        // TODO: make batch query
         for member in active_members {
             sqlx::query!(
                 "INSERT INTO attendance (event, should_attend, member) VALUES ($1, $2, $3)",
@@ -174,7 +173,7 @@ impl Attendance {
         update: AttendanceUpdate,
         pool: &PgPool,
     ) -> Result<()> {
-        // TODO: verify exists
+        // verify exists
         Self::for_member_at_event(email, event_id, pool).await?;
 
         sqlx::query!(
@@ -221,7 +220,7 @@ impl Attendance {
     }
 
     pub async fn confirm_for_event(event_id: i64, email: &str, pool: &PgPool) -> Result<()> {
-        // TODO: verify_exists
+        // verify_exists
         Event::with_id(event_id, pool).await?;
         Attendance::for_member_at_event(email, event_id, pool).await?;
 

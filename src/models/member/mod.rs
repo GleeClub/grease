@@ -59,18 +59,10 @@ pub struct Member {
 impl Member {
     /// The member's full name
     pub async fn full_name(&self) -> String {
-        format!(
-            "{} {}",
-            self.preferred_name
-                .as_deref()
-                .filter(|pn| !pn.is_empty())
-                .unwrap_or(&self.first_name),
-            self.last_name
-        )
+        self.full_name_inner()
     }
 
-    /// The semester TODO
-    #[graphql(guard = "LoggedIn")]
+    /// Info on the member for the current semester, if they are active
     pub async fn semester(&self, ctx: &Context<'_>) -> Result<Option<ActiveSemester>> {
         let pool: &PgPool = ctx.data_unchecked();
         let user = ctx.data_unchecked::<Member>();
@@ -96,12 +88,13 @@ impl Member {
         MemberPermission::for_member(&self.email, pool).await
     }
 
-    /// The semester TODO
+    /// Info for each semester the member was active
     pub async fn semesters(&self, ctx: &Context<'_>) -> Result<Vec<ActiveSemester>> {
         let pool: &PgPool = ctx.data_unchecked();
         ActiveSemester::all_for_member(&self.email, pool).await
     }
 
+    /// Info about the member from last semester, if they were active
     pub async fn previous_semester(&self, ctx: &Context<'_>) -> Result<Option<ActiveSemester>> {
         let pool: &PgPool = ctx.data_unchecked();
 
@@ -147,6 +140,12 @@ impl Member {
     }
 }
 
+pub struct IncludeContext {
+    pub class: bool,
+    pub club: bool,
+    pub inactive: bool,
+}
+
 impl Member {
     pub async fn with_email(email: &str, pool: &PgPool) -> Result<Member> {
         Self::with_email_opt(email, pool)
@@ -173,13 +172,25 @@ impl Member {
         Self::with_email(&session.member, pool).await
     }
 
-    pub async fn all(pool: &PgPool) -> Result<Vec<Self>> {
+    pub async fn all_included(
+        included: IncludeContext,
+        semester: &str,
+        pool: &PgPool,
+    ) -> Result<Vec<Self>> {
         sqlx::query_as!(
             Self,
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
                  location, on_campus, about, major, minor, hometown,
                  arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash
-             FROM members ORDER BY last_name, first_name"
+             FROM members 
+             LEFT JOIN active_semesters ON email = member
+             WHERE 0 < (
+                 CASE WHEN enrollment = 'class' AND $1 THEN 1 ELSE 0 END +
+                 CASE WHEN enrollment = 'club'  AND $2 THEN 1 ELSE 0 END +
+                 CASE WHEN enrollment IS NULL   AND $3 THEN 1 ELSE 0 END
+             ) AND semester = $4
+             ORDER BY last_name, first_name",
+            included.class, included.club, included.inactive, semester
         )
         .fetch_all(pool)
         .await
@@ -200,6 +211,17 @@ impl Member {
         .fetch_all(pool)
         .await
         .map_err(Into::into)
+    }
+
+    pub fn full_name_inner(&self) -> String {
+        format!(
+            "{} {}",
+            self.preferred_name
+                .as_deref()
+                .filter(|pn| !pn.is_empty())
+                .unwrap_or(&self.first_name),
+            self.last_name
+        )
     }
 
     pub async fn login_is_valid(email: &str, pass_hash: &str, pool: &PgPool) -> Result<bool> {
@@ -311,7 +333,6 @@ impl Member {
         }
 
         let pass_hash = if let Some(new_hash) = update.pass_hash {
-            // TODO: make as self enum
             if as_self {
                 bcrypt::hash(new_hash, 10)?
             } else {

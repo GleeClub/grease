@@ -15,6 +15,7 @@ use crate::models::semester::Semester;
 use crate::util::current_time;
 
 pub mod event;
+pub mod reset_password;
 
 pub const MEMBER_LIST_NAME: &str = "Glee Club Members";
 pub const MEMBER_LIST_ADDRESS: &str = "gleeclub@lists.gatech.edu";
@@ -58,27 +59,41 @@ pub async fn run_email_loop(interval_seconds: u64, pool: PgPool) {
         interval.tick().await;
         let now = current_time();
 
-        // TODO: log this?
-        let _ = send_emails(last_run.clone(), now.clone(), &pool);
+        send_emails(last_run.clone(), now.clone(), &pool).await;
         last_run = now;
     }
 }
 
-async fn send_emails(
-    from: OffsetDateTime,
-    to: OffsetDateTime,
-    pool: &PgPool,
-) -> anyhow::Result<()> {
-    for event in events_to_notify_about(from, to, pool)
-        .await
-        .map_err(|err| anyhow::anyhow!("Failed to load events to send emails about: {:?}", err))?
-    {
-        // TODO: just log on failure, don't return early?
-        let email = EventIn48HoursEmail::for_event(&event, pool).await?;
-        send_email(email).await?;
-    }
+async fn send_emails(from: OffsetDateTime, to: OffsetDateTime, pool: &PgPool) {
+    let events = match events_to_notify_about(from, to, pool).await {
+        Ok(events) => events,
+        Err(error) => {
+            eprintln!(
+                "Failed to load events to send emails about: {}",
+                error.message
+            );
+            return;
+        }
+    };
 
-    Ok(())
+    for event in events {
+        match EventIn48HoursEmail::for_event(&event, pool).await {
+            Err(error) => {
+                eprintln!(
+                    "Failed to create email content for upcoming event `{}`: {}",
+                    event.name, error
+                );
+            }
+            Ok(email) => {
+                if let Err(error) = send_email(email).await {
+                    eprintln!(
+                        "Failed to send email for upcoming event `{}`: {}",
+                        event.name, error
+                    );
+                }
+            }
+        }
+    }
 }
 
 async fn events_to_notify_about(

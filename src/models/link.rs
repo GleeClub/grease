@@ -48,7 +48,7 @@ impl DocumentLink {
     }
 
     pub async fn set_url(name: &str, url: &str, pool: &PgPool) -> Result<()> {
-        // TODO: verify exists
+        // verify exists
         Self::with_name(name, pool).await?;
 
         sqlx::query!(
@@ -63,7 +63,7 @@ impl DocumentLink {
     }
 
     pub async fn delete(name: &str, pool: &PgPool) -> Result<()> {
-        // TODO: verify exists
+        // verify exists
         Self::with_name(name, pool).await?;
 
         sqlx::query!("DELETE FROM document_links WHERE name = $1", name)

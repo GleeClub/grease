@@ -60,7 +60,6 @@ impl<'a> WeekOfAttendances<'a> {
         &self,
         event_type: &str,
     ) -> impl Iterator<Item = &EventWithAttendance<'a>> {
-        // TODO: use &str for event_type
         let event_type = event_type.to_owned();
         self.events
             .iter()

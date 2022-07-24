@@ -22,8 +22,6 @@ use crate::models::semester::{NewSemester, Semester};
 use crate::models::song::{NewSong, NewSongLink, Song, SongLink, SongLinkUpdate, SongUpdate};
 use crate::models::variable::Variable;
 
-// TODO: sendEmail(since: NaiveDateTime!): Boolean!
-
 pub struct MutationRoot;
 
 #[Object]
@@ -175,11 +173,18 @@ impl MutationRoot {
         Event::with_id(id, pool).await
     }
 
-    // TODO: event type
     /// Deletes an event and returns its ID
-    #[graphql(guard = "LoggedIn.and(Permission::DELETE_EVENT)")]
+    #[graphql(guard = "LoggedIn")]
     pub async fn delete_event(&self, ctx: &Context<'_>, id: i64) -> Result<i64> {
+        let user: &Member = ctx.data_unchecked();
         let pool: &PgPool = ctx.data_unchecked();
+        let event = Event::with_id(id, pool).await?;
+
+        Permission::DELETE_EVENT
+            .for_type(event.r#type)
+            .ensure_granted_to(&user.email, pool)
+            .await?;
+
         Event::delete(id, pool).await?;
 
         Ok(id)
@@ -218,7 +223,6 @@ impl MutationRoot {
                     .granted_to(&user.email, pool)
                     .await?
             {
-                // TODO: use the normal format?
                 return Err("Not allowed to edit attendance".into());
             }
         }
@@ -431,15 +435,6 @@ impl MutationRoot {
     ) -> Result<Minutes> {
         let pool: &PgPool = ctx.data_unchecked();
         Minutes::update(id, update, pool).await?;
-
-        Minutes::with_id(id, pool).await
-    }
-
-    #[graphql(guard = "LoggedIn.and(Permission::EDIT_MINUTES)")]
-    pub async fn email_meeting_minutes(&self, ctx: &Context<'_>, id: i64) -> Result<Minutes> {
-        let pool: &PgPool = ctx.data_unchecked();
-
-        // TODO: implement emails
 
         Minutes::with_id(id, pool).await
     }

@@ -8,8 +8,7 @@ use crate::models::event::public::PublicEvent;
 use crate::models::event::uniform::Uniform;
 use crate::models::event::Event;
 use crate::models::link::DocumentLink;
-use crate::models::member::active_semester::{ActiveSemester, Enrollment};
-use crate::models::member::Member;
+use crate::models::member::{IncludeContext, Member};
 use crate::models::minutes::Minutes;
 use crate::models::money::{ClubTransaction, Fee};
 use crate::models::permissions::{MemberRole, RolePermission};
@@ -42,26 +41,13 @@ impl QueryRoot {
     ) -> Result<Vec<Member>> {
         let pool: &PgPool = ctx.data_unchecked();
         let semester = Semester::get_current(pool).await?;
+        let included = IncludeContext {
+            class: include_class,
+            club: include_club,
+            inactive: include_inactive,
+        };
 
-        let mut selected_members = vec![];
-        for member in Member::all(pool).await? {
-            // TODO: optimize queries?
-            let enrollment =
-                ActiveSemester::for_member_during_semester(&member.email, &semester.name, pool)
-                    .await?
-                    .map(|s| s.enrollment);
-            let include_member = match enrollment {
-                Some(Enrollment::Class) => include_class,
-                Some(Enrollment::Club) => include_club,
-                None => include_inactive,
-            };
-
-            if include_member {
-                selected_members.push(member);
-            }
-        }
-
-        Ok(selected_members)
+        Member::all_included(included, &semester.name, pool).await
     }
 
     #[graphql(guard = "LoggedIn")]
@@ -200,9 +186,8 @@ impl QueryRoot {
         RolePermission::all(pool).await
     }
 
-    #[graphql(guard = "LoggedIn")]
+    #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
     pub async fn variable(&self, ctx: &Context<'_>, key: String) -> Result<Variable> {
-        // TODO: permissions?
         let pool: &PgPool = ctx.data_unchecked();
         Variable::with_key(&key, pool).await
     }

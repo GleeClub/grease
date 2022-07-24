@@ -3,6 +3,8 @@ use sqlx::PgPool;
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::email::reset_password::ResetPasswordEmail;
+use crate::email::send_email;
 use crate::models::member::Member;
 use crate::util::current_time;
 
@@ -65,7 +67,7 @@ pub struct PasswordReset {
 
 impl PasswordReset {
     pub async fn generate(email: &str, pool: &PgPool) -> Result<()> {
-        Member::with_email(email, pool).await?; // ensure that member exists
+        let member = Member::with_email(email, pool).await?;
 
         let new_token = Uuid::new_v4().to_string();
         sqlx::query!("DELETE FROM password_resets WHERE member = $1", email)
@@ -79,8 +81,11 @@ impl PasswordReset {
         .execute(pool)
         .await?;
 
-        // TODO: fix emails
-        // emails::reset_password(email, new_token).send().await
+        let email = ResetPasswordEmail {
+            member: &member,
+            token: &new_token,
+        };
+        send_email(email).await?;
 
         Ok(())
     }

@@ -56,14 +56,13 @@ impl Carpool {
         updated_carpools: Vec<UpdatedCarpool>,
         pool: &PgPool,
     ) -> Result<()> {
-        // TODO: verify exists?
+        // verify exists
         Event::with_id(event_id, pool).await?;
 
         sqlx::query!("DELETE FROM carpools WHERE event = $1", event_id)
             .execute(pool)
             .await?;
 
-        // TODO: batch?
         for carpool in updated_carpools {
             sqlx::query!(
                 "INSERT INTO carpools (event, driver) VALUES ($1, $2)",
