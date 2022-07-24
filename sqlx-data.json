@@ -1,0 +1,4472 @@
+{
+  "db": "PostgreSQL",
+  "04fc8effb68f9be4fbe27385bedf4ddccedc7aa89eb79fb1e1d1b3315cf1870a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "order",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "storage: _",
+          "ordinal": 2,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "local",
+                  "remote"
+                ]
+              },
+              "name": "storage_type"
+            }
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT name, \"order\", storage as \"storage: _\"\n             FROM media_types ORDER BY \"order\""
+  },
+  "066075b08d88b7999bc6505c5b27c6cb1ff584094a0bd8fca1fd9eb4a664de24": {
+    "describe": {
+      "columns": [
+        {
+          "name": "email",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "first_name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "preferred_name",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "last_name",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "phone_number",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "picture",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "passengers",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "location",
+          "ordinal": 7,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "on_campus",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "about",
+          "ordinal": 9,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "major",
+          "ordinal": 10,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "minor",
+          "ordinal": 11,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "hometown",
+          "ordinal": 12,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "arrived_at_tech",
+          "ordinal": 13,
+          "type_info": "Int8"
+        },
+        {
+          "name": "gateway_drug",
+          "ordinal": 14,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "conflicts",
+          "ordinal": 15,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "dietary_restrictions",
+          "ordinal": 16,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "pass_hash",
+          "ordinal": 17,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus, about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM members ORDER BY last_name, first_name"
+  },
+  "0e23bf3b12fa144ee9bb43c162f8f5f95e8628fdad525b016a228cecc390401c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO minutes (name) VALUES ($1)"
+  },
+  "0eb757417b7a82d8d1a14cd534c87ea8f69a3776177b653c2027378f0d739baa": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "pending",
+                  "approved",
+                  "denied"
+                ]
+              },
+              "name": "absence_request_status"
+            }
+          },
+          "Int8",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE absence_requests SET state = $1 WHERE event = $2 AND member = $3"
+  },
+  "0ee41ae265761afa76c32ecc2055f23d4f2052202f185d18cff4b7f02ccc81a2": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "description",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "type: _",
+          "ordinal": 2,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "static",
+                  "event"
+                ]
+              },
+              "name": "permission_type"
+            }
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT name, description, type as \"type: _\"\n             FROM permissions ORDER BY name"
+  },
+  "0effa8b5cebac33a6b98cab1ec1e095eb15919b87c3f190096368c7ae4e9f488": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "description",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "amount",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT * FROM fees ORDER BY NAME"
+  },
+  "135c82ef6d03218695801fd7faaae38327475aadf45288c462ff63b13b6d3a01": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "semester",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "type",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "call_time: _",
+          "ordinal": 4,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "release_time: _",
+          "ordinal": 5,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "points",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "comments",
+          "ordinal": 7,
+          "type_info": "Text"
+        },
+        {
+          "name": "location",
+          "ordinal": 8,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "gig_count",
+          "ordinal": 9,
+          "type_info": "Bool"
+        },
+        {
+          "name": "default_attend",
+          "ordinal": 10,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT id, name, semester, \"type\", call_time as \"call_time: _\",\n                  release_time as \"release_time: _\", points, comments, location,\n                  gig_count, default_attend\n             FROM events WHERE semester = $1 ORDER BY call_time"
+  },
+  "1593c8644da716fd45eae6a3176cc36332a0bbb0df110d0f32903f91c0d25c72": {
+    "describe": {
+      "columns": [
+        {
+          "name": "member",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "semester",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "enrollment: _",
+          "ordinal": 2,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "class",
+                  "club"
+                ]
+              },
+              "name": "enrollment"
+            }
+          }
+        },
+        {
+          "name": "section",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT member, semester, enrollment as \"enrollment: _\", section\n             FROM active_semesters WHERE member = $1 AND semester = $2"
+  },
+  "16c5f8c3d4a0133e437fee5ef6748ccc68aba932f9ff61fb5b0805cd75c58835": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "color: _",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "description",
+          "ordinal": 3,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id, name, color as \"color: _\", description\n             FROM uniforms ORDER BY name"
+  },
+  "17d60a75f054420479a3b60f29cbd1f21aa62a99ee4ab4baea227824e0883329": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE song_links SET name = $1, url = $2 WHERE id = $3"
+  },
+  "1961fe55cab13003f6922b1520039b91054371e82b21b216ee32b5ee6efffca7": {
+    "describe": {
+      "columns": [
+        {
+          "name": "key",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT key FROM sessions WHERE member = $1"
+  },
+  "1a683ea970bc449c22ca32db8f5abb6e56ae849928e96732f1d62dc61f481c61": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM minutes WHERE id = $1"
+  },
+  "1b321d00f2539c3db435177a4afe81d387af3f1c6fb9a76d3bd644c7cfc3f61b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "description",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "amount",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT * FROM fees WHERE name = $1"
+  },
+  "1cc2f57f014d0ec8cde8f19107783c83218b20b71c9533ec5462751eef3b4e8f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "order",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "storage: _",
+          "ordinal": 2,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "local",
+                  "remote"
+                ]
+              },
+              "name": "storage_type"
+            }
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT name, \"order\", storage as \"storage: _\"\n             FROM media_types WHERE name = $1"
+  },
+  "1de97418c84c8b5e1aaadbf9ca4ec53da22949b60dc59101b7765f12688488d5": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "date: _",
+          "ordinal": 2,
+          "type_info": "Date"
+        },
+        {
+          "name": "public",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "private",
+          "ordinal": 4,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id, name, date as \"date: _\", public, private\n             FROM minutes WHERE id = $1"
+  },
+  "1e3ebcb96c8b148d2c36a95f4807797c7bf31e96e9f1f02e6450e7f9962d53f3": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "title",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "current",
+          "ordinal": 2,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id, title, current FROM songs ORDER BY title"
+  },
+  "20ec086735fc7260229381a73f35cdb31e50b653165a4b3bb963d21a450b7b27": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT name FROM semesters WHERE name = $1"
+  },
+  "20fe92df7e7f914f79ac1c7099d6d0eafd2a47e59c05c0071bc87220f02c17f8": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "song",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "type",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "url",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "file",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM song_links WHERE song = $1 ORDER BY type"
+  },
+  "210bce1f9130861b1f58626f3fc7117a2c2df78963e79febab155069aa4cb393": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE semesters SET current = true WHERE name = $1"
+  },
+  "224d1e74da04d7dd74f2706c269372c51b1675e07bf900afc91a92cdca0be738": {
+    "describe": {
+      "columns": [
+        {
+          "name": "key",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "value",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT * FROM variables WHERE key = $1"
+  },
+  "264eaecc1c6fa7fefad8c551e8766154d3722cc75f6ddcfa80bc3f1f4a7c7034": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "member",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "time: _",
+          "ordinal": 2,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "amount",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "description",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "semester",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "type",
+          "ordinal": 6,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "resolved",
+          "ordinal": 7,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT id, member, \"time\" as \"time: _\", amount, description, semester, type, resolved\n             FROM transactions WHERE member = $1 ORDER BY time"
+  },
+  "267fd5864ccd5b3e0d1bb9a5c10436d6173b253365e038ebea747c8335fd9a97": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Int8",
+          "Varchar",
+          "Bool",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Int8",
+          "Varchar",
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO members\n             (email, first_name, preferred_name, last_name, pass_hash, phone_number,\n              picture, passengers, location, on_campus, about, major, minor, hometown,\n              arrived_at_tech, gateway_drug, conflicts, dietary_restrictions)\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,\n                     $11, $12, $13, $14, $15, $16, $17, $18)"
+  },
+  "27a6780474764f3f749c780145d4bbdc36572a89eba9179f03ae063a46654708": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "time: _",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "name",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "organization",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "contact_name",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "contact_phone",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "contact_email",
+          "ordinal": 6,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_time: _",
+          "ordinal": 7,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "location",
+          "ordinal": 8,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "comments",
+          "ordinal": 9,
+          "type_info": "Text"
+        },
+        {
+          "name": "status: _",
+          "ordinal": 10,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "pending",
+                  "accepted",
+                  "dismissed"
+                ]
+              },
+              "name": "gig_request_status"
+            }
+          }
+        },
+        {
+          "name": "event",
+          "ordinal": 11,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id, \"time\" as \"time: _\", name, organization, contact_name, contact_phone, contact_email,\n                 start_time as \"start_time: _\", location, comments, status as \"status: _\", event\n             FROM gig_requests ORDER BY time"
+  },
+  "283e1426b6192ab618a0dde413b58c2a3b32ad917cca9666814800f3fad6ee74": {
+    "describe": {
+      "columns": [
+        {
+          "name": "member",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "role",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT * FROM member_roles WHERE member = $1 AND role = $2"
+  },
+  "291e634e4df003330a744dc65623fce46b268cde9437b4717531bf780e315188": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Date",
+          "Date",
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO semesters (name, start_date, end_date, gig_requirement)\n             VALUES ($1, $2, $3, $4)"
+  },
+  "2946f1755ea6132ee66d2f2e18a2ea545ce6256cda2d6ccefe12fb291e68a046": {
+    "describe": {
+      "columns": [
+        {
+          "name": "data",
+          "ordinal": 0,
+          "type_info": "Bytea"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT data FROM song_files WHERE name = $1"
+  },
+  "29d59e16493e551fd89e16542a9a87b7ed5c7e24e10b298052075947e7cc3fab": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Bool",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO attendance (event, should_attend, member) VALUES ($1, $2, $3)"
+  },
+  "2ea6a0170ba7e5e56d9aa18418ace9ddef4f5ea8e4076de13367d2abc9a7dfbd": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Int8",
+          "Varchar",
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO transactions (member, amount, type, description, semester) VALUES ($1, $2, $3, $4, $5)"
+  },
+  "2f2463ebaed8027549efe71e25ffca3730f210e3d97d464a0cc153ee0d95232f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Int8",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Int8",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "UPDATE members SET\n             email = $1, first_name = $2, preferred_name = $3, last_name = $4,\n             phone_number = $5, picture = $6, passengers = $7, location = $8,\n             about = $9, major = $10, minor = $11, hometown = $12, arrived_at_tech = $13,\n             gateway_drug = $14, conflicts = $15, dietary_restrictions = $16, pass_hash = $17"
+  },
+  "3207430fdfde5fc54d4bc527f663adb8a80463e6ebd8b454718a91b2a07aca48": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "member",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "time: _",
+          "ordinal": 2,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "amount",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "description",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "semester",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "type",
+          "ordinal": 6,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "resolved",
+          "ordinal": 7,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT id, member, \"time\" as \"time: _\", amount, description, semester, type, resolved\n             FROM transactions WHERE semester = $1 ORDER BY time"
+  },
+  "35b8cfea23823e722ed9b8f394922345cdbba348fea9a92163a4687276c24dbb": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Timestamptz",
+          "Int8",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Int8",
+          "Bool",
+          "Text",
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE gigs SET performance_time = $1, uniform = $2, contact_name = $3, contact_email = $4,\n                     contact_phone = $5, price = $6, public = $7, summary = $8, description = $9\n                     WHERE event = $10"
+  },
+  "35d1108a1158d5723a5d6cc076022d52a8bf4f85012c598ab216cd2ce76f1941": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE fees SET amount = $1 WHERE name = $2"
+  },
+  "3758c98d3acf16d86b41f7cdd692e0b314c6e889d9cd446f6b77006ce0f5850d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "song",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "type",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "url",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "file",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM song_links WHERE id = $1"
+  },
+  "412e88cc808c11cc6a7bf1ba4429696312d83d4bea7bc23da10cdfc8bba58b31": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Bool",
+          "Bool",
+          "Bool",
+          "Int8",
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE attendance SET should_attend = $1, did_attend = $2, confirmed = $3, minutes_late = $4 WHERE member = $5 AND event = $6"
+  },
+  "45f19278ad30d140dbdf3b8deec3c407ea2393df562f54955db6e0c5e488f521": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "color: _",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "description",
+          "ordinal": 3,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id, name, color as \"color: _\", description\n             FROM uniforms WHERE id = $1"
+  },
+  "4990be1852f973c6ef0103cdd4297474f290e0bea0af52a70a272e1ac2cbdc2a": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Bytea"
+        ]
+      }
+    },
+    "query": "INSERT INTO song_files (name, data) VALUES ($1, $2)"
+  },
+  "4de3e74e84144fd8d4ac3473c8e73f1935f0a705c4622133b596bbf439df729e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "should_attend",
+          "ordinal": 0,
+          "type_info": "Bool"
+        },
+        {
+          "name": "did_attend",
+          "ordinal": 1,
+          "type_info": "Bool"
+        },
+        {
+          "name": "confirmed",
+          "ordinal": 2,
+          "type_info": "Bool"
+        },
+        {
+          "name": "minutes_late",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "member",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "event",
+          "ordinal": 5,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "TextArray",
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT should_attend, did_attend, confirmed, minutes_late, member, event\n             FROM attendance\n             WHERE member = Any($1) AND event IN\n             (SELECT id FROM events WHERE semester = $2)"
+  },
+  "4ea4706fc6f9ba5b9c52767c611f72da1d37a7c39f785ad3db332e9ca8e429cd": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE song_files SET name = $1 WHERE name = $2"
+  },
+  "4ffc81df6239f05e58b96c2d5d69a1c10e29aa69ad645322d02e385b0e98d5e8": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE attendance SET should_attend = false WHERE event = $1 AND confirmed = false"
+  },
+  "51958682c1288bc774ff8671c5e8c07930e66b2e34ee3c7d9009d6588f32a23e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "email",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "first_name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "preferred_name",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "last_name",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "phone_number",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "picture",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "passengers",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "location",
+          "ordinal": 7,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "on_campus",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "about",
+          "ordinal": 9,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "major",
+          "ordinal": 10,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "minor",
+          "ordinal": 11,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "hometown",
+          "ordinal": 12,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "arrived_at_tech",
+          "ordinal": 13,
+          "type_info": "Int8"
+        },
+        {
+          "name": "gateway_drug",
+          "ordinal": 14,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "conflicts",
+          "ordinal": 15,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "dietary_restrictions",
+          "ordinal": 16,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "pass_hash",
+          "ordinal": 17,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus, about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM members WHERE email IN\n             (SELECT member FROM active_semesters WHERE semester = $1)"
+  },
+  "56008edb9ea1ee1c4a61c8a4f8a313fe0e45630c35a7a9b24cfa48debb28a17e": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Timestamptz",
+          "Timestamptz",
+          "Int8",
+          "Text",
+          "Varchar",
+          "Bool",
+          "Bool"
+        ]
+      }
+    },
+    "query": "INSERT INTO events\n                     (name, semester, \"type\", call_time, release_time, points,\n                      comments, location, gig_count, default_attend)\n                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+  },
+  "57c7327b04742dbd67e4beb57be1f4f0dbab3325488c6ac2e0e7e261a97e99d0": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_date: _",
+          "ordinal": 1,
+          "type_info": "Date"
+        },
+        {
+          "name": "end_date: _",
+          "ordinal": 2,
+          "type_info": "Date"
+        },
+        {
+          "name": "gig_requirement",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "current",
+          "ordinal": 4,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                     gig_requirement, current\n                 FROM semesters WHERE name = $1"
+  },
+  "59d695760832209b1f6027823c619ab4d857792d90c7a88b4db521121b333423": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Text",
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE minutes SET name = $1, private = $2, public = $3 WHERE id = $4"
+  },
+  "5c527132c1342267fe0126db0c86a0c56a17ed4d024786ad084c3f232aee2bff": {
+    "describe": {
+      "columns": [
+        {
+          "name": "member",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "key",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT * FROM sessions WHERE key = $1"
+  },
+  "5c63624e49f4b7e84d04fbbaf94dc34f530519c3f6d52fb67dfe524e599d17a7": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "role",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "permission",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "event_type",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT * FROM role_permissions"
+  },
+  "5d88eb03a1f1d797a1207d36ff60dfe45744e83203e956c90e01fbda164caa69": {
+    "describe": {
+      "columns": [
+        {
+          "name": "member",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "semester",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "enrollment: _",
+          "ordinal": 2,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "class",
+                  "club"
+                ]
+              },
+              "name": "enrollment"
+            }
+          }
+        },
+        {
+          "name": "section",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT a.member, a.semester, a.enrollment as \"enrollment: _\", a.section\n             FROM active_semesters a\n             JOIN semesters s ON a.semester = s.name\n             WHERE member = $1\n             ORDER BY s.start_date"
+  },
+  "5e5df00490c99de892303a1fefdb44c8c31ac8ee416bf3f13a1d7a711130d5f8": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "class",
+                  "club"
+                ]
+              },
+              "name": "enrollment"
+            }
+          },
+          "Varchar",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE active_semesters SET enrollment = $1, section = $2 WHERE member = $3 AND semester = $4"
+  },
+  "607cbb133400061003e49ba4fa2c248f1c1a8a8765d3a7ef60d9223e54aacfd5": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE members SET pass_hash = $1 WHERE email = $2"
+  },
+  "60c496f54c5e2bb8951715dbb4d9feea6169f455d9c5a85f58ed803a14b5306a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_date",
+          "ordinal": 1,
+          "type_info": "Date"
+        },
+        {
+          "name": "current",
+          "ordinal": 2,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT name, start_date, current FROM semesters ORDER BY start_date"
+  },
+  "612226c320b71061edc983408cae18ed802ccab38613bb19a7e0a5c924cbdc60": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Timestamptz",
+          "Timestamptz",
+          "Int8",
+          "Text",
+          "Varchar",
+          "Bool",
+          "Bool",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE events SET name = $1, semester = $2, \"type\" = $3, call_time = $4, release_time = $5,\n                 points = $6, comments = $7, location = $8, gig_count = $9, default_attend = $10\n             WHERE id = $11"
+  },
+  "64f77f61ffe315942abf68d3cddd95c67513e3c68cb86b4e092caacf8ffa81dc": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "title",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "info",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "current",
+          "ordinal": 3,
+          "type_info": "Bool"
+        },
+        {
+          "name": "key: _",
+          "ordinal": 4,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "a_flat",
+                  "a",
+                  "a_sharp",
+                  "b_flat",
+                  "b",
+                  "b_sharp",
+                  "c_flat",
+                  "c",
+                  "c_sharp",
+                  "d_flat",
+                  "d",
+                  "d_sharp",
+                  "e_flat",
+                  "e",
+                  "e_sharp",
+                  "f_flat",
+                  "f",
+                  "f_sharp",
+                  "g_flat",
+                  "g",
+                  "g_sharp"
+                ]
+              },
+              "name": "pitch"
+            }
+          }
+        },
+        {
+          "name": "starting_pitch: _",
+          "ordinal": 5,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "a_flat",
+                  "a",
+                  "a_sharp",
+                  "b_flat",
+                  "b",
+                  "b_sharp",
+                  "c_flat",
+                  "c",
+                  "c_sharp",
+                  "d_flat",
+                  "d",
+                  "d_sharp",
+                  "e_flat",
+                  "e",
+                  "e_sharp",
+                  "f_flat",
+                  "f",
+                  "f_sharp",
+                  "g_flat",
+                  "g",
+                  "g_sharp"
+                ]
+              },
+              "name": "pitch"
+            }
+          }
+        },
+        {
+          "name": "mode: _",
+          "ordinal": 6,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "major",
+                  "minor"
+                ]
+              },
+              "name": "song_mode"
+            }
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id, title, info, current, key as \"key: _\",\n                 starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"\n             FROM songs WHERE id = $1"
+  },
+  "68c2c8993011eb5c201fc84ef792e14555279acd91632ed77d8f4c193ed4ef1d": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO document_links (name, url) VALUES ($1, $2)"
+  },
+  "697ee7a24f0f980bb624966f5b1210af1829105f672b8280d7ca4e9ccd02a23d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "email",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "first_name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "preferred_name",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "last_name",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "phone_number",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "picture",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "passengers",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "location",
+          "ordinal": 7,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "on_campus",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "about",
+          "ordinal": 9,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "major",
+          "ordinal": 10,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "minor",
+          "ordinal": 11,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "hometown",
+          "ordinal": 12,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "arrived_at_tech",
+          "ordinal": 13,
+          "type_info": "Int8"
+        },
+        {
+          "name": "gateway_drug",
+          "ordinal": 14,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "conflicts",
+          "ordinal": 15,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "dietary_restrictions",
+          "ordinal": 16,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "pass_hash",
+          "ordinal": 17,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus, about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM members WHERE email = $1"
+  },
+  "6b00c6e54c377365a63210fd29f11d6e95ba0e42d4e243e35995b292f4338e5e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "member",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "event",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "time: _",
+          "ordinal": 2,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "reason",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "state: _",
+          "ordinal": 4,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "pending",
+                  "approved",
+                  "denied"
+                ]
+              },
+              "name": "absence_request_status"
+            }
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "TextArray",
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT member, event, \"time\" as \"time: _\", reason, state as \"state: _\"\n             FROM absence_requests\n             WHERE member = ANY($1) AND event IN\n             (SELECT id FROM events WHERE semester = $2)"
+  },
+  "6b35c6c926fb2d84681290ada05bf376732ceaaac9d6ae5911281f58a6cdd9fd": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT * FROM transaction_types WHERE name = $1"
+  },
+  "6c700d8a445565fbff05ee1f56caff8fc68fdfe846d5a107a2ba107d3fc8bb5d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id FROM uniforms ORDER BY id DESC"
+  },
+  "6d3056b89f9a27c9765918d74c893f43985258b3863a47a8adc57b57b8a85fc4": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "DELETE FROM sessions WHERE member = $1"
+  },
+  "6e459e59bb9a9f0e381acf4554453b17f91934ee68278a43c1eb5210cbb146c0": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "DELETE FROM variables WHERE key = $1"
+  },
+  "71f21d26350517a5c26c15413b4be46459031a04111f13a1519ba7de98791917": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "url",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT * FROM document_links WHERE name = $1"
+  },
+  "7244f748380a0cf59e658d270037dd20cfd8d491ac7f86f899bd0e46095f1f21": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO variables (key, value) VALUES ($1, $2)"
+  },
+  "744af3038b4f3671bbc36b79584aad649c221e50b04b25679702e43b93773e6b": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE attendance SET should_attend = true, confirmed = true WHERE event = $1 AND member = $2"
+  },
+  "750efb7624a6db1a71676c5052a05a2bcdcbbeb71998828cab1c7d17fa1b5cfe": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "DELETE FROM document_links WHERE name = $1"
+  },
+  "772d902828cf6826ee28be7f1d2c2a2522b2186a7bffbb8a5806cb716d883b2e": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO password_resets (member, token) VALUES ($1, $2)"
+  },
+  "78aad8492fb8427bc34cf30cabef56bd90531f26f16d58806d28e47b5556315a": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "UPDATE semesters SET current = false"
+  },
+  "78e98a9a2e445e546b612dd689044de3f3db5f01620a458b8e4674d429a919d9": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "pending",
+                  "accepted",
+                  "dismissed"
+                ]
+              },
+              "name": "gig_request_status"
+            }
+          },
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE gig_requests SET status = $1 WHERE id = $2"
+  },
+  "7f6e13f72075e1ec20e96e3d708006431df1c5658c4333cce8bc413dde709b50": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id FROM minutes ORDER BY id DESC"
+  },
+  "83de89bcecc994fcb31cec7d663d5f375d91f8ad7bf8364a4443da0ee8f215d8": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Timestamptz",
+          "Int8",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Int8",
+          "Bool",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "INSERT INTO gigs\n                        (event, performance_time, uniform, contact_name, contact_email,\n                         contact_phone, price, \"public\", summary, description)\n                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+  },
+  "855d4e0a38a40d7ad996f62f71385abd0378ac62907202b4f73a3949d8433d5e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "performance_time: _",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "contact_name",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "contact_email",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "contact_phone",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "price",
+          "ordinal": 5,
+          "type_info": "Int8"
+        },
+        {
+          "name": "public: bool",
+          "ordinal": 6,
+          "type_info": "Bool"
+        },
+        {
+          "name": "summary",
+          "ordinal": 7,
+          "type_info": "Text"
+        },
+        {
+          "name": "description",
+          "ordinal": 8,
+          "type_info": "Text"
+        },
+        {
+          "name": "uniform",
+          "ordinal": 9,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT event, performance_time as \"performance_time: _\", contact_name, contact_email,\n                 contact_phone, price, public as \"public: bool\", summary, description, uniform\n             FROM gigs WHERE event = $1"
+  },
+  "860b0bdcd90b6efabc322ec2a0e044573feefa9a045fe96d587a6742309dc786": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "weight",
+          "ordinal": 1,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT * FROM event_types ORDER BY name"
+  },
+  "86757936e6159e1f441691551df21ff1c0ae8d06f3a86f77ed90df2fc55fdb7d": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM uniforms WHERE id = $1"
+  },
+  "86c4614da3e2a1fb987a3bd2ebb8f45c4400d9d518385adad746472d35df67c4": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO carpools (event, driver) VALUES ($1, $2)"
+  },
+  "880548e8df24eb7130e9f0331636d1bd504a40e09bb72e2e7d29892da88cc467": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO member_roles (member, role) VALUES ($1, $2)"
+  },
+  "8a2df7f056f11fa1c7f76657f8c501c3c99598bc652274977356fcbee7e3d100": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Int8",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO absence_requests (member, event, reason) VALUES ($1, $2, $3)"
+  },
+  "8b826d3a0e54586ac4f01e16f84aab133b1a01bce740eea7ae4bc4dd42c3a606": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "time: _",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "name",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "organization",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "contact_name",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "contact_phone",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "contact_email",
+          "ordinal": 6,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_time: _",
+          "ordinal": 7,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "location",
+          "ordinal": 8,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "comments",
+          "ordinal": 9,
+          "type_info": "Text"
+        },
+        {
+          "name": "status: _",
+          "ordinal": 10,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "pending",
+                  "accepted",
+                  "dismissed"
+                ]
+              },
+              "name": "gig_request_status"
+            }
+          }
+        },
+        {
+          "name": "event",
+          "ordinal": 11,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id, \"time\" as \"time: _\", name, organization, contact_name, contact_phone, contact_email,\n                 start_time as \"start_time: _\", location, comments, status as \"status: _\", event\n             FROM gig_requests WHERE id = $1"
+  },
+  "90113b0362e0b19592af3630da0f33130d3591f2143805839a2541862e223011": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "DELETE FROM member_roles WHERE member = $1 AND role = $2"
+  },
+  "90486bfd282722f17e5ffb7cd3c80c34a9bb68c52b4053c20547efe3349fe57c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT * FROM transaction_types ORDER BY name"
+  },
+  "914c3b5317898057f533a66bb9e49ee2aaf40cbfe1bc6e8615664f58f4221703": {
+    "describe": {
+      "columns": [
+        {
+          "name": "member",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT member FROM active_semesters WHERE semester = $1 AND member NOT IN (SELECT member FROM transactions WHERE type = $2 AND description = $3)"
+  },
+  "91c006bd3871230d47df8a418ed19251176736c29fed45a55e372eea5300bccf": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Timestamptz",
+          "Varchar",
+          "Text"
+        ]
+      }
+    },
+    "query": "INSERT INTO gig_requests (\n                name, organization, contact_name, contact_phone,\n                contact_email, start_time, location, comments)\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
+  },
+  "922c78b95613a5d0240c4dbcb92bf3f3d70571a51531bbe04a8792c17cf816c0": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Bool",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE transactions SET resolved = $1 WHERE id = $2"
+  },
+  "926d1cc026045a13c36d5e134a0b2871acb7302a909e819526fc95c79b5cf692": {
+    "describe": {
+      "columns": [
+        {
+          "name": "time: _",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "reason",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "state: _",
+          "ordinal": 2,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "pending",
+                  "approved",
+                  "denied"
+                ]
+              },
+              "name": "absence_request_status"
+            }
+          }
+        },
+        {
+          "name": "member",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "event",
+          "ordinal": 4,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT \"time\" as \"time: _\", reason, state as \"state: _\", member, event\n             FROM absence_requests\n             WHERE event IN (SELECT id FROM events WHERE semester = $1)\n             ORDER BY time DESC"
+  },
+  "927bfe5b5868285a35302dc05a5771552c2fe30c0a45841066dabd57a8934bcc": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO rides_in (member, carpool) VALUES ($1, $2)"
+  },
+  "93512ac9b6ea6bed0765f193d53008bb1c7dd72f61aff860e76061ca27d4a5a1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT uniforms.name FROM uniforms\n             INNER JOIN gigs ON gigs.uniform = uniforms.id\n             INNER JOIN events ON gigs.event = events.id\n             WHERE events.id = $1"
+  },
+  "94c70ef129c505646ff49388e5bcc257412851c49a908d554855d8364b20842d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "event",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "driver",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM carpools WHERE event = $1"
+  },
+  "960026eaf19c23d4c12080944c0a54cb3636362a128348ff6c2b03356386048a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "rank",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "max_quantity",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT * FROM roles ORDER BY rank"
+  },
+  "99cbae0b2392f76498c2686c5aec7685b37fbf7fcef058ae93d0137263d85fee": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE document_links SET url = $1 WHERE name = $2"
+  },
+  "9a418d5bf473ea533d075d81d16db537d7dc0e28aa2b37e60eb7b33defd11a13": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "DELETE FROM active_semesters WHERE member = $1 AND semester = $2"
+  },
+  "9ede6a26a5fc5e3324688fe311fa1f6ad2e23e09504f05e2ec2820f806c6a5ae": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id FROM gig_requests ORDER BY id DESC"
+  },
+  "a08b0ee0437a8ff25bb7e8f41b7ce5a5954da79713a4950bb75616401609ed43": {
+    "describe": {
+      "columns": [
+        {
+          "name": "email",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "first_name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "preferred_name",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "last_name",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "phone_number",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "picture",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "passengers",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "location",
+          "ordinal": 7,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "on_campus",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "about",
+          "ordinal": 9,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "major",
+          "ordinal": 10,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "minor",
+          "ordinal": 11,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "hometown",
+          "ordinal": 12,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "arrived_at_tech",
+          "ordinal": 13,
+          "type_info": "Int8"
+        },
+        {
+          "name": "gateway_drug",
+          "ordinal": 14,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "conflicts",
+          "ordinal": 15,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "dietary_restrictions",
+          "ordinal": 16,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "pass_hash",
+          "ordinal": 17,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus, about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM members WHERE email IN\n             (SELECT member FROM rides_in WHERE carpool = $1)\n             ORDER BY last_name, preferred_name, first_name"
+  },
+  "a1b76c04f8f29f663e4a2f5d60711d78cd29fb559f21ef483c5f9d160751b41d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "semester",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "type",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "call_time: _",
+          "ordinal": 4,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "release_time: _",
+          "ordinal": 5,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "points",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "comments",
+          "ordinal": 7,
+          "type_info": "Text"
+        },
+        {
+          "name": "location",
+          "ordinal": 8,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "gig_count",
+          "ordinal": 9,
+          "type_info": "Bool"
+        },
+        {
+          "name": "default_attend",
+          "ordinal": 10,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id, name, semester, type, call_time as \"call_time: _\",\n                  release_time as \"release_time: _\", points, comments, location,\n                  gig_count, default_attend\n             FROM events WHERE id = $1"
+  },
+  "a33a6a1e25b754052f661ff3d2bd1bed0c0138a972232552ae3cc0b5f7671515": {
+    "describe": {
+      "columns": [
+        {
+          "name": "should_attend",
+          "ordinal": 0,
+          "type_info": "Bool"
+        },
+        {
+          "name": "did_attend",
+          "ordinal": 1,
+          "type_info": "Bool"
+        },
+        {
+          "name": "confirmed",
+          "ordinal": 2,
+          "type_info": "Bool"
+        },
+        {
+          "name": "minutes_late",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "member",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "event",
+          "ordinal": 5,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT should_attend, did_attend, confirmed, minutes_late, member, event\n             FROM attendance WHERE member = $1 AND event = $2"
+  },
+  "a467f50e38cae6199899d2ff6af558df6a67ca1b01811a2ddff63475c4f2656c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO role_permissions (role, permission, event_type)\n             VALUES ($1, $2, $3)\n             ON CONFLICT(role, permission, event_type) DO NOTHING"
+  },
+  "aa5f05464f44fe20481e8817fe4c22d2fa6e67ead8dc5723bc8564e47cbb90b0": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "date: _",
+          "ordinal": 2,
+          "type_info": "Date"
+        },
+        {
+          "name": "public",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "private",
+          "ordinal": 4,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id, name, date as \"date: _\", public, private\n             FROM minutes ORDER BY date DESC"
+  },
+  "ab1b0b17ea686174e0f0c65d1fdbe36ce6480ee6b4d90ab0804f80a5a527ba02": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Bool",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO attendance (event, should_attend, member) VALUES ($1, $2, $3)\n                 ON CONFLICT(event, should_attend, member) DO NOTHING"
+  },
+  "ad11bd84b88496813a4fc95fe62317b0c309baeb12b28827b489738da39c2690": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_date: _",
+          "ordinal": 1,
+          "type_info": "Date"
+        },
+        {
+          "name": "end_date: _",
+          "ordinal": 2,
+          "type_info": "Date"
+        },
+        {
+          "name": "gig_requirement",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "current",
+          "ordinal": 4,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                 gig_requirement, current\n             FROM semesters WHERE current = true"
+  },
+  "ad60b6c84bb0ac57869a281e7aea0b47d3aba12d251b2481c34a0b477f81c450": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Bool",
+          "Int8",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE attendance SET should_attend = $1, confirmed = true WHERE event = $2 AND member = $3"
+  },
+  "ad75f8d95be12deddc0d97af5589933766c08cd8521dc0e0a35abb5579039c74": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Int8",
+          "Varchar",
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO transactions (member, amount, type, description, semester)\n                     VALUES ($1, $2, $3, $4, $5)"
+  },
+  "b0be85b4333869117a0fa588a77cc84f82caf5880d881ce377a73438ac09b68f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id FROM carpools ORDER BY id DESC"
+  },
+  "b13e14836198f6730349c292b2ccaaec5f0567b92224dc40d345c94cae7b4911": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Bool",
+          "Varchar",
+          "Varchar",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE members SET location = $1, on_campus = $2, conflicts = $3, dietary_restrictions = $4\n             WHERE email = $5"
+  },
+  "b1b614efc19bc15046a274e28a0b19d98ee4dcae5b44537f24e2f9c93c07360c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "DELETE FROM role_permissions WHERE role = $1 AND permission = $2 AND event_type = $3"
+  },
+  "b70484996fecc95c16ac237e8057ed0dc953993e8bb5e9cb5a6d35f036b0c30f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_date: _",
+          "ordinal": 1,
+          "type_info": "Date"
+        },
+        {
+          "name": "end_date: _",
+          "ordinal": 2,
+          "type_info": "Date"
+        },
+        {
+          "name": "gig_requirement",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "current: bool",
+          "ordinal": 4,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                 gig_requirement, current as \"current: bool\"\n             FROM semesters WHERE name = $1"
+  },
+  "b9f6467986cb0a9344b34c81b34488fdbc74084ad0676258add58cc5e34d3153": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM song_links WHERE id = $1"
+  },
+  "ba8b7fe3b12229e2cd696b44f78b5d3e6c6cfc587adc5c935a832938bf28690d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "member",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "role",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT * FROM member_roles ORDER BY role, member"
+  },
+  "bb490f0cf99a9fcf38e6dc65c71661c13b7a71e0d14ff1a81f3b16c9c32a2c88": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "DELETE FROM password_resets WHERE member = $1"
+  },
+  "be07055a3e7f14a33c9a7135e78611c15c4e7706dcd2696f41e43f88a659a891": {
+    "describe": {
+      "columns": [
+        {
+          "name": "member",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "time",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "token",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT * FROM password_resets WHERE token = $1"
+  },
+  "c49ba3cad47ee0cb3aaca71374d7ee94bb11a5c2d8cd7eb34fea7e0b7aeaece1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "url",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "song",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT name, url, song FROM song_links WHERE type = $1"
+  },
+  "c7ad46e04461ce79c09047f84b43b5c6c4d42096690f07c95f656c409468fe5c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Text"
+        ]
+      }
+    },
+    "query": "INSERT INTO songs (title, info) VALUES ($1, $2)"
+  },
+  "c7ec789595ac770652d4d800f5f2be01229483976d6fa5d0a8281393bfa571c9": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO sessions (member, key) VALUES ($1, $2)"
+  },
+  "c892d7f464b953afd8207d015c55ef32d1681d66abb95a690a414fe0fa2104a0": {
+    "describe": {
+      "columns": [
+        {
+          "name": "time: _",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "reason",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "state: _",
+          "ordinal": 2,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "pending",
+                  "approved",
+                  "denied"
+                ]
+              },
+              "name": "absence_request_status"
+            }
+          }
+        },
+        {
+          "name": "member",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "event",
+          "ordinal": 4,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT \"time\" as \"time: _\", reason, state as \"state: _\", member, event\n             FROM absence_requests WHERE member = $1 AND event = $2"
+  },
+  "cbccdd42edc2e7650248be277388f1261124ac1495f87441ffb61488df83c8c1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "should_attend",
+          "ordinal": 0,
+          "type_info": "Bool"
+        },
+        {
+          "name": "did_attend",
+          "ordinal": 1,
+          "type_info": "Bool"
+        },
+        {
+          "name": "confirmed",
+          "ordinal": 2,
+          "type_info": "Bool"
+        },
+        {
+          "name": "minutes_late",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "member",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "event",
+          "ordinal": 5,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT should_attend, did_attend, confirmed, minutes_late, member, event\n             FROM attendance WHERE event = $1"
+  },
+  "cc548ae595a00459c5b1d0366604e1c2c83f3f70f3108d143983bec75f93eee7": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id FROM songs ORDER BY id DESC"
+  },
+  "cd8315b3b7c21d5f87963467eada5189143dd0a63c58c6e89950c2f0cf3975a3": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "rank",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "max_quantity",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT * FROM roles WHERE name in \n             (SELECT role FROM member_roles WHERE member = $1) \n             ORDER BY rank"
+  },
+  "cfb784e06c8d469e81285efc199edd771fd272746fa6a0f9885f9990e009bc17": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Bool",
+          "Text",
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "a_flat",
+                  "a",
+                  "a_sharp",
+                  "b_flat",
+                  "b",
+                  "b_sharp",
+                  "c_flat",
+                  "c",
+                  "c_sharp",
+                  "d_flat",
+                  "d",
+                  "d_sharp",
+                  "e_flat",
+                  "e",
+                  "e_sharp",
+                  "f_flat",
+                  "f",
+                  "f_sharp",
+                  "g_flat",
+                  "g",
+                  "g_sharp"
+                ]
+              },
+              "name": "pitch"
+            }
+          },
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "a_flat",
+                  "a",
+                  "a_sharp",
+                  "b_flat",
+                  "b",
+                  "b_sharp",
+                  "c_flat",
+                  "c",
+                  "c_sharp",
+                  "d_flat",
+                  "d",
+                  "d_sharp",
+                  "e_flat",
+                  "e",
+                  "e_sharp",
+                  "f_flat",
+                  "f",
+                  "f_sharp",
+                  "g_flat",
+                  "g",
+                  "g_sharp"
+                ]
+              },
+              "name": "pitch"
+            }
+          },
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "major",
+                  "minor"
+                ]
+              },
+              "name": "song_mode"
+            }
+          },
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE songs SET title = $1, current = $2, info = $3, key = $4, starting_pitch = $5, mode = $6 WHERE id = $7"
+  },
+  "d3129787208279cbf1ecf20f6830e3073002c6454411ac26066d2fe5c2f7f62f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM events WHERE id = $1"
+  },
+  "d607e41f0623383dd914a923489ec17da989e99afe48a67498f8f9e7c95faeae": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO song_links (song, type, name, url, file)\n                 VALUES ($1, $2, $3, $4, $5)"
+  },
+  "d70049eb3aa6b4ed414fc1f0ca3c0a1d8358d2a68f633a0c6354ef081b292aa3": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "event_type",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT permission as name, event_type FROM role_permissions\n             INNER JOIN member_roles ON role_permissions.role = member_roles.role\n             WHERE member_roles.member = $1"
+  },
+  "d8ee7afa844672d5f81ac527bd2699e5377986ebe73d1837951aadfa5aa703d9": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "class",
+                  "club"
+                ]
+              },
+              "name": "enrollment"
+            }
+          },
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO active_semesters (member, semester, enrollment, section) VALUES ($1, $2, $3, $4)"
+  },
+  "da3b5149f3e34ab69a557c3357a9351835b150eca0f8ab568c4cc2572cfd90e6": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Text"
+        ]
+      }
+    },
+    "query": "INSERT INTO uniforms (name, color, description) VALUES ($1, $2, $3)"
+  },
+  "dd31a4129e078ebaea865904e15b89d4df9ac9c5d5708acef95340181e974543": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE uniforms SET name = $1, color = $2, description = $3 WHERE id = $4"
+  },
+  "ddf093a44d022d00824a3b11c42d6a8c5e610a29295e7fd476a2b5c1f4f54a33": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "url",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT * FROM document_links ORDER BY name"
+  },
+  "dea45deeb8ded0c0389afb60b014e0ee431a0cf1d6d13749bc63c2bdfa8291ef": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT * FROM section_types ORDER BY name"
+  },
+  "e05db0be2e403f2e4c0d22c363d4c56408d9dc5a1783f917d5b132437544e451": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "performance_time: _",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "contact_name",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "contact_email",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "contact_phone",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "price",
+          "ordinal": 5,
+          "type_info": "Int8"
+        },
+        {
+          "name": "public: bool",
+          "ordinal": 6,
+          "type_info": "Bool"
+        },
+        {
+          "name": "summary",
+          "ordinal": 7,
+          "type_info": "Text"
+        },
+        {
+          "name": "description",
+          "ordinal": 8,
+          "type_info": "Text"
+        },
+        {
+          "name": "uniform",
+          "ordinal": 9,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT event, performance_time as \"performance_time: _\", contact_name, contact_email,\n                 contact_phone, price, public as \"public: bool\", summary, description, uniform\n             FROM gigs WHERE event in\n                 (SELECT id FROM events WHERE semester = $1)"
+  },
+  "e5dfbdffe6625a907867dc20ecc6f2257b4f9d4cdb987d3498b51b462a60ab29": {
+    "describe": {
+      "columns": [
+        {
+          "name": "email",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT email FROM members WHERE email = $1"
+  },
+  "e63c4063a6aaf0868b2109f6a83e20f812428e5f81caaf84569ba73ab0f1ce09": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "member",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "time: _",
+          "ordinal": 2,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "amount",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "description",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "semester",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "type",
+          "ordinal": 6,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "resolved",
+          "ordinal": 7,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id, member, \"time\" as \"time: _\", amount, description, semester, type, resolved\n             FROM transactions WHERE id = $1"
+  },
+  "e7a2c42882e36c6720d904352c21897091e3c335fbe80f9d4ca8e2e18f3f1545": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM carpools WHERE event = $1"
+  },
+  "eabed21557c909e397e12e9ec1513644d3787f297404af868f0f160e05823a23": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Date",
+          "Date",
+          "Int8",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE semesters SET\n             name = $1, start_date = $2, end_date = $3, gig_requirement = $4\n             WHERE name = $5"
+  },
+  "ebf4a3a3e2b243d76637d20e06a4747d2c87a89ae638db2a24b873b0abf1337d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "title",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "info",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "current",
+          "ordinal": 3,
+          "type_info": "Bool"
+        },
+        {
+          "name": "key: _",
+          "ordinal": 4,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "a_flat",
+                  "a",
+                  "a_sharp",
+                  "b_flat",
+                  "b",
+                  "b_sharp",
+                  "c_flat",
+                  "c",
+                  "c_sharp",
+                  "d_flat",
+                  "d",
+                  "d_sharp",
+                  "e_flat",
+                  "e",
+                  "e_sharp",
+                  "f_flat",
+                  "f",
+                  "f_sharp",
+                  "g_flat",
+                  "g",
+                  "g_sharp"
+                ]
+              },
+              "name": "pitch"
+            }
+          }
+        },
+        {
+          "name": "starting_pitch: _",
+          "ordinal": 5,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "a_flat",
+                  "a",
+                  "a_sharp",
+                  "b_flat",
+                  "b",
+                  "b_sharp",
+                  "c_flat",
+                  "c",
+                  "c_sharp",
+                  "d_flat",
+                  "d",
+                  "d_sharp",
+                  "e_flat",
+                  "e",
+                  "e_sharp",
+                  "f_flat",
+                  "f",
+                  "f_sharp",
+                  "g_flat",
+                  "g",
+                  "g_sharp"
+                ]
+              },
+              "name": "pitch"
+            }
+          }
+        },
+        {
+          "name": "mode: _",
+          "ordinal": 6,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "major",
+                  "minor"
+                ]
+              },
+              "name": "song_mode"
+            }
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT s.id, s.title, s.info, s.current, s.key as \"key: _\",\n                 s.starting_pitch as \"starting_pitch: _\", s.mode as \"mode: _\"\n             FROM songs s INNER JOIN gig_songs ON s.id = gig_songs.song\n             WHERE gig_songs.event = $1 ORDER BY gig_songs.order ASC"
+  },
+  "ed0a146ee1aed491aac354515554158273903a95d1efecadbcf5332cc883f8d3": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "title",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "info",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "current",
+          "ordinal": 3,
+          "type_info": "Bool"
+        },
+        {
+          "name": "key: _",
+          "ordinal": 4,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "a_flat",
+                  "a",
+                  "a_sharp",
+                  "b_flat",
+                  "b",
+                  "b_sharp",
+                  "c_flat",
+                  "c",
+                  "c_sharp",
+                  "d_flat",
+                  "d",
+                  "d_sharp",
+                  "e_flat",
+                  "e",
+                  "e_sharp",
+                  "f_flat",
+                  "f",
+                  "f_sharp",
+                  "g_flat",
+                  "g",
+                  "g_sharp"
+                ]
+              },
+              "name": "pitch"
+            }
+          }
+        },
+        {
+          "name": "starting_pitch: _",
+          "ordinal": 5,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "a_flat",
+                  "a",
+                  "a_sharp",
+                  "b_flat",
+                  "b",
+                  "b_sharp",
+                  "c_flat",
+                  "c",
+                  "c_sharp",
+                  "d_flat",
+                  "d",
+                  "d_sharp",
+                  "e_flat",
+                  "e",
+                  "e_sharp",
+                  "f_flat",
+                  "f",
+                  "f_sharp",
+                  "g_flat",
+                  "g",
+                  "g_sharp"
+                ]
+              },
+              "name": "pitch"
+            }
+          }
+        },
+        {
+          "name": "mode: _",
+          "ordinal": 6,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "major",
+                  "minor"
+                ]
+              },
+              "name": "song_mode"
+            }
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id, title, info, current, key as \"key: _\",\n                 starting_pitch as \"starting_pitch: _\", mode as \"mode: _\"\n             FROM songs ORDER BY title"
+  },
+  "ed2a7a09d0722d1dbe59402552ef6f5aa5768cc9f567f0f618a60546aaaa3cf0": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id FROM events ORDER BY id DESC LIMIT $1"
+  },
+  "ee466bd4f717804e95385d4ccab60f3f35e1fc03fbf1c8b622535dedaecf8426": {
+    "describe": {
+      "columns": [
+        {
+          "name": "member",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "TextArray",
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT member FROM active_semesters\n             WHERE member = ANY($1) AND semester = $2"
+  },
+  "efdf53f9847d76116e234e0cd92b7807875931e119d3fde758fc289be468214a": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "DELETE FROM song_files WHERE name = $1"
+  },
+  "f275b52545c7e3cf52e8c85ffd929cb46a7933dfb513bc0c3c871684404bad23": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_time: _",
+          "ordinal": 2,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "end_time: _",
+          "ordinal": 3,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "location",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "summary",
+          "ordinal": 5,
+          "type_info": "Text"
+        },
+        {
+          "name": "description",
+          "ordinal": 6,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT events.id, events.name, gigs.performance_time as \"start_time: _\",\n                 events.release_time as \"end_time: _\", events.location, gigs.summary, gigs.description\n             FROM events\n             INNER JOIN gigs ON events.id = gigs.event\n             WHERE gigs.public = true AND events.semester =\n                 (SELECT name FROM semesters WHERE current = true)"
+  },
+  "f2af029c0b265c8b16033ff23d76d4a446f0b73635df7d129f09f81e503bc97b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "pass_hash",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT pass_hash FROM members WHERE email = $1"
+  },
+  "f3b29760da6fd48d8ef9cf414636db4ffc8e54e38df5b7c5c85639a299166a4a": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE variables SET value = $1 WHERE key = $2"
+  },
+  "f4645b4119c04f0201b426be903c7b6afabc031c1e7cd31c42015ab096107964": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "DELETE FROM members WHERE email = $1"
+  },
+  "f8be1081ebb73fe23a01c2112889b400abdbba3041a0b8726855eaf468db91f7": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE song_links SET name = $1 WHERE id = $2"
+  },
+  "fbe9369961d58f32eb293b5f3551226917816fa4f387489e0990e8dd2327829e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "start_date: _",
+          "ordinal": 1,
+          "type_info": "Date"
+        },
+        {
+          "name": "end_date: _",
+          "ordinal": 2,
+          "type_info": "Date"
+        },
+        {
+          "name": "gig_requirement",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "current: bool",
+          "ordinal": 4,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT name, start_date as \"start_date: _\", end_date as \"end_date: _\",\n                 gig_requirement, current as \"current: bool\"\n             FROM semesters ORDER BY start_date"
+  },
+  "fd7594cf6b283d0bafd5985c4974e864bf5d57282ec0a2a4d150235fafce48a6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id FROM song_links ORDER BY id DESC"
+  },
+  "fdddd0852b9bac6952a90a1d35c7daab77bb277c79a61fcd0d3b0b81c3d0b297": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM songs WHERE id = $1"
+  }
+}

@@ -1,5 +1,35 @@
-[workspace]
-members = [
-  "grease",
-  "tools/*"
-]
+[package]
+name = "grease"
+version = "0.1.0"
+authors = ["Sam Mohr <sam.mohr@protonmail.com>"]
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+askama = "0.11"
+axum = { version = "0.5", features = ["headers"] }
+# TODO: use the dataloader?
+async-graphql = "4"
+async-trait = "0.1"
+base64 = "0.10"
+bcrypt = "0.12"
+dotenv = "0.15"
+lettre = { version = "0.10.0-rc.7", default-features = false, features = [
+  "builder",
+  "smtp-transport",
+  "tokio1-rustls-tls"
+] }
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+sqlx = { version = "0.6", features = [
+  "runtime-tokio-rustls",
+  "postgres",
+  "time",
+  "offline",
+] }
+thiserror = "1"
+time = { version = "0.3", features = ["serde", "local-offset"] }
+tokio = { version = "1", features = ["macros", "time"] }
+tower-http = { version = "0.3", features = ["cors"] }
+tz-rs = "0.6"
+uuid = { version = "0.8", features = ["v4"] }
