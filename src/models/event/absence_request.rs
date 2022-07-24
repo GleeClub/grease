@@ -80,7 +80,7 @@ impl AbsenceRequest {
             "SELECT \"time\" as \"time: _\", reason, state as \"state: _\", member, event
              FROM absence_requests
              WHERE event IN (SELECT id FROM events WHERE semester = $1)
-             ORDER BY time",
+             ORDER BY time DESC",
             semester_name
         )
         .fetch_all(pool)

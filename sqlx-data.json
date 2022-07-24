@@ -160,61 +160,6 @@
     },
     "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus, about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM members ORDER BY last_name, first_name"
   },
-  "078317c7b480ebe78004134f1a97b18490b26b20ec9881cdd687912216f10e04": {
-    "describe": {
-      "columns": [
-        {
-          "name": "time: _",
-          "ordinal": 0,
-          "type_info": "Timestamptz"
-        },
-        {
-          "name": "reason",
-          "ordinal": 1,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "state: _",
-          "ordinal": 2,
-          "type_info": {
-            "Custom": {
-              "kind": {
-                "Enum": [
-                  "pending",
-                  "approved",
-                  "denied"
-                ]
-              },
-              "name": "absence_request_status"
-            }
-          }
-        },
-        {
-          "name": "member",
-          "ordinal": 3,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "event",
-          "ordinal": 4,
-          "type_info": "Int8"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        false,
-        false
-      ],
-      "parameters": {
-        "Left": [
-          "Text"
-        ]
-      }
-    },
-    "query": "SELECT \"time\" as \"time: _\", reason, state as \"state: _\", member, event\n             FROM absence_requests\n             WHERE event IN (SELECT id FROM events WHERE semester = $1)\n             ORDER BY time"
-  },
   "0e23bf3b12fa144ee9bb43c162f8f5f95e8628fdad525b016a228cecc390401c": {
     "describe": {
       "columns": [],
@@ -2645,6 +2590,61 @@
       }
     },
     "query": "UPDATE transactions SET resolved = $1 WHERE id = $2"
+  },
+  "926d1cc026045a13c36d5e134a0b2871acb7302a909e819526fc95c79b5cf692": {
+    "describe": {
+      "columns": [
+        {
+          "name": "time: _",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "reason",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "state: _",
+          "ordinal": 2,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "pending",
+                  "approved",
+                  "denied"
+                ]
+              },
+              "name": "absence_request_status"
+            }
+          }
+        },
+        {
+          "name": "member",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "event",
+          "ordinal": 4,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT \"time\" as \"time: _\", reason, state as \"state: _\", member, event\n             FROM absence_requests\n             WHERE event IN (SELECT id FROM events WHERE semester = $1)\n             ORDER BY time DESC"
   },
   "927bfe5b5868285a35302dc05a5771552c2fe30c0a45841066dabd57a8934bcc": {
     "describe": {
