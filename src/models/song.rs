@@ -424,7 +424,7 @@ pub struct NewSong {
 pub struct SongUpdate {
     pub title: String,
     pub current: bool,
-    pub info: Option<String>,
+    pub info: String,
     pub key: Option<Pitch>,
     pub starting_pitch: Option<Pitch>,
     pub mode: Option<SongMode>,
