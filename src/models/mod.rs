@@ -1,7 +1,5 @@
 use async_graphql::{InputValueError, InputValueResult, Scalar, ScalarType, Value};
-use time::format_description::well_known::Rfc3339;
-use time::format_description::FormatItem;
-use time::macros::format_description;
+use time::macros::time;
 use time::{Date, OffsetDateTime, UtcOffset};
 
 pub mod event;
@@ -16,8 +14,6 @@ pub mod song;
 pub mod static_data;
 pub mod variable;
 
-pub const DATE_FORMAT: &[FormatItem] = format_description!("[year]-[month]-[day]");
-
 #[derive(sqlx::Type, Clone)]
 #[sqlx(transparent)]
 pub struct GqlDate(pub Date);
@@ -25,9 +21,11 @@ pub struct GqlDate(pub Date);
 #[Scalar]
 impl ScalarType for GqlDate {
     fn parse(value: Value) -> InputValueResult<Self> {
-        if let Value::String(date_str) = &value {
-            if let Ok(date) = Date::parse(date_str, DATE_FORMAT) {
-                return Ok(GqlDate(date));
+        if let Value::Number(epoch) = &value {
+            if let Some(epoch_int) = epoch.as_i64() {
+                if let Some(datetime) = current_time_from_timestamp(epoch_int) {
+                    return Ok(GqlDate(datetime.date()));
+                }
             }
         }
 
@@ -35,7 +33,11 @@ impl ScalarType for GqlDate {
     }
 
     fn to_value(&self) -> Value {
-        Value::String(self.0.format(DATE_FORMAT).unwrap())
+        let datetime = self
+            .0
+            .with_time(time!(00:00))
+            .assume_offset(current_offset());
+        Value::Number(datetime.unix_timestamp().into())
     }
 }
 
@@ -46,9 +48,11 @@ pub struct GqlDateTime(pub OffsetDateTime);
 #[Scalar]
 impl ScalarType for GqlDateTime {
     fn parse(value: Value) -> InputValueResult<Self> {
-        if let Value::String(date_str) = &value {
-            if let Ok(date) = OffsetDateTime::parse(date_str, &Rfc3339) {
-                return Ok(GqlDateTime(date));
+        if let Value::Number(epoch) = &value {
+            if let Some(epoch_int) = epoch.as_i64() {
+                if let Some(datetime) = current_time_from_timestamp(epoch_int) {
+                    return Ok(GqlDateTime(datetime));
+                }
             }
         }
 
@@ -56,6 +60,16 @@ impl ScalarType for GqlDateTime {
     }
 
     fn to_value(&self) -> Value {
-        Value::String(self.0.to_offset(UtcOffset::UTC).format(&Rfc3339).unwrap())
+        Value::Number(self.0.unix_timestamp().into())
     }
+}
+
+fn current_offset() -> UtcOffset {
+    UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC)
+}
+
+fn current_time_from_timestamp(timestamp: i64) -> Option<OffsetDateTime> {
+    OffsetDateTime::from_unix_timestamp(timestamp)
+        .ok()
+        .map(|datetime| datetime.to_offset(current_offset()))
 }

@@ -317,7 +317,7 @@ impl SongLink {
     }
 
     pub async fn create(song_id: i64, new_link: NewSongLink, pool: &PgPool) -> Result<i64> {
-        MediaType::with_name(&new_link.name, pool).await?;
+        MediaType::with_name(&new_link.r#type, pool).await?;
 
         if let Some(content) = new_link.content {
             let data = base64::decode(&content)
