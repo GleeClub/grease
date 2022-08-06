@@ -40,7 +40,10 @@ pub async fn send_email(email: impl Email) -> anyhow::Result<()> {
         .body(email.render().context("Failed to render email")?)
         .context("Failed to build email message")?;
 
-    let response = mailer.send(message).await.context("Failed to send email")?;
+    let response = mailer
+        .send(message)
+        .await
+        .map_err(|err| anyhow::Error::msg(format!("Failed to send email: {err:?}")))?;
     if !response.is_positive() {
         anyhow::bail!(
             "Failed to send email using STMP over localhost: {}",
@@ -69,7 +72,7 @@ async fn send_emails(from: OffsetDateTime, to: OffsetDateTime, pool: &PgPool) {
         Ok(events) => events,
         Err(error) => {
             eprintln!(
-                "Failed to load events to send emails about: {}",
+                "Failed to load events to send emails about: {:?}",
                 error.message
             );
             return;
@@ -80,14 +83,14 @@ async fn send_emails(from: OffsetDateTime, to: OffsetDateTime, pool: &PgPool) {
         match EventIn48HoursEmail::for_event(&event, pool).await {
             Err(error) => {
                 eprintln!(
-                    "Failed to create email content for upcoming event `{}`: {}",
+                    "Failed to create email content for upcoming event `{}`: {:?}",
                     event.name, error
                 );
             }
             Ok(email) => {
                 if let Err(error) = send_email(email).await {
                     eprintln!(
-                        "Failed to send email for upcoming event `{}`: {}",
+                        "Failed to send email for upcoming event `{}`: {:?}",
                         event.name, error
                     );
                 }
