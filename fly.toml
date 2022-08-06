@@ -38,3 +38,17 @@ grace_period = "1s"
 interval = "15s"
 restart_limit = 0
 timeout = "2s"
+
+[[services]]
+  internal_port = 25
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 25
+
+  [[services.ports]]
+    handlers = ["tls"]
+    port = 465
+
+  [[services.ports]]
+    port = 587
