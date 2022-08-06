@@ -892,34 +892,6 @@
     },
     "query": "INSERT INTO transactions (member, amount, type, description, semester) VALUES ($1, $2, $3, $4, $5)"
   },
-  "2f2463ebaed8027549efe71e25ffca3730f210e3d97d464a0cc153ee0d95232f": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Varchar",
-          "Varchar",
-          "Varchar",
-          "Varchar",
-          "Varchar",
-          "Varchar",
-          "Int8",
-          "Varchar",
-          "Varchar",
-          "Varchar",
-          "Varchar",
-          "Varchar",
-          "Int8",
-          "Varchar",
-          "Varchar",
-          "Varchar",
-          "Varchar"
-        ]
-      }
-    },
-    "query": "UPDATE members SET\n             email = $1, first_name = $2, preferred_name = $3, last_name = $4,\n             phone_number = $5, picture = $6, passengers = $7, location = $8,\n             about = $9, major = $10, minor = $11, hometown = $12, arrived_at_tech = $13,\n             gateway_drug = $14, conflicts = $15, dietary_restrictions = $16, pass_hash = $17"
-  },
   "3207430fdfde5fc54d4bc527f663adb8a80463e6ebd8b454718a91b2a07aca48": {
     "describe": {
       "columns": [
@@ -3930,6 +3902,35 @@
       }
     },
     "query": "SELECT * FROM section_types ORDER BY name"
+  },
+  "df9566f80cc973ad49ea262c56e7706cb3498d555ecefb8da0f900a18bf3e3e6": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Int8",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Int8",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE members SET\n             email = $1, first_name = $2, preferred_name = $3, last_name = $4,\n             phone_number = $5, picture = $6, passengers = $7, location = $8,\n             about = $9, major = $10, minor = $11, hometown = $12, arrived_at_tech = $13,\n             gateway_drug = $14, conflicts = $15, dietary_restrictions = $16, pass_hash = $17\n             WHERE email = $18"
   },
   "e05db0be2e403f2e4c0d22c363d4c56408d9dc5a1783f917d5b132437544e451": {
     "describe": {

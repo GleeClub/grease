@@ -348,7 +348,8 @@ impl Member {
              email = $1, first_name = $2, preferred_name = $3, last_name = $4,
              phone_number = $5, picture = $6, passengers = $7, location = $8,
              about = $9, major = $10, minor = $11, hometown = $12, arrived_at_tech = $13,
-             gateway_drug = $14, conflicts = $15, dietary_restrictions = $16, pass_hash = $17",
+             gateway_drug = $14, conflicts = $15, dietary_restrictions = $16, pass_hash = $17
+             WHERE email = $18",
             update.email,
             update.first_name,
             update.preferred_name,
@@ -365,7 +366,8 @@ impl Member {
             update.gateway_drug,
             update.conflicts,
             update.dietary_restrictions,
-            pass_hash
+            pass_hash,
+            email
         )
         .execute(pool)
         .await?;
