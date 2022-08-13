@@ -2,9 +2,8 @@
 
 use anyhow::Context;
 use askama::Template;
-use lettre::message::header::ContentType;
-use lettre::message::Mailbox;
-use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
+use mailgun_v3::email::{self, Message, MessageBody};
+use mailgun_v3::{Credentials, EmailAddress};
 use sqlx::PgPool;
 use time::{Duration, OffsetDateTime};
 use tokio::time::interval;
@@ -18,40 +17,36 @@ pub mod event;
 pub mod reset_password;
 
 pub const MEMBER_LIST_NAME: &str = "Glee Club Members";
-pub const MEMBER_LIST_ADDRESS: &str = "gleeclub@lists.gatech.edu";
+// pub const MEMBER_LIST_ADDRESS: &str = "gleeclub@lists.gatech.edu";
+pub const MEMBER_LIST_ADDRESS: &str = "sam.mohr@protonmail.com";
 pub const OFFICER_LIST_NAME: &str = "Glee Club Officers";
-pub const OFFICER_LIST_ADDRESS: &str = "gleeclub_officers@lists.gatech.edu";
+// pub const OFFICER_LIST_ADDRESS: &str = "gleeclub_officers@lists.gatech.edu";
+pub const OFFICER_LIST_ADDRESS: &str = "sam.mohr@protonmail.com";
 
 pub trait Email: Template {
     fn subject(&self) -> String;
-    fn address(&self) -> Mailbox;
+    fn address(&self) -> EmailAddress;
 }
 
 pub async fn send_email(email: impl Email) -> anyhow::Result<()> {
-    let mailer = AsyncSmtpTransport::<Tokio1Executor>::unencrypted_localhost();
-    let message = Message::builder()
-        .to(email.address())
-        .from(Mailbox {
-            name: Some(OFFICER_LIST_NAME.to_owned()),
-            email: OFFICER_LIST_ADDRESS.parse().unwrap(),
-        })
-        .subject(email.subject())
-        .header(ContentType::TEXT_HTML)
-        .body(email.render().context("Failed to render email")?)
-        .context("Failed to build email message")?;
+    let token = std::env::var("MAILGUN_TOKEN").context("`MAILGUN_TOKEN` not set")?;
+    let creds = Credentials::new(token, "protonmail.com");
 
-    let response = mailer
-        .send(message)
+    let sender = EmailAddress::name_address(
+        OFFICER_LIST_NAME.to_owned(),
+        OFFICER_LIST_ADDRESS.parse().unwrap(),
+    );
+    let message = Message {
+        to: vec![email.address()],
+        subject: email.subject(),
+        body: MessageBody::Html(email.render().context("Failed to render email")?),
+        ..Default::default()
+    };
+
+    email::async_impl::send_email(&creds, &sender, message)
         .await
-        .map_err(|err| anyhow::Error::msg(format!("Failed to send email: {err:?}")))?;
-    if !response.is_positive() {
-        anyhow::bail!(
-            "Failed to send email using STMP over localhost: {}",
-            response.code()
-        );
-    }
-
-    Ok(())
+        .map(|_| ())
+        .context("Failed to send email")
 }
 
 pub async fn run_email_loop(interval_seconds: u64, pool: PgPool) {

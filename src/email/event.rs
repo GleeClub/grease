@@ -1,5 +1,5 @@
 use askama::Template;
-use lettre::message::Mailbox;
+use mailgun_v3::email::EmailAddress;
 use sqlx::PgPool;
 use time::macros::format_description;
 
@@ -45,11 +45,11 @@ impl<'a> Email for EventIn48HoursEmail<'a> {
         format!("{} is in 48 Hours", self.event.name)
     }
 
-    fn address(&self) -> Mailbox {
-        Mailbox {
-            name: Some(MEMBER_LIST_NAME.to_owned()),
-            email: MEMBER_LIST_ADDRESS.parse().unwrap(),
-        }
+    fn address(&self) -> EmailAddress {
+        EmailAddress::name_address(
+            MEMBER_LIST_NAME.to_owned(),
+            MEMBER_LIST_ADDRESS.parse().unwrap(),
+        )
     }
 }
 
@@ -88,11 +88,11 @@ impl<'a> Email for NewEventEmail<'a> {
         format!("New Glee Club Event - {}", self.event.name)
     }
 
-    fn address(&self) -> Mailbox {
-        Mailbox {
-            name: Some(MEMBER_LIST_NAME.to_owned()),
-            email: MEMBER_LIST_ADDRESS.parse().unwrap(),
-        }
+    fn address(&self) -> EmailAddress {
+        EmailAddress::name_address(
+            MEMBER_LIST_NAME.to_owned(),
+            MEMBER_LIST_ADDRESS.parse().unwrap(),
+        )
     }
 }
 

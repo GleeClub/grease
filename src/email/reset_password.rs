@@ -1,5 +1,5 @@
 use askama::Template;
-use lettre::message::Mailbox;
+use mailgun_v3::email::EmailAddress;
 
 use crate::email::Email;
 use crate::models::member::Member;
@@ -16,10 +16,10 @@ impl<'a> Email for ResetPasswordEmail<'a> {
         "Reset Your GlubHub Password".to_owned()
     }
 
-    fn address(&self) -> Mailbox {
-        Mailbox {
-            name: Some(self.member.full_name_inner()),
-            email: self.member.email.to_owned().parse().unwrap(),
-        }
+    fn address(&self) -> EmailAddress {
+        EmailAddress::name_address(
+            self.member.full_name_inner(),
+            self.member.email.to_owned().parse().unwrap(),
+        )
     }
 }

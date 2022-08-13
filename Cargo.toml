@@ -14,11 +14,7 @@ async-trait = "0.1"
 base64 = "0.10"
 bcrypt = "0.12"
 dotenv = "0.15"
-lettre = { version = "0.10.0-rc.7", default-features = false, features = [
-  "builder",
-  "smtp-transport",
-  "tokio1-rustls-tls"
-] }
+mailgun_v3 = "0.13"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 sqlx = { version = "0.6", features = [
