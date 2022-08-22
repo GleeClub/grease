@@ -17,11 +17,11 @@ pub mod event;
 pub mod reset_password;
 
 pub const MEMBER_LIST_NAME: &str = "Glee Club Members";
-// pub const MEMBER_LIST_ADDRESS: &str = "gleeclub@lists.gatech.edu";
-pub const MEMBER_LIST_ADDRESS: &str = "sam.mohr@protonmail.com";
-pub const OFFICER_LIST_NAME: &str = "Glee Club Officers";
-// pub const OFFICER_LIST_ADDRESS: &str = "gleeclub_officers@lists.gatech.edu";
-pub const OFFICER_LIST_ADDRESS: &str = "sam.mohr@protonmail.com";
+pub const MEMBER_LIST_ADDRESS: &str = "gleeclub@lists.gatech.edu";
+
+pub const MAILGUN_NAME: &str = "GlubHub";
+pub const MAILGUN_EMAIL: &str = "mail@glubhub.org";
+pub const MAILGUN_DOMAIN: &str = "mail.glubhub.org";
 
 pub trait Email: Template {
     fn subject(&self) -> String;
@@ -30,12 +30,10 @@ pub trait Email: Template {
 
 pub async fn send_email(email: impl Email) -> anyhow::Result<()> {
     let token = std::env::var("MAILGUN_TOKEN").context("`MAILGUN_TOKEN` not set")?;
-    let creds = Credentials::new(token, "protonmail.com");
+    let creds = Credentials::new(token, MAILGUN_DOMAIN);
 
-    let sender = EmailAddress::name_address(
-        OFFICER_LIST_NAME.to_owned(),
-        OFFICER_LIST_ADDRESS.parse().unwrap(),
-    );
+    let sender =
+        EmailAddress::name_address(MAILGUN_NAME.to_owned(), MAILGUN_EMAIL.parse().unwrap());
     let message = Message {
         to: vec![email.address()],
         subject: email.subject(),
