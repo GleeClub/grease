@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Sam Mohr <sam.mohr@protonmail.com>"]
 edition = "2021"
 
+[[bin]]
+name = "grease"
+path = "src/main.rs"
+
 [dependencies]
 anyhow = "1"
 askama = "0.11"

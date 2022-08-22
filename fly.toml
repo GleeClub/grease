@@ -9,7 +9,7 @@ processes = []
 EMAIL_SEND_INTERVAL_SECONDS = 3600
 
 [experimental]
-cmd = "./grease"
+cmd = "/bin/grease"
 allowed_public_ports = []
 auto_rollback = true
 
@@ -38,17 +38,3 @@ grace_period = "1s"
 interval = "15s"
 restart_limit = 0
 timeout = "2s"
-
-[[services]]
-  internal_port = 25
-  protocol = "tcp"
-
-  [[services.ports]]
-    port = 25
-
-  [[services.ports]]
-    handlers = ["tls"]
-    port = 465
-
-  [[services.ports]]
-    port = 587

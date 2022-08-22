@@ -1,19 +1,15 @@
-FROM rustlang/rust:nightly-bullseye-slim as builder
+FROM clux/muslrust:nightly as builder
 
-# Ensure that queries have been cached already with
-# `cargo sqlx prepare`
+# Ensure that queries are cached with `cargo sqlx prepare`
 ENV SQLX_OFFLINE=true
 
 # Make a fake Rust app to keep a cached layer of compiled crates
 RUN USER=root cargo new app
 WORKDIR /usr/src/app
 COPY Cargo.toml Cargo.lock ./
-# Needs at least a main.rs file with a main function
-RUN mkdir src && echo "fn main(){}" > src/main.rs
-# Will build all dependent crates in release mode
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/src/app/target \
-    cargo build --release
+RUN mkdir .cargo
+# This is the trick to speed up the building process
+RUN cargo vendor > .cargo/config
 
 # Copy the rest
 COPY . .
@@ -21,13 +17,17 @@ COPY . .
 RUN cargo install --path .
 
 # Runtime image
-FROM debian:bullseye-slim
+FROM alpine:latest
 
-# Run as "app" user
-RUN useradd -m -s /bin/bash app
+# Install timezone data
+RUN apk add tzdata
 
-USER app
-WORKDIR /app
+# Set current timezone
+RUN cp /usr/share/zoneinfo/America/New_York /etc/localtime
+RUN echo "America/New_York" > /etc/timezone
+
+# Remove other timezone files
+RUN apk del tzdata
 
 # Get compiled binaries from builder's cargo install directory
-COPY --from=builder /usr/local/cargo/bin/grease /app/grease
+COPY --from=builder /root/.cargo/bin/grease /bin

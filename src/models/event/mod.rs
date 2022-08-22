@@ -99,9 +99,13 @@ impl Event {
     }
 
     /// The attendance for a specific member at this event
-    pub async fn attendance(&self, ctx: &Context<'_>, member: String) -> Result<Attendance> {
+    pub async fn attendance(
+        &self,
+        ctx: &Context<'_>,
+        member: String,
+    ) -> Result<Option<Attendance>> {
         let pool: &PgPool = ctx.data_unchecked();
-        Attendance::for_member_at_event(&member, self.id, &pool).await
+        Attendance::for_member_at_event_opt(&member, self.id, &pool).await
     }
 
     #[graphql(guard = "LoggedIn")]

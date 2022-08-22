@@ -40,6 +40,20 @@
     },
     "query": "SELECT name, \"order\", storage as \"storage: _\"\n             FROM media_types ORDER BY \"order\""
   },
+  "055dc936a0ced0c79ad66126916bd1f3519739722b591560e12de926b90be778": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Bool",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO attendance (event, should_attend, member) VALUES ($1, $2, $3)\n                 ON CONFLICT(event, member) DO NOTHING"
+  },
   "0e23bf3b12fa144ee9bb43c162f8f5f95e8628fdad525b016a228cecc390401c": {
     "describe": {
       "columns": [],
@@ -3194,20 +3208,6 @@
       }
     },
     "query": "SELECT id, name, date as \"date: _\", public, private\n             FROM minutes ORDER BY date DESC"
-  },
-  "ab1b0b17ea686174e0f0c65d1fdbe36ce6480ee6b4d90ab0804f80a5a527ba02": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Int8",
-          "Bool",
-          "Varchar"
-        ]
-      }
-    },
-    "query": "INSERT INTO attendance (event, should_attend, member) VALUES ($1, $2, $3)\n                 ON CONFLICT(event, should_attend, member) DO NOTHING"
   },
   "ad11bd84b88496813a4fc95fe62317b0c309baeb12b28827b489738da39c2690": {
     "describe": {

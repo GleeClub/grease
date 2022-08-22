@@ -124,7 +124,7 @@ impl Attendance {
             };
             sqlx::query!(
                 "INSERT INTO attendance (event, should_attend, member) VALUES ($1, $2, $3)
-                 ON CONFLICT(event, should_attend, member) DO NOTHING",
+                 ON CONFLICT(event, member) DO NOTHING",
                 event.id,
                 should_attend,
                 email
