@@ -46,7 +46,7 @@ pub async fn send_email(email: impl Email) -> anyhow::Result<()> {
     email::async_impl::send_email(&creds, &sender, message)
         .await
         .map(|_| ())
-        .context("Failed to send email")
+        .map_err(|err| anyhow::anyhow!("Failed to send email: {err}"))
 }
 
 pub async fn run_email_loop(interval_seconds: u64, pool: PgPool) {
