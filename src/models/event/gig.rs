@@ -4,7 +4,7 @@ use time::OffsetDateTime;
 
 use crate::models::event::uniform::Uniform;
 use crate::models::event::Event;
-use crate::models::{DateTime, DateTimeInput};
+use crate::models::{DateTime, DateTimeInput, TimeScalar};
 
 #[derive(SimpleObject)]
 #[graphql(complex)]
@@ -235,7 +235,7 @@ impl GigRequest {
         let default_uniform = Uniform::get_default(pool).await?;
 
         Ok(NewGig {
-            performance_time: self.start_time.into(),
+            performance_time: DateTimeInput::from(self.start_time).time,
             uniform: default_uniform.id,
             contact_name: self.contact_name.clone(),
             contact_email: self.contact_email.clone(),
@@ -262,7 +262,7 @@ pub struct NewGigRequest {
 
 #[derive(InputObject)]
 pub struct NewGig {
-    pub performance_time: DateTimeInput,
+    pub performance_time: TimeScalar,
     pub uniform: i64,
     pub contact_name: String,
     pub contact_email: String,

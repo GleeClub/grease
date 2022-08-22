@@ -240,6 +240,7 @@ impl Event {
         from_request: Option<GigRequest>,
         pool: &PgPool,
     ) -> Result<i64> {
+        let first_call_date = new_event.event.call_time.date.clone();
         if let Some(release_time) = &new_event.event.release_time {
             if release_time <= &new_event.event.call_time {
                 return Err("Release time must be after call time".into());
@@ -305,6 +306,11 @@ impl Event {
         };
 
         if let Some(gig) = gig {
+            let performance_time = OffsetDateTime::from(DateTime {
+                date: first_call_date,
+                time: gig.performance_time,
+            });
+
             for new_id in &new_ids {
                 sqlx::query!(
                     "INSERT INTO gigs
@@ -312,7 +318,7 @@ impl Event {
                          contact_phone, price, \"public\", summary, description)
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                     new_id,
-                    OffsetDateTime::from(gig.performance_time.clone()),
+                    performance_time,
                     gig.uniform,
                     gig.contact_name,
                     gig.contact_email,
@@ -347,7 +353,7 @@ impl Event {
             update.event.name,
             update.event.semester,
             update.event.r#type,
-            OffsetDateTime::from(update.event.call_time),
+            OffsetDateTime::from(update.event.call_time.clone()),
             update.event.release_time.map(OffsetDateTime::from),
             update.event.points,
             update.event.comments,
@@ -361,10 +367,14 @@ impl Event {
 
         if Gig::for_event(id, pool).await?.is_some() {
             if let Some(gig) = update.gig {
+                let performance_time = OffsetDateTime::from(DateTime {
+                    date: update.event.call_time.date,
+                    time: gig.performance_time,
+                });
                 sqlx::query!(
                     "UPDATE gigs SET performance_time = $1, uniform = $2, contact_name = $3, contact_email = $4,
                      contact_phone = $5, price = $6, public = $7, summary = $8, description = $9
-                     WHERE event = $10", OffsetDateTime::from(gig.performance_time), gig.uniform, gig.contact_name, gig.contact_email,
+                     WHERE event = $10", performance_time, gig.uniform, gig.contact_name, gig.contact_email,
                     gig.contact_phone, gig.price, gig.public, gig.summary, gig.description, id).execute(pool).await?;
             }
         }
