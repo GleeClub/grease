@@ -4100,6 +4100,87 @@
     },
     "query": "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,\n                 location, on_campus, about, major, minor, hometown,\n                 arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash\n             FROM members\n             FULL OUTER JOIN active_semesters ON email = member\n             WHERE ((enrollment = 'class' AND $1)\n                OR (enrollment = 'club' AND $2)\n                OR (enrollment IS NULL AND $3))\n                AND (semester = $4 OR semester IS NULL)\n                AND email IS NOT NULL\n             ORDER BY last_name, first_name"
   },
+  "e9bcea5d747ce31792545b29e87697f50c6a84ea2738e812763f51c873ed4e09": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "semester",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "type",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "call_time: _",
+          "ordinal": 4,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "release_time: _",
+          "ordinal": 5,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "points",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "comments",
+          "ordinal": 7,
+          "type_info": "Text"
+        },
+        {
+          "name": "location",
+          "ordinal": 8,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "gig_count",
+          "ordinal": 9,
+          "type_info": "Bool"
+        },
+        {
+          "name": "default_attend",
+          "ordinal": 10,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Timestamptz",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "SELECT id, name, semester, \"type\", call_time as \"call_time: _\",\n             release_time as \"release_time: _\", points, comments, location,\n             gig_count, default_attend\n         FROM events WHERE call_time >= $1 AND call_time < $2\n         ORDER BY call_time"
+  },
   "eabed21557c909e397e12e9ec1513644d3787f297404af868f0f160e05823a23": {
     "describe": {
       "columns": [],

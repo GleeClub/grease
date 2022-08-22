@@ -5,12 +5,12 @@ use askama::Template;
 use mailgun_v3::email::{self, Message, MessageBody};
 use mailgun_v3::{Credentials, EmailAddress};
 use sqlx::PgPool;
+use time::format_description::well_known::Rfc3339;
 use time::{Duration, OffsetDateTime};
 use tokio::time::interval;
 
 use crate::email::event::EventIn48HoursEmail;
 use crate::models::event::Event;
-use crate::models::semester::Semester;
 use crate::util::current_time;
 
 pub mod event;
@@ -55,13 +55,15 @@ pub async fn run_email_loop(interval_seconds: u64, pool: PgPool) {
     loop {
         interval.tick().await;
         let now = current_time();
+        let from = last_run + Duration::days(2);
+        let to = now + Duration::days(2);
 
         println!(
-            "Sending emails for events from {:?} to {:?}",
-            last_run + Duration::days(2),
-            now + Duration::days(2)
+            "Sending emails for events from {} to {}",
+            from.format(&Rfc3339).unwrap(),
+            to.format(&Rfc3339).unwrap(),
         );
-        send_emails(last_run.clone(), now.clone(), &pool).await;
+        send_emails(from, to, &pool).await;
         last_run = now;
     }
 }
@@ -112,14 +114,17 @@ async fn events_to_notify_about(
     to: OffsetDateTime,
     pool: &PgPool,
 ) -> async_graphql::Result<Vec<Event>> {
-    let current_semester = Semester::get_current(pool).await?;
-    let all_events = Event::for_semester(&current_semester.name, pool).await?;
-    let two_days = Duration::days(2);
-
-    Ok(all_events
-        .into_iter()
-        .filter(move |event| {
-            event.call_time < (to + two_days) && event.call_time >= (from + two_days)
-        })
-        .collect())
+    sqlx::query_as!(
+        Event,
+        "SELECT id, name, semester, \"type\", call_time as \"call_time: _\",
+             release_time as \"release_time: _\", points, comments, location,
+             gig_count, default_attend
+         FROM events WHERE call_time >= $1 AND call_time < $2
+         ORDER BY call_time",
+        from,
+        to,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(Into::into)
 }
