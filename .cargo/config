@@ -1,2 +1,3 @@
 [build]
+# Allow reading timezone when multithreaded
 rustflags = ["--cfg", "unsound_local_offset"]

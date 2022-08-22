@@ -20,8 +20,7 @@ pub mod static_data;
 pub mod variable;
 
 static DATE_FORMAT: &'static [FormatItem<'static>] = format_description!("[year]-[month]-[day]");
-static TIME_FORMAT: &'static [FormatItem<'static>] =
-    format_description!("[hour]:[minute]:[second]");
+static TIME_FORMAT: &'static [FormatItem<'static>] = format_description!("[hour]:[minute]");
 
 #[derive(sqlx::Type, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[sqlx(transparent)]
