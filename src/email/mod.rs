@@ -56,6 +56,11 @@ pub async fn run_email_loop(interval_seconds: u64, pool: PgPool) {
         interval.tick().await;
         let now = current_time();
 
+        println!(
+            "Sending emails for events from {:?} to {:?}",
+            last_run + Duration::days(2),
+            now + Duration::days(2)
+        );
         send_emails(last_run.clone(), now.clone(), &pool).await;
         last_run = now;
     }
@@ -72,6 +77,15 @@ async fn send_emails(from: OffsetDateTime, to: OffsetDateTime, pool: &PgPool) {
             return;
         }
     };
+    println!(
+        "Found {} events: {}",
+        events.len(),
+        events
+            .iter()
+            .map(|event| format!("`{}`", event.name))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
 
     for event in events {
         match EventIn48HoursEmail::for_event(&event, pool).await {
@@ -97,12 +111,15 @@ async fn events_to_notify_about(
     from: OffsetDateTime,
     to: OffsetDateTime,
     pool: &PgPool,
-) -> async_graphql::Result<impl Iterator<Item = Event>> {
+) -> async_graphql::Result<Vec<Event>> {
     let current_semester = Semester::get_current(pool).await?;
     let all_events = Event::for_semester(&current_semester.name, pool).await?;
     let two_days = Duration::days(2);
 
-    Ok(all_events.into_iter().filter(move |event| {
-        event.call_time < (to + two_days) && event.call_time >= (from + two_days)
-    }))
+    Ok(all_events
+        .into_iter()
+        .filter(move |event| {
+            event.call_time < (to + two_days) && event.call_time >= (from + two_days)
+        })
+        .collect())
 }
