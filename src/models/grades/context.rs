@@ -85,12 +85,12 @@ impl GradesContext {
         let start_of_semester = self
             .events
             .first()
-            .map(|(event, _gig)| event.call_time.0.date())
+            .map(|(event, _gig)| event.call_time.date())
             .unwrap_or(self.semester.start_date.0);
         let end_of_semester = self
             .events
             .last()
-            .map(|(event, _gig)| event.call_time.0.date())
+            .map(|(event, _gig)| event.call_time.date())
             .unwrap_or(self.semester.end_date.0);
         let days_after_sunday = start_of_semester.weekday().number_from_sunday() - 1;
         let first_sunday = start_of_semester - Duration::days(days_after_sunday as i64);
@@ -105,8 +105,8 @@ impl GradesContext {
                 events: self
                     .events
                     .iter()
-                    .skip_while(|(event, _gig)| event.call_time.0.date() < sunday)
-                    .take_while(|(event, _gig)| event.call_time.0.date() < next_sunday)
+                    .skip_while(|(event, _gig)| event.call_time.date() < sunday)
+                    .take_while(|(event, _gig)| event.call_time.date() < next_sunday)
                     .map(|(event, gig)| EventWithAttendance {
                         event: Arc::clone(event),
                         gig: gig.as_ref(),

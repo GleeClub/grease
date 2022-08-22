@@ -1,9 +1,10 @@
 use async_graphql::{ComplexObject, Context, InputObject, Result, SimpleObject};
 use sqlx::PgPool;
+use time::OffsetDateTime;
 
+use super::DateTime;
 use crate::models::member::Member;
 use crate::models::semester::Semester;
-use crate::models::GqlDateTime;
 
 #[derive(SimpleObject)]
 pub struct Fee {
@@ -156,8 +157,6 @@ impl TransactionType {
 pub struct ClubTransaction {
     /// The ID of the transaction
     pub id: i64,
-    /// When this transaction was charged
-    pub time: GqlDateTime,
     /// How much this transaction was for
     pub amount: i64,
     /// A description of what the member was charged for specifically
@@ -170,6 +169,8 @@ pub struct ClubTransaction {
     pub resolved: bool,
 
     #[graphql(skip)]
+    pub time: OffsetDateTime,
+    #[graphql(skip)]
     pub member: String,
 }
 
@@ -179,6 +180,11 @@ impl ClubTransaction {
     async fn member(&self, ctx: &Context<'_>) -> Result<Member> {
         let pool: &PgPool = ctx.data_unchecked();
         Member::with_email(&self.member, pool).await
+    }
+
+    /// When this transaction was charged
+    async fn time(&self) -> DateTime {
+        DateTime::from(self.time.clone())
     }
 }
 

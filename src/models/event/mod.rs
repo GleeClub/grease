@@ -2,6 +2,7 @@ use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObj
 use sqlx::PgPool;
 use time::{Duration, OffsetDateTime};
 
+use super::{DateScalar, DateTimeInput};
 use crate::graphql::guards::{LoggedIn, Permission};
 use crate::models::event::attendance::Attendance;
 use crate::models::event::carpool::Carpool;
@@ -9,7 +10,7 @@ use crate::models::event::gig::{Gig, GigRequest, GigRequestStatus, NewGig};
 use crate::models::member::Member;
 use crate::models::semester::Semester;
 use crate::models::song::Song;
-use crate::models::GqlDateTime;
+use crate::models::DateTime;
 use crate::util::current_time;
 
 pub mod absence_request;
@@ -63,10 +64,6 @@ pub struct Event {
     pub semester: String,
     /// The type of the event (see EventType)
     pub r#type: String,
-    /// When members are expected to arrive to the event
-    pub call_time: GqlDateTime,
-    /// When members are probably going to be released
-    pub release_time: Option<GqlDateTime>,
     /// How many points attendance of this event is worth
     pub points: i64,
     /// General information or details about this event
@@ -77,10 +74,27 @@ pub struct Event {
     pub gig_count: bool,
     /// Whether members are assumed to attend (we assume as much for most events)
     pub default_attend: bool,
+
+    /// When members are expected to arrive to the event
+    #[graphql(skip)]
+    pub call_time: OffsetDateTime,
+    /// When members are probably going to be released
+    #[graphql(skip)]
+    pub release_time: Option<OffsetDateTime>,
 }
 
 #[ComplexObject]
 impl Event {
+    /// When members are expected to arrive to the event
+    pub async fn call_time(&self) -> DateTime {
+        DateTime::from(self.call_time.clone())
+    }
+
+    /// When members are probably going to be released
+    pub async fn release_time(&self) -> Option<DateTime> {
+        self.release_time.clone().map(DateTime::from)
+    }
+
     /// The gig for this event, if it is a gig
     pub async fn gig(&self, ctx: &Context<'_>) -> Result<Option<Gig>> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -206,7 +220,7 @@ impl Event {
             Some("Member must be active to RSVP to events".to_owned())
         } else if !attendance.map(|a| a.should_attend).unwrap_or(true) {
             None
-        } else if current_time() + Duration::days(1) > self.call_time.0 {
+        } else if current_time() + Duration::days(1) > self.call_time {
             Some("Responses are closed for this event".to_owned())
         } else if [
             EventType::TUTTI_GIG,
@@ -227,7 +241,7 @@ impl Event {
         pool: &PgPool,
     ) -> Result<i64> {
         if let Some(release_time) = &new_event.event.release_time {
-            if &release_time.0 <= &new_event.event.call_time.0 {
+            if release_time <= &new_event.event.call_time {
                 return Err("Release time must be after call time".into());
             }
         }
@@ -235,14 +249,14 @@ impl Event {
         let call_and_release_times = if let Some(repeat) = new_event.repeat {
             repeat
                 .event_times(
-                    new_event.event.call_time.0,
-                    new_event.event.release_time.map(|rt| rt.0),
+                    new_event.event.call_time.into(),
+                    new_event.event.release_time.map(Into::into),
                 )
                 .collect()
         } else {
             vec![(
-                new_event.event.call_time.0,
-                new_event.event.release_time.map(|rt| rt.0),
+                new_event.event.call_time.into(),
+                new_event.event.release_time.map(Into::into),
             )]
         };
 
@@ -298,7 +312,7 @@ impl Event {
                          contact_phone, price, \"public\", summary, description)
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                     new_id,
-                    gig.performance_time.0,
+                    OffsetDateTime::from(gig.performance_time.clone()),
                     gig.uniform,
                     gig.contact_name,
                     gig.contact_email,
@@ -333,8 +347,8 @@ impl Event {
             update.event.name,
             update.event.semester,
             update.event.r#type,
-            update.event.call_time.0,
-            update.event.release_time.map(|rt| rt.0),
+            OffsetDateTime::from(update.event.call_time),
+            update.event.release_time.map(OffsetDateTime::from),
             update.event.points,
             update.event.comments,
             update.event.location,
@@ -350,7 +364,7 @@ impl Event {
                 sqlx::query!(
                     "UPDATE gigs SET performance_time = $1, uniform = $2, contact_name = $3, contact_email = $4,
                      contact_phone = $5, price = $6, public = $7, summary = $8, description = $9
-                     WHERE event = $10", gig.performance_time.0, gig.uniform, gig.contact_name, gig.contact_email,
+                     WHERE event = $10", OffsetDateTime::from(gig.performance_time), gig.uniform, gig.contact_name, gig.contact_email,
                     gig.contact_phone, gig.price, gig.public, gig.summary, gig.description, id).execute(pool).await?;
             }
         }
@@ -382,8 +396,8 @@ pub struct NewEventFields {
     pub name: String,
     pub semester: String,
     pub r#type: String,
-    pub call_time: GqlDateTime,
-    pub release_time: Option<GqlDateTime>,
+    pub call_time: DateTimeInput,
+    pub release_time: Option<DateTimeInput>,
     pub points: i64,
     pub comments: Option<String>,
     pub location: Option<String>,
@@ -394,7 +408,7 @@ pub struct NewEventFields {
 #[derive(InputObject)]
 pub struct NewEventPeriod {
     pub period: Period,
-    pub repeat_until: GqlDateTime,
+    pub repeat_until: DateScalar,
 }
 
 impl NewEventPeriod {
@@ -413,7 +427,7 @@ impl NewEventPeriod {
 
         std::iter::successors(Some((call_time, release_time)), move |(c, r)| {
             Some((*c + increment, r.map(|r| r + increment)))
-                .filter(|(c, _r)| *c <= self.repeat_until.0)
+                .filter(|(c, _r)| c.date() <= self.repeat_until.0)
         })
     }
 }

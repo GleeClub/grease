@@ -3,7 +3,7 @@ use sqlx::PgPool;
 
 use crate::graphql::guards::Permission;
 use crate::models::member::Member;
-use crate::models::GqlDate;
+use crate::models::DateScalar;
 
 #[derive(SimpleObject)]
 #[graphql(complex)]
@@ -13,7 +13,7 @@ pub struct Minutes {
     /// The name of the meeting
     pub name: String,
     /// When these notes were initially created
-    pub date: GqlDate,
+    pub date: DateScalar,
     /// The public, redacted notes visible by all members
     pub public: Option<String>,
 

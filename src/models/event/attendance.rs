@@ -117,7 +117,7 @@ impl Attendance {
         // make batch query
         let now = current_time();
         for event in events {
-            let should_attend = if event.call_time.0 < now {
+            let should_attend = if event.call_time < now {
                 false
             } else {
                 event.default_attend

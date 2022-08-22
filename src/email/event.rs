@@ -2,10 +2,10 @@ use askama::Template;
 use mailgun_v3::email::EmailAddress;
 use sqlx::PgPool;
 use time::macros::format_description;
+use time::OffsetDateTime;
 
 use crate::email::{Email, MEMBER_LIST_ADDRESS, MEMBER_LIST_NAME};
 use crate::models::event::Event;
-use crate::models::GqlDateTime;
 
 #[derive(Template)]
 #[template(path = "event-in-48-hours.html")]
@@ -96,12 +96,13 @@ impl<'a> Email for NewEventEmail<'a> {
     }
 }
 
-fn format_event_time(event_time: &GqlDateTime) -> String {
+fn format_event_time(event_time: &OffsetDateTime) -> String {
     let time_format = format_description!(
         "[weekday repr:short], [month repr:short] [day] \
          [hour]:[minute padding:zero] [period case:upper]"
     );
-    event_time.0.format(time_format).unwrap()
+
+    event_time.format(time_format).unwrap()
 }
 
 #[cfg(test)]

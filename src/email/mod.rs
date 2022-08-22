@@ -103,6 +103,6 @@ async fn events_to_notify_about(
     let two_days = Duration::days(2);
 
     Ok(all_events.into_iter().filter(move |event| {
-        event.call_time.0 < (to + two_days) && event.call_time.0 >= (from + two_days)
+        event.call_time < (to + two_days) && event.call_time >= (from + two_days)
     }))
 }

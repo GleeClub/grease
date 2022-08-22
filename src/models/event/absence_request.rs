@@ -1,15 +1,14 @@
 use async_graphql::{ComplexObject, Context, Enum, Result, SimpleObject};
 use sqlx::PgPool;
+use time::OffsetDateTime;
 
 use crate::models::event::Event;
 use crate::models::member::Member;
-use crate::models::GqlDateTime;
+use crate::models::DateTime;
 
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct AbsenceRequest {
-    /// The time this request was placed
-    pub time: GqlDateTime,
     /// The reason the member petitioned for absence with
     pub reason: String,
     /// The current state of the request
@@ -19,10 +18,17 @@ pub struct AbsenceRequest {
     pub member: String,
     #[graphql(skip)]
     pub event: i64,
+    #[graphql(skip)]
+    pub time: OffsetDateTime,
 }
 
 #[ComplexObject]
 impl AbsenceRequest {
+    /// The time this request was placed
+    pub async fn time(&self) -> DateTime {
+        DateTime::from(self.time.clone())
+    }
+
     /// The event they requested absence from
     pub async fn event(&self, ctx: &Context<'_>) -> Result<Event> {
         let pool: &PgPool = ctx.data_unchecked();

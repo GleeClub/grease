@@ -1,17 +1,16 @@
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
 use sqlx::PgPool;
+use time::OffsetDateTime;
 
 use crate::models::event::uniform::Uniform;
 use crate::models::event::Event;
-use crate::models::GqlDateTime;
+use crate::models::{DateTime, DateTimeInput};
 
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct Gig {
     /// The ID of the event this gig belongs to
     pub event: i64,
-    /// When members are expected to actually perform
-    pub performance_time: GqlDateTime,
     /// The name of the contact for this gig
     pub contact_name: String,
     /// The email of the contact for this gig
@@ -29,6 +28,8 @@ pub struct Gig {
 
     #[graphql(skip)]
     pub uniform: i64,
+    #[graphql(skip)]
+    pub performance_time: OffsetDateTime,
 }
 
 #[ComplexObject]
@@ -37,6 +38,11 @@ impl Gig {
     pub async fn uniform(&self, ctx: &Context<'_>) -> Result<Uniform> {
         let pool: &PgPool = ctx.data_unchecked();
         Uniform::with_id(self.uniform, pool).await
+    }
+
+    /// When members are expected to actually perform
+    pub async fn performance_time(&self) -> DateTime {
+        DateTime::from(self.performance_time.clone())
     }
 }
 
@@ -82,8 +88,6 @@ pub enum GigRequestStatus {
 pub struct GigRequest {
     /// The ID of the gig request
     pub id: i64,
-    /// When the gig request was placed
-    pub time: GqlDateTime,
     /// The name of the potential event
     pub name: String,
     /// The organization requesting a performance from the Glee Club
@@ -94,8 +98,6 @@ pub struct GigRequest {
     pub contact_phone: String,
     /// The phone number of the contact for the potential event
     pub contact_email: String,
-    /// When the event will probably happen
-    pub start_time: GqlDateTime,
     /// Where the event will be happening
     pub location: String,
     /// Any comments about the event
@@ -105,6 +107,12 @@ pub struct GigRequest {
 
     #[graphql(skip)]
     pub event: Option<i64>,
+    /// When the gig request was placed
+    #[graphql(skip)]
+    pub time: OffsetDateTime,
+    /// When the event will probably happen
+    #[graphql(skip)]
+    pub start_time: OffsetDateTime,
 }
 
 #[ComplexObject]
@@ -117,6 +125,16 @@ impl GigRequest {
         } else {
             Ok(None)
         }
+    }
+
+    /// When the gig request was placed
+    pub async fn time(&self) -> DateTime {
+        DateTime::from(self.time.clone())
+    }
+
+    /// When the event will probably happen
+    pub async fn start_time(&self) -> DateTime {
+        DateTime::from(self.start_time.clone())
     }
 }
 
@@ -163,7 +181,7 @@ impl GigRequest {
             new_request.contact_name,
             new_request.contact_phone,
             new_request.contact_email,
-            new_request.start_time.0,
+            OffsetDateTime::from(new_request.start_time),
             new_request.location,
             new_request.comments
         )
@@ -217,7 +235,7 @@ impl GigRequest {
         let default_uniform = Uniform::get_default(pool).await?;
 
         Ok(NewGig {
-            performance_time: self.start_time.clone(),
+            performance_time: self.start_time.into(),
             uniform: default_uniform.id,
             contact_name: self.contact_name.clone(),
             contact_email: self.contact_email.clone(),
@@ -237,14 +255,14 @@ pub struct NewGigRequest {
     pub contact_name: String,
     pub contact_email: String,
     pub contact_phone: String,
-    pub start_time: GqlDateTime,
+    pub start_time: DateTimeInput,
     pub location: String,
     pub comments: String,
 }
 
 #[derive(InputObject)]
 pub struct NewGig {
-    pub performance_time: GqlDateTime,
+    pub performance_time: DateTimeInput,
     pub uniform: i64,
     pub contact_name: String,
     pub contact_email: String,

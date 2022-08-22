@@ -5,7 +5,7 @@ use time::macros::format_description;
 use time::{OffsetDateTime, UtcOffset};
 use uuid::Uuid;
 
-use crate::models::GqlDateTime;
+use crate::models::DateTime;
 use crate::util::current_time;
 
 pub const DATETIME_FORMAT: &[FormatItem] =
@@ -16,22 +16,33 @@ pub const DATETIME_FORMAT: &[FormatItem] =
 pub struct PublicEvent {
     pub id: i64,
     pub name: String,
-    pub start_time: GqlDateTime,
-    pub end_time: Option<GqlDateTime>,
     pub location: String,
     pub summary: String,
     pub description: String,
+
+    #[graphql(skip)]
+    pub start_time: OffsetDateTime,
+    #[graphql(skip)]
+    pub end_time: Option<OffsetDateTime>,
 }
 
 #[ComplexObject]
 impl PublicEvent {
+    pub async fn start_time(&self) -> DateTime {
+        self.start_time.clone().into()
+    }
+
+    pub async fn end_time(&self) -> Option<DateTime> {
+        self.end_time.clone().map(Into::into)
+    }
+
     pub async fn invite(&self) -> String {
         let now = Self::format_datetime(&current_time());
-        let start_time = Self::format_datetime(&self.start_time.0);
+        let start_time = Self::format_datetime(&self.start_time.clone().into());
         let end_time = self
             .end_time
             .as_ref()
-            .map(|et| Self::format_datetime(&et.0))
+            .map(|et| Self::format_datetime(&et.clone().into()))
             .unwrap_or_default();
 
         let details = format!(

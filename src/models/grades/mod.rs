@@ -82,7 +82,7 @@ impl Grades {
     ) -> GradeChange {
         let is_bonus_event = week.is_bonus_event(event);
 
-        let (change, reason) = if &event.event.call_time.0 > now {
+        let (change, reason) = if &event.event.call_time > now {
             Self::event_hasnt_happened_yet()
         } else if event.did_attend() {
             if week.missed_event_of_type(EventType::REHEARSAL).is_some() && event.event.is_gig() {
@@ -169,10 +169,10 @@ impl Grades {
     fn points_lost_for_lateness(event: &Event, minutes_late: i64) -> f64 {
         // Lose points equal to the percentage of the event missed, if they should have attended
         let event_duration = if let Some(release_time) = &event.release_time {
-            if &release_time.0 <= &event.call_time.0 {
+            if release_time <= &event.call_time {
                 60.0
             } else {
-                (release_time.0 - event.call_time.0).whole_minutes() as f64
+                (*release_time - event.call_time).whole_minutes() as f64
             }
         } else {
             60.0
@@ -241,9 +241,7 @@ impl Grades {
         } else if event.event.r#type == EventType::SECTIONAL
             && week
                 .missed_event_of_type(EventType::SECTIONAL)
-                .map(|missed_sectional| {
-                    missed_sectional.event.call_time.0 < event.event.call_time.0
-                })
+                .map(|missed_sectional| missed_sectional.event.call_time < event.event.call_time)
                 .unwrap_or(false)
         {
             (
@@ -256,8 +254,8 @@ impl Grades {
                 .events_of_type(EventType::SECTIONAL)
                 .last()
                 .map(|last_sectional| {
-                    last_sectional.event.call_time.0 > event.event.call_time.0
-                        && &last_sectional.event.call_time.0 > now
+                    last_sectional.event.call_time > event.event.call_time
+                        && &last_sectional.event.call_time > now
                 })
                 .unwrap_or(false)
         {
