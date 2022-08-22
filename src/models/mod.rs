@@ -22,7 +22,7 @@ pub mod variable;
 static DATE_FORMAT: &'static [FormatItem<'static>] = format_description!("[year]-[month]-[day]");
 static TIME_FORMAT: &'static [FormatItem<'static>] = format_description!("[hour]:[minute]");
 
-#[derive(sqlx::Type, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(sqlx::Type, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[sqlx(transparent)]
 pub struct DateScalar(pub Date);
 
@@ -121,13 +121,20 @@ impl From<DateTime> for OffsetDateTime {
 
 impl From<DateTimeInput> for OffsetDateTime {
     fn from(datetime: DateTimeInput) -> Self {
-        datetime.into()
+        OffsetDateTime::from(DateTime {
+            date: datetime.date,
+            time: datetime.time,
+        })
     }
 }
 
 impl From<OffsetDateTime> for DateTimeInput {
     fn from(datetime: OffsetDateTime) -> Self {
-        datetime.into()
+        let datetime = DateTime::from(datetime);
+        DateTimeInput {
+            date: datetime.date,
+            time: datetime.time,
+        }
     }
 }
 
