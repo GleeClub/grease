@@ -137,7 +137,3 @@ impl From<OffsetDateTime> for DateTimeInput {
         }
     }
 }
-
-fn local_offset() -> UtcOffset {
-    UtcOffset::current_local_offset().expect("Failed to get current offset")
-}

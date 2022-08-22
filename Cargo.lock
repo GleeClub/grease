@@ -376,12 +376,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "const_fn"
-version = "0.4.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbdcdcb6d86f71c5e97409ad45898af11cbc995b4ee8112d59095a28d376c935"
-
-[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -707,7 +701,6 @@ dependencies = [
  "time",
  "tokio",
  "tower-http",
- "tz-rs",
  "uuid",
 ]
 
@@ -2063,15 +2056,6 @@ name = "typenum"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dcf81ac59edc17cc8697ff311e8f5ef2d99fcbd9817b34cec66f90b6c3dfd987"
-
-[[package]]
-name = "tz-rs"
-version = "0.6.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9a7651edfd8325bb026bf7ec7003cced482df7cc08c087723df723bd26f2562"
-dependencies = [
- "const_fn",
-]
 
 [[package]]
 name = "ucd-trie"

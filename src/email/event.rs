@@ -6,6 +6,7 @@ use time::OffsetDateTime;
 
 use crate::email::{Email, MEMBER_LIST_ADDRESS, MEMBER_LIST_NAME};
 use crate::models::event::Event;
+use crate::util::local_offset;
 
 #[derive(Template)]
 #[template(path = "event-in-48-hours.html")]
@@ -34,8 +35,11 @@ impl<'a> EventIn48HoursEmail<'a> {
         Ok(Self {
             event,
             uniform_name,
-            start_time: format_event_time(&event.call_time),
-            end_time: event.release_time.as_ref().map(format_event_time),
+            start_time: format_event_time(&event.call_time.to_offset(local_offset())),
+            end_time: event
+                .release_time
+                .as_ref()
+                .map(|t| format_event_time(&t.to_offset(local_offset()))),
         })
     }
 }
@@ -77,8 +81,11 @@ impl<'a> NewEventEmail<'a> {
         Ok(Self {
             event,
             uniform_name,
-            start_time: format_event_time(&event.call_time),
-            end_time: event.release_time.as_ref().map(format_event_time),
+            start_time: format_event_time(&event.call_time.to_offset(local_offset())),
+            end_time: event
+                .release_time
+                .as_ref()
+                .map(|t| format_event_time(&t.to_offset(local_offset()))),
         })
     }
 }
