@@ -63,6 +63,8 @@ async fn main() -> anyhow::Result<()> {
                 .allow_methods([Method::GET, Method::POST]),
         );
 
+    println!("Running grease on port 3000");
+
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
