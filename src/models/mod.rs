@@ -101,7 +101,7 @@ impl From<DateTimeInput> for DateTime {
 
 impl From<OffsetDateTime> for DateTime {
     fn from(datetime: OffsetDateTime) -> Self {
-        let datetime = datetime.to_offset(UtcOffset::UTC);
+        let datetime = datetime.to_offset(local_offset());
 
         DateTime {
             date: DateScalar(datetime.date()),
@@ -112,15 +112,11 @@ impl From<OffsetDateTime> for DateTime {
 
 impl From<DateTime> for OffsetDateTime {
     fn from(datetime: DateTime) -> Self {
-        let current_offset =
-            UtcOffset::current_local_offset().expect("Failed to get current offset");
-
         datetime
             .date
             .0
             .with_time(datetime.time.0)
-            .assume_utc()
-            .to_offset(current_offset)
+            .assume_offset(local_offset())
     }
 }
 
@@ -134,4 +130,8 @@ impl From<OffsetDateTime> for DateTimeInput {
     fn from(datetime: OffsetDateTime) -> Self {
         datetime.into()
     }
+}
+
+fn local_offset() -> UtcOffset {
+    UtcOffset::current_local_offset().expect("Failed to get current offset")
 }
