@@ -13,6 +13,8 @@ RUN cargo vendor > .cargo/config
 
 # Copy the rest
 COPY . .
+# Reset the vendor config
+RUN cargo vendor >> .cargo/config
 # Build (install) the actual binaries
 RUN cargo install --path .
 
