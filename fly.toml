@@ -6,7 +6,7 @@ kill_timeout = 5
 processes = []
 
 [env]
-EMAIL_SEND_INTERVAL_SECONDS = 3600
+EMAIL_SEND_INTERVAL_SECONDS = 60
 
 [experimental]
 cmd = "/bin/grease"
