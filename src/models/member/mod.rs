@@ -184,11 +184,11 @@ impl Member {
                  arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash
              FROM members
              FULL OUTER JOIN active_semesters ON email = member
-             WHERE ((enrollment = 'class' AND $1)
-                OR (enrollment = 'club' AND $2)
+             WHERE ((enrollment = 'class' AND $1 AND semester = $4)
+                OR (enrollment = 'club' AND $2 AND semester = $4)
                 OR (enrollment IS NULL AND $3))
-                AND (semester = $4 OR semester IS NULL)
-             ORDER BY last_name, first_name",
+                AND email IS NOT NULL
+             GROUP BY email ORDER BY last_name, first_name",
             included.class, included.club, included.inactive, semester
         )
         .fetch_all(pool)
