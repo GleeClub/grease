@@ -188,7 +188,6 @@ impl Member {
                 OR (enrollment = 'club' AND $2)
                 OR (enrollment IS NULL AND $3))
                 AND (semester = $4 OR semester IS NULL)
-                AND email IS NOT NULL
              ORDER BY last_name, first_name",
             included.class, included.club, included.inactive, semester
         )
