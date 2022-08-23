@@ -177,23 +177,39 @@ impl Member {
         semester: &str,
         pool: &PgPool,
     ) -> Result<Vec<Self>> {
-        sqlx::query_as!(
+        let all_members = sqlx::query_as!(
             Self,
             "SELECT email, first_name, preferred_name, last_name, phone_number, picture, passengers,
                  location, on_campus, about, major, minor, hometown,
                  arrived_at_tech, gateway_drug, conflicts, dietary_restrictions, pass_hash
-             FROM members
-             FULL OUTER JOIN active_semesters ON email = member
-             WHERE ((enrollment = 'class' AND $1 AND semester = $4)
-                OR (enrollment = 'club' AND $2 AND semester = $4)
-                OR (enrollment IS NULL AND $3))
-                AND email IS NOT NULL
-             GROUP BY email ORDER BY last_name, first_name",
-            included.class, included.club, included.inactive, semester
+             FROM members ORDER BY last_name, first_name",
         )
         .fetch_all(pool)
-        .await
-        .map_err(Into::into)
+        .await?;
+        let active_semesters = sqlx::query_as!(
+            ActiveSemester,
+            "SELECT member, enrollment as \"enrollment: _\", semester, section
+             FROM active_semesters WHERE semester = $1",
+            semester
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(all_members
+            .into_iter()
+            .filter(|m| {
+                let enrollment = active_semesters
+                    .iter()
+                    .find(|a| a.member == m.email)
+                    .map(|a| a.enrollment);
+
+                match enrollment {
+                    Some(Enrollment::Class) => included.class,
+                    Some(Enrollment::Club) => included.club,
+                    None => included.inactive,
+                }
+            })
+            .collect())
     }
 
     /// The members that were active during the given semester
