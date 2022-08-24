@@ -17,8 +17,7 @@ pub mod event;
 pub mod reset_password;
 
 pub const MEMBER_LIST_NAME: &str = "Glee Club Members";
-// pub const MEMBER_LIST_ADDRESS: &str = "gleeclub@lists.gatech.edu";
-pub const MEMBER_LIST_ADDRESS: &str = "sam.mohr@protonmail.com";
+pub const MEMBER_LIST_ADDRESS: &str = "gleeclub@lists.gatech.edu";
 
 pub const MAILGUN_NAME: &str = "GlubHub";
 pub const MAILGUN_EMAIL: &str = "mail@glubhub.org";
