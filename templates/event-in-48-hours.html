@@ -1,13 +1,13 @@
 <html>
   <head></head>
   <body>
-		<h2>
+    <h2>
       <a href="https://glubhub.org/#/events/{{ event.id }}">
         {{ event.name }}
       </a>
     </h2>
 
-		<p>
+    <p>
       <b>{{ event.type }}</b>
       {% match end_time %}
         {% when Some with (end) %}
@@ -27,12 +27,12 @@
 
     {% match uniform_name %}
       {% when Some with (name) %}
-    		<p>Uniform: {{ name }}</p>
+        <p>Uniform: {{ name }}</p>
       {% when None %}
     {% endmatch %}
     
     {% if event.comments.len() > 0 %}
-  		<p>{{ event.comments }}</p>
+      <p>{{ event.comments }}</p>
     {% endif %}
   </body>
 </html>

@@ -441,3 +441,30 @@ impl NewEventPeriod {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use time::{Date, Duration, Month};
+
+    use crate::models::event::{NewEventPeriod, Period};
+    use crate::models::DateScalar;
+
+    #[test]
+    fn event_times_generates_correctly() {
+        let start_date = Date::from_calendar_date(2000, Month::February, 5).unwrap();
+        let end_date = start_date + Duration::weeks(4);
+        let period = NewEventPeriod {
+            period: Period::Weekly,
+            repeat_until: DateScalar(end_date),
+        };
+        let event_times = period
+            .event_times(
+                start_date.with_hms(12, 0, 0).unwrap().assume_utc(),
+                Some(start_date.with_hms(13, 0, 0).unwrap().assume_utc()),
+            )
+            .collect::<Vec<_>>();
+
+        assert_eq!(event_times.len(), 5);
+        assert_eq!(event_times[4].0.date(), end_date);
+    }
+}

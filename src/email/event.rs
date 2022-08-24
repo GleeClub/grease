@@ -140,17 +140,28 @@ mod tests {
         Mock Event
       </a>
     </h2>
+
     <p>
       <b>Tutti Gig</b>
-      from
-      <b>Sun, Sep 27 1:00 pm</b>
-      to
-      Sun, Sep 27 5:00 pm
-      at
-      <b>Ferst Center</b>
+      
+          from
+          <b>Jan 1st, 2000 at 8:00 PM</b>
+          to
+          <b>Jan 2nd, 2000 at 12:00 AM</b>
+        
+
+      
+        <b>Somewhere out there</b>
+      
     </p>
-    <p>Uniform: Black Slacks</p>
-    <p></p>
+
+    
+        <p>Uniform: Black Slacks</p>
+      
+    
+    
+      <p>Let&#x27;s all go sing somewhere!</p>
+    
   </body>
 </html>"
         );
