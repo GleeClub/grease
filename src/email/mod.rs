@@ -57,11 +57,6 @@ pub async fn run_email_loop(interval_seconds: u64, pool: PgPool) {
         let from = last_run + Duration::days(2);
         let to = now + Duration::days(2);
 
-        println!(
-            "Sending emails for events from {} to {}",
-            from.format(&Rfc3339).unwrap(),
-            to.format(&Rfc3339).unwrap(),
-        );
         send_emails(from, to, &pool).await;
         last_run = now;
     }
@@ -78,15 +73,20 @@ async fn send_emails(from: OffsetDateTime, to: OffsetDateTime, pool: &PgPool) {
             return;
         }
     };
-    println!(
-        "Found {} events: {}",
-        events.len(),
-        events
-            .iter()
-            .map(|event| format!("`{}`", event.name))
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
+
+    if !events.is_empty() {
+        println!(
+            "Between {} and {}, found {} events to email reminders for: {}",
+            from.format(&Rfc3339).unwrap(),
+            to.format(&Rfc3339).unwrap(),
+            events.len(),
+            events
+                .iter()
+                .map(|event| format!("`{}`", event.name))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
 
     for event in events {
         match EventIn48HoursEmail::for_event(&event, pool).await {
