@@ -1,7 +1,7 @@
 Grease
 ------
 
-The [GraphQL][graphql] API for the Georgia Tech Glee Club's official site, [GlubHub][glubhub].
+The [GraphQL][graphql] API for the Georgia Tech Glee Club's internal site, [GlubHub][glubhub].
 This API is a wrapper over a [PostgreSQL][psql] database and manages everything the Glee Club
 needs to run successfully. This includes managing events, attendance, carpool, officer notes,
 music, and more. It also runs an email loop to send helpful emails about new and upcoming events
@@ -17,52 +17,55 @@ with interactive documentation and a query maker. If you pass `?token=<your toke
 the URL, it will automatically set your `GREASE_TOKEN` with every request. All queries, mutations,
 and object types are fully documented there.
 
-## How It's Hosted
-
-In "production", the app runs on [fly.io][flyio]. fly.io takes docker images and runs them
-continuously like a server. You can manually
-
 ## Development
 
-If you wanna work on this project
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Development
-
-To work on this project, you'll need to have [Rust Nightly][install rust] installed. Once you install
-rust on the `nightly` toolchain command:
+This API is written in [Rust][rust], which you can [install here][install rust]. You'll also need to
+install [flyctl][flyctl] so that you can proxy the fly.io-hosted PostgreSQL database to your local
+machine so [sqlx][sqlx] can typecheck SQL queries against it. To proxy the primary PostgreSQL database
+to your local machine, login to fly.io:
 
 ```bash
-rustup target add x86_64-unknown-linux-musl
+fly auth login
 ```
 
-Once you have that installed, you can use the [simple build script](./build_and_upload.sh)
-to build the API with full optimization and upload it to the web hosting platform.
-(You'll need to be on Georgia Tech's network or the official GT VPN to upload over scp
-for now.)
+And then run in a separate terminal:
+
+```bash
+fly proxy 5432:5432 -a grease-db
+```
+
+If you're not yet part of the `gleeclub` organization on fly.io, email Sam Mohr at sam.mohr@protonmail.com
+to get added to the organization so that you can access the [fly.io dashboard][fly.io dashboard].
+
+## Hosting and Deployment
+
+In "production", the app runs on [fly.io][fly.io]. fly.io takes docker images and runs them
+continuously like a server. You can manually deploy code there with `fly deploy`, but it's easier
+to let this repo's [GitHub Action][deploy action] do it.
+
+Automatic deployment happens on push to remote by using the official GitHub Actions step
+from fly.io with credentials saved to the GitHub Secrets for this repo. All you need to do
+is push your updated code to GitHub, and if it works, it'll update the fly.io instance, and
+rollback to the previous version if not.
+
+To make sure the code works, you'll want to make sure it's formatted with `cargo fmt` and that the
+code (including SQL queries) is correct with `cargo sqlx prepare`. You can install the `cargo sqlx`
+subcommand with `cargo install sqlx-cli`. To automatically make sure that you're good to go before
+you commit anything, you can run the following command to make sure everything is formatted and
+typechecking correctly:
+
+```bash
+printf "#!/bin/sh\n\ncargo fmt && cargo sqlx prepare" > .git/hooks/pre-commit
+```
 
 
 [fly.io]: https://fly.io/
-[api]: https://api.glubhub.org/
+[fly.io dashboard]: https://fly.io/apps/grease
 [graphql]: https://graphql.org/
-[glubhub]: https://glubhub.org/
-[rust]: https://www.rust-lang.org/
+[glubhub]: https://github.com/GleeClub/glubhub
 [psql]: https://www.postgresql.org/
+[rust]: https://www.rust-lang.org/
 [install rust]: https://www.rust-lang.org/learn/get-started
+[flyctl]: https://fly.io/docs/flyctl/installing/
+[sqlx]: https://github.com/launchbadge/sqlx
+[deploy action]: ./.github/workflows/deploy.yml
