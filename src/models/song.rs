@@ -1,6 +1,7 @@
 use async_graphql::{ComplexObject, Context, Enum, InputObject, Result, SimpleObject};
 use sqlx::PgPool;
 
+/// A musical note
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
 #[sqlx(type_name = "pitch", rename_all = "snake_case")]
 pub enum Pitch {
@@ -27,13 +28,17 @@ pub enum Pitch {
     GSharp,
 }
 
+/// Whether a song is in major or minor
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
 #[sqlx(type_name = "song_mode", rename_all = "snake_case")]
 pub enum SongMode {
+    /// The song is in a major key
     Major,
+    /// The song is in a minor key
     Minor,
 }
 
+/// A song that the Glee Club performs
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct Song {
@@ -154,10 +159,14 @@ impl Song {
     }
 }
 
+/// A song that is visible on the external site
 #[derive(SimpleObject)]
 pub struct PublicSong {
+    /// The title of the song
     pub title: String,
+    /// Whether the song is in the current club repertoire
     pub current: bool,
+    /// Links to YouTube performances of this song by the Glee Club
     pub videos: Vec<PublicVideo>,
 }
 
@@ -190,25 +199,25 @@ impl PublicSong {
     }
 }
 
+/// A YouTube performance of a song by the Glee Club
 #[derive(SimpleObject)]
 pub struct PublicVideo {
+    /// The name of the song
     pub title: String,
+    /// A link to the performance on YouTube
     pub url: String,
 }
 
+/// A group of links to resources for a song
 #[derive(SimpleObject)]
 pub struct SongLinkSection {
+    /// The name of the link group
     pub name: String,
+    /// The links in this group
     pub links: Vec<SongLink>,
 }
 
-#[derive(SimpleObject)]
-pub struct GigSong {
-    pub event: i64,
-    pub song: i64,
-    pub order: i64,
-}
-
+/// A type of media belonging to a song
 #[derive(SimpleObject)]
 pub struct MediaType {
     /// The name of the type of media
@@ -219,10 +228,13 @@ pub struct MediaType {
     pub storage: StorageType,
 }
 
+/// Whether a media item is a link or a local file
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
 #[sqlx(type_name = "storage_type", rename_all = "snake_case")]
 pub enum StorageType {
+    /// The item is stored locally
     Local,
+    /// The item is a link to an external resource
     Remote,
 }
 
@@ -257,6 +269,7 @@ impl MediaType {
     }
 }
 
+/// A link to some media under a song
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct SongLink {
@@ -414,32 +427,50 @@ impl SongLink {
     }
 }
 
+/// A new song for the club to perform
 #[derive(InputObject)]
 pub struct NewSong {
+    /// The name of the new song
     pub title: String,
+    /// A description of the song
     pub info: Option<String>,
 }
 
+/// An update to an existing song
 #[derive(InputObject)]
 pub struct SongUpdate {
+    /// The new name for the song
     pub title: String,
+    /// Whether the song is in the club's current repertoire
     pub current: bool,
+    /// A description of the song
     pub info: String,
+    /// The key of the song
     pub key: Option<Pitch>,
+    /// The pitch the song starts on
     pub starting_pitch: Option<Pitch>,
+    /// Whether the song is in major or minor
     pub mode: Option<SongMode>,
 }
 
+/// A new link to media under a song
 #[derive(InputObject)]
 pub struct NewSongLink {
+    /// The type of the media
     pub r#type: String,
+    /// The name of the resource
     pub name: String,
+    /// A link to the media
     pub url: String,
+    /// The content of the link
     pub content: Option<String>,
 }
 
+/// An update to a song link
 #[derive(InputObject)]
 pub struct SongLinkUpdate {
+    /// The new name of the link
     pub name: String,
+    /// The new URL for the link
     pub url: String,
 }

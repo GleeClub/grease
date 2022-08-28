@@ -3,6 +3,7 @@ use sqlx::PgPool;
 
 use crate::models::grades::Grades;
 
+/// A semester the given member was active during
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct ActiveSemester {
@@ -25,10 +26,13 @@ impl ActiveSemester {
     }
 }
 
+/// Whether a member is in the club for a grade or not
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
 #[sqlx(type_name = "enrollment", rename_all = "snake_case")]
 pub enum Enrollment {
+    /// The member is enrolled in the course
     Class,
+    /// The member is there on their own time
     Club,
 }
 
@@ -114,10 +118,15 @@ impl ActiveSemester {
     }
 }
 
+/// The member is newly active for the given semester
 #[derive(InputObject)]
 pub struct NewActiveSemester {
+    /// The email of the member
     pub member: String,
+    /// The name of the semester
     pub semester: String,
+    /// How the member is participating in the club
     pub enrollment: Option<Enrollment>,
+    /// What section the member is singing in
     pub section: Option<String>,
 }

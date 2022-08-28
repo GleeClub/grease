@@ -6,6 +6,7 @@ use super::DateTime;
 use crate::models::member::Member;
 use crate::models::semester::Semester;
 
+/// A fee that can be charged to members
 #[derive(SimpleObject)]
 pub struct Fee {
     /// The short name of the fee
@@ -120,8 +121,10 @@ impl Fee {
     }
 }
 
+/// A type of transaction
 #[derive(SimpleObject)]
 pub struct TransactionType {
+    /// The name of the type of transaction
     pub name: String,
 }
 
@@ -152,6 +155,7 @@ impl TransactionType {
     }
 }
 
+/// A money transaction charged to a member
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct ClubTransaction {
@@ -258,10 +262,15 @@ impl ClubTransaction {
     }
 }
 
+/// A batch of transactions to charge to multiple members
 #[derive(InputObject)]
 pub struct TransactionBatch {
+    /// The emails of the members
     pub members: Vec<String>,
+    /// The type of the transaction
     pub r#type: String,
+    /// The amount to charge each member
     pub amount: i64,
+    /// A description of the purpose of the transaction
     pub description: String,
 }

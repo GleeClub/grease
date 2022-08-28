@@ -6,6 +6,7 @@ use crate::models::event::uniform::Uniform;
 use crate::models::event::Event;
 use crate::models::{DateTime, DateTimeInput, TimeScalar};
 
+/// The gig info included for an event, if it is a gig
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct Gig {
@@ -75,14 +76,19 @@ impl Gig {
     }
 }
 
+/// The status of a gig request
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
 #[sqlx(type_name = "gig_request_status", rename_all = "snake_case")]
 pub enum GigRequestStatus {
+    /// We have not responded to the request yet
     Pending,
+    /// We have decided to take the request
     Accepted,
+    /// We have decided to decline the request
     Dismissed,
 }
 
+/// A request for the Glee Club to perform somewhere
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct GigRequest {
@@ -107,10 +113,8 @@ pub struct GigRequest {
 
     #[graphql(skip)]
     pub event: Option<i64>,
-    /// When the gig request was placed
     #[graphql(skip)]
     pub time: OffsetDateTime,
-    /// When the event will probably happen
     #[graphql(skip)]
     pub start_time: OffsetDateTime,
 }
@@ -248,27 +252,46 @@ impl GigRequest {
     }
 }
 
+/// A new gig request
 #[derive(InputObject)]
 pub struct NewGigRequest {
+    /// The name of the potential event
     pub name: String,
+    /// The organization requesting a performance from the Glee Club
     pub organization: String,
+    /// The name of the contact for the potential event
     pub contact_name: String,
+    /// The email of the contact for the potential event
     pub contact_email: String,
+    /// The phone number of the contact for the potential event
     pub contact_phone: String,
+    /// When the event will probably happen
     pub start_time: DateTimeInput,
+    /// Where the event will be happening
     pub location: String,
+    /// Any comments about the event
     pub comments: String,
 }
 
+/// A new gig attached to a new event created from a gig request
 #[derive(InputObject)]
 pub struct NewGig {
+    /// When we will start performing
     pub performance_time: TimeScalar,
+    /// The ID of the uniform for the gig
     pub uniform: i64,
+    /// The name of the contact for the gig
     pub contact_name: String,
+    /// The email of the contact for the gig
     pub contact_email: String,
+    /// The phone number of the contact for the gig
     pub contact_phone: String,
+    /// How much we are charging for the gig
     pub price: Option<i64>,
+    /// Whether we will show this gig on our external site
     pub public: bool,
+    /// A title for the event on our external site
     pub summary: String,
+    /// A short description for the event on our external site
     pub description: String,
 }

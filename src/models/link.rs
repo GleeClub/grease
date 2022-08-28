@@ -1,7 +1,7 @@
 use async_graphql::{Result, SimpleObject};
 use sqlx::PgPool;
 
-/// A link to a Google Doc or other important document.
+/// A link to a Google Doc or other important document
 #[derive(SimpleObject)]
 pub struct DocumentLink {
     /// The name of the link

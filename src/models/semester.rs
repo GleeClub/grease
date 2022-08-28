@@ -3,6 +3,7 @@ use sqlx::PgPool;
 
 use crate::models::DateScalar;
 
+/// A school semester that events happen during
 #[derive(SimpleObject)]
 pub struct Semester {
     /// The name of the semester
@@ -154,10 +155,15 @@ impl Semester {
     }
 }
 
+/// A new semester for events
 #[derive(InputObject)]
 pub struct NewSemester {
+    /// The name of the new semester
     pub name: String,
+    /// When the new semester will start
     pub start_date: DateScalar,
+    /// When the new semester will end
     pub end_date: DateScalar,
+    /// How many gigs are required for members to attend during this semester
     pub gig_requirement: i64,
 }

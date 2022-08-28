@@ -5,6 +5,7 @@ use crate::graphql::guards::Permission;
 use crate::models::member::Member;
 use crate::models::DateScalar;
 
+/// Meeting minutes from officer meetings
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct Minutes {
@@ -103,9 +104,13 @@ impl Minutes {
     }
 }
 
+/// An update for some meeting minutes
 #[derive(InputObject)]
 pub struct UpdatedMeetingMinutes {
+    /// The name of the meeting
     pub name: String,
+    /// The redacted version of the meeting minutes
     pub public: String,
+    /// The full version of the meeting minutes
     pub private: Option<String>,
 }

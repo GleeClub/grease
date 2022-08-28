@@ -4,6 +4,7 @@ use async_graphql::{
 use regex::Regex;
 use sqlx::PgPool;
 
+/// A uniform members might need to wear for an event
 #[derive(SimpleObject)]
 pub struct Uniform {
     /// The ID of the uniform
@@ -126,9 +127,13 @@ impl Uniform {
     }
 }
 
+/// A new uniform type
 #[derive(InputObject)]
 pub struct NewUniform {
+    /// The name of the new uniform
     pub name: String,
+    /// The color to display for the uniform
     pub color: Option<UniformColor>,
+    /// A description of the uniform
     pub description: String,
 }

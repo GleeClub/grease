@@ -8,8 +8,11 @@ use crate::email::send_email;
 use crate::models::member::Member;
 use crate::util::current_time;
 
+/// A login session for a member
 pub struct Session {
+    /// The email of the member
     pub member: String,
+    /// A random session key
     pub key: String,
 }
 
@@ -59,9 +62,13 @@ impl Session {
     }
 }
 
+/// A 24-hour password reset for a member
 pub struct PasswordReset {
+    /// The email of the member
     pub member: String,
+    /// When the password reset was requested
     pub time: OffsetDateTime,
+    /// The random token emailed to the member
     pub token: String,
 }
 

@@ -14,6 +14,7 @@ pub mod week;
 
 // TODO: refactor this as much as is reasonable
 
+/// The grades for a member in a semester
 #[derive(SimpleObject)]
 pub struct Grades {
     /// The overall grade for the semester
@@ -24,6 +25,7 @@ pub struct Grades {
     pub volunteer_gigs_attended: Vec<Arc<Event>>,
 }
 
+/// An event and the change to a member's grade that it caused
 #[derive(SimpleObject)]
 pub struct EventWithGradeChange {
     /// The event a grade was received for
@@ -32,6 +34,7 @@ pub struct EventWithGradeChange {
     pub change: GradeChange,
 }
 
+/// A change to a member's grade for a semester
 #[derive(SimpleObject)]
 pub struct GradeChange {
     /// The reason the grade change was incurred

@@ -50,6 +50,7 @@ impl MutationRoot {
         Ok(SUCCESS_MESSAGE)
     }
 
+    /// Requests a password reset email for the given member
     pub async fn forgot_password(&self, ctx: &Context<'_>, email: String) -> Result<&'static str> {
         let pool: &PgPool = ctx.data_unchecked();
         PasswordReset::generate(&email, pool).await?;
@@ -57,6 +58,7 @@ impl MutationRoot {
         Ok(SUCCESS_MESSAGE)
     }
 
+    /// Resets the member's password
     pub async fn reset_password(
         &self,
         ctx: &Context<'_>,
@@ -69,6 +71,7 @@ impl MutationRoot {
         Ok(SUCCESS_MESSAGE)
     }
 
+    /// Registers a new member
     pub async fn register_member(
         &self,
         ctx: &Context<'_>,
@@ -81,6 +84,7 @@ impl MutationRoot {
         Member::with_email(&email, pool).await
     }
 
+    /// Registers an existing member for the current semester
     #[graphql(guard = "LoggedIn")]
     pub async fn register_for_semester(
         &self,
@@ -94,6 +98,7 @@ impl MutationRoot {
         Member::with_email(&user.email, pool).await
     }
 
+    /// Updates the current user's profile
     #[graphql(guard = "LoggedIn")]
     pub async fn update_profile(
         &self,
@@ -108,6 +113,7 @@ impl MutationRoot {
         Member::with_email(&new_email, pool).await
     }
 
+    /// Updates the given member's profile
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_USER)")]
     pub async fn update_member(
         &self,
@@ -122,6 +128,7 @@ impl MutationRoot {
         Member::with_email(&new_email, pool).await
     }
 
+    /// Logs in as the given member
     #[graphql(guard = "LoggedIn.and(Permission::SWITCH_USER)")]
     pub async fn login_as(&self, ctx: &Context<'_>, email: String) -> Result<String> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -138,6 +145,7 @@ impl MutationRoot {
         Ok(email)
     }
 
+    /// Creates a new event
     #[graphql(guard = "LoggedIn.and(Permission::CREATE_EVENT.for_type(&new_event.event.r#type))")]
     pub async fn create_event(
         &self,
@@ -160,6 +168,7 @@ impl MutationRoot {
         Ok(event)
     }
 
+    /// Updates the given event
     #[graphql(guard = "LoggedIn.and(Permission::MODIFY_EVENT.for_type(&new_event.event.r#type))")]
     pub async fn update_event(
         &self,
@@ -190,6 +199,7 @@ impl MutationRoot {
         Ok(id)
     }
 
+    /// Updates the attendance for the given member at the given event
     #[graphql(guard = "LoggedIn")]
     pub async fn update_attendance(
         &self,
@@ -232,6 +242,7 @@ impl MutationRoot {
         Attendance::for_member_at_event(&email, event_id, pool).await
     }
 
+    /// Excuses all unconfirmed members at the given event
     #[graphql(guard = "LoggedIn")]
     pub async fn excuse_unconfirmed_for_event(
         &self,
@@ -251,6 +262,7 @@ impl MutationRoot {
         Ok(SUCCESS_MESSAGE)
     }
 
+    /// RSVP's for the given event
     #[graphql(guard = "LoggedIn")]
     pub async fn rsvp_for_event(
         &self,
@@ -265,6 +277,7 @@ impl MutationRoot {
         Attendance::for_member_at_event(&user.email, id, pool).await
     }
 
+    /// Confirms attendance for the given event
     #[graphql(guard = "LoggedIn")]
     pub async fn confirm_for_event(&self, ctx: &Context<'_>, id: i64) -> Result<Attendance> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -274,6 +287,7 @@ impl MutationRoot {
         Attendance::for_member_at_event(&user.email, id, pool).await
     }
 
+    /// Updates the carpools for the given event
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_CARPOOLS)")]
     pub async fn update_carpools(
         &self,
@@ -287,6 +301,7 @@ impl MutationRoot {
         Carpool::for_event(event_id, pool).await
     }
 
+    /// Responds to an absence request from the given member for the given event
     #[graphql(guard = "LoggedIn.and(Permission::PROCESS_ABSENCE_REQUESTS)")]
     pub async fn respond_to_absence_request(
         &self,
@@ -307,6 +322,7 @@ impl MutationRoot {
         AbsenceRequest::for_member_at_event(&email, event_id, pool).await
     }
 
+    /// Submits a new absence request for the current user at the given event
     #[graphql(guard = "LoggedIn")]
     pub async fn submit_absence_request(
         &self,
@@ -321,6 +337,7 @@ impl MutationRoot {
         AbsenceRequest::for_member_at_event(&user.email, event_id, pool).await
     }
 
+    /// Submits a new gig request
     pub async fn submit_gig_request(
         &self,
         ctx: &Context<'_>,
@@ -332,6 +349,7 @@ impl MutationRoot {
         GigRequest::with_id(new_id, pool).await
     }
 
+    /// Dismisses a gig request
     #[graphql(guard = "LoggedIn.and(Permission::PROCESS_GIG_REQUESTS)")]
     pub async fn dismiss_gig_request(&self, ctx: &Context<'_>, id: i64) -> Result<GigRequest> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -340,6 +358,7 @@ impl MutationRoot {
         GigRequest::with_id(id, pool).await
     }
 
+    /// Reopens a dismissed gig request
     #[graphql(guard = "LoggedIn.and(Permission::PROCESS_GIG_REQUESTS)")]
     pub async fn reopen_gig_request(&self, ctx: &Context<'_>, id: i64) -> Result<GigRequest> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -348,6 +367,7 @@ impl MutationRoot {
         GigRequest::with_id(id, pool).await
     }
 
+    /// Creates a new document link
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_LINKS)")]
     pub async fn create_link(
         &self,
@@ -361,6 +381,7 @@ impl MutationRoot {
         DocumentLink::with_name(&name, pool).await
     }
 
+    /// Updates the given document link
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_LINKS)")]
     pub async fn update_link(
         &self,
@@ -374,6 +395,7 @@ impl MutationRoot {
         DocumentLink::with_name(&name, pool).await
     }
 
+    /// Deletes the given document link
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_LINKS)")]
     pub async fn delete_link(&self, ctx: &Context<'_>, name: String) -> Result<DocumentLink> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -383,6 +405,7 @@ impl MutationRoot {
         Ok(link)
     }
 
+    /// Creates a new semester
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_SEMESTER)")]
     pub async fn create_semester(
         &self,
@@ -396,6 +419,7 @@ impl MutationRoot {
         Semester::with_name(&name, pool).await
     }
 
+    /// Updates the given semester
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_SEMESTER)")]
     pub async fn update_semester(
         &self,
@@ -410,6 +434,7 @@ impl MutationRoot {
         Semester::with_name(&new_name, pool).await
     }
 
+    /// Set the given semester as the current semester
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_SEMESTER)")]
     pub async fn set_current_semester(&self, ctx: &Context<'_>, name: String) -> Result<Semester> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -418,6 +443,7 @@ impl MutationRoot {
         Semester::with_name(&name, pool).await
     }
 
+    /// Create some new meeting minutes
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_MINUTES)")]
     pub async fn create_meeting_minutes(&self, ctx: &Context<'_>, name: String) -> Result<Minutes> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -426,6 +452,7 @@ impl MutationRoot {
         Minutes::with_id(new_id, pool).await
     }
 
+    /// Updates the given meeting minutes
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_MINUTES)")]
     pub async fn update_meeting_minutes(
         &self,
@@ -439,6 +466,7 @@ impl MutationRoot {
         Minutes::with_id(id, pool).await
     }
 
+    /// Deletes the given meeting minutes
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_MINUTES)")]
     pub async fn delete_meeting_minutes(&self, ctx: &Context<'_>, id: i64) -> Result<Minutes> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -448,6 +476,7 @@ impl MutationRoot {
         Ok(minutes)
     }
 
+    /// Creates a new uniform
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_UNIFORMS)")]
     pub async fn create_uniform(
         &self,
@@ -460,6 +489,7 @@ impl MutationRoot {
         Uniform::with_id(new_id, pool).await
     }
 
+    /// Updates the given uniform
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_UNIFORMS)")]
     pub async fn update_uniform(
         &self,
@@ -473,6 +503,7 @@ impl MutationRoot {
         Uniform::with_id(id, pool).await
     }
 
+    /// Deletes the given uniform
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_UNIFORMS)")]
     pub async fn delete_uniform(&self, ctx: &Context<'_>, id: i64) -> Result<Uniform> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -482,6 +513,7 @@ impl MutationRoot {
         Ok(uniform)
     }
 
+    /// Creates a new song
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
     pub async fn create_song(&self, ctx: &Context<'_>, new_song: NewSong) -> Result<Song> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -490,6 +522,7 @@ impl MutationRoot {
         Song::with_id(new_id, pool).await
     }
 
+    /// Updates the given song
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
     pub async fn update_song(
         &self,
@@ -503,6 +536,7 @@ impl MutationRoot {
         Song::with_id(id, pool).await
     }
 
+    /// Deletes the given song
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
     pub async fn delete_song(&self, ctx: &Context<'_>, id: i64) -> Result<Song> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -512,6 +546,7 @@ impl MutationRoot {
         Ok(song)
     }
 
+    /// Creates a new song link
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
     pub async fn create_song_link(
         &self,
@@ -525,6 +560,7 @@ impl MutationRoot {
         SongLink::with_id(new_id, pool).await
     }
 
+    /// Updates the given song link
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
     pub async fn update_song_link(
         &self,
@@ -538,6 +574,7 @@ impl MutationRoot {
         SongLink::with_id(id, pool).await
     }
 
+    /// Deletes the given song link
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_REPERTOIRE)")]
     pub async fn delete_song_link(&self, ctx: &Context<'_>, id: i64) -> Result<SongLink> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -547,6 +584,7 @@ impl MutationRoot {
         Ok(link)
     }
 
+    /// Adds a permission to the given role
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_PERMISSIONS)")]
     pub async fn add_permission_to_role(
         &self,
@@ -559,6 +597,7 @@ impl MutationRoot {
         Ok(true)
     }
 
+    /// Removes a permission from the given role
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_PERMISSIONS)")]
     pub async fn remove_permission_from_role(
         &self,
@@ -571,6 +610,7 @@ impl MutationRoot {
         Ok(true)
     }
 
+    /// Assign the given member the given officer position
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
     pub async fn add_officership(
         &self,
@@ -584,6 +624,7 @@ impl MutationRoot {
         Ok(true)
     }
 
+    /// Remove an officer position from the given mmember
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
     pub async fn remove_officership(
         &self,
@@ -597,6 +638,7 @@ impl MutationRoot {
         Ok(true)
     }
 
+    /// Update the cost for the given fee
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_TRANSACTION)")]
     pub async fn update_fee_amount(
         &self,
@@ -610,6 +652,7 @@ impl MutationRoot {
         Fee::with_name(&name, pool).await
     }
 
+    /// Charge dues for the semester
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_TRANSACTION)")]
     pub async fn charge_dues(&self, ctx: &Context<'_>) -> Result<Vec<ClubTransaction>> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -619,6 +662,7 @@ impl MutationRoot {
         ClubTransaction::for_semester(&current_semester.name, pool).await
     }
 
+    /// Charges late dues for the semester (anyone who hasn't paid their due)
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_TRANSACTION)")]
     pub async fn charge_late_dues(&self, ctx: &Context<'_>) -> Result<Vec<ClubTransaction>> {
         let pool: &PgPool = ctx.data_unchecked();
@@ -628,6 +672,7 @@ impl MutationRoot {
         ClubTransaction::for_semester(&current_semester.name, pool).await
     }
 
+    /// Creates multiple transactions from the given batch
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_TRANSACTION)")]
     pub async fn add_batch_of_transactions(
         &self,
@@ -641,6 +686,7 @@ impl MutationRoot {
         ClubTransaction::for_semester(&current_semester.name, pool).await
     }
 
+    /// Resolves the given transaction
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_TRANSACTION)")]
     pub async fn resolve_transaction(
         &self,
@@ -654,6 +700,7 @@ impl MutationRoot {
         ClubTransaction::with_id(id, pool).await
     }
 
+    /// Sets the given global variable
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
     pub async fn set_variable(
         &self,
@@ -667,6 +714,7 @@ impl MutationRoot {
         Variable::with_key(&key, pool).await
     }
 
+    /// Unsets the given variable and returns
     #[graphql(guard = "LoggedIn.and(Permission::EDIT_OFFICERS)")]
     pub async fn unset_variable(&self, ctx: &Context<'_>, key: String) -> Result<String> {
         let pool: &PgPool = ctx.data_unchecked();

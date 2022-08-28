@@ -24,6 +24,7 @@ pub mod variable;
 static DATE_FORMAT: &'static [FormatItem<'static>] = format_description!("[year]-[month]-[day]");
 static TIME_FORMAT: &'static [FormatItem<'static>] = format_description!("[hour]:[minute]");
 
+/// A date string in the format YYYY-MM-DD
 #[derive(sqlx::Type, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[sqlx(transparent)]
 pub struct DateScalar(pub Date);
@@ -45,6 +46,7 @@ impl ScalarType for DateScalar {
     }
 }
 
+/// A time string in the format HH:MM (24 hour)
 #[derive(sqlx::Type, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[sqlx(transparent)]
 pub struct TimeScalar(pub Time);
@@ -66,6 +68,7 @@ impl ScalarType for TimeScalar {
     }
 }
 
+/// A datetime broken into a date and a time
 #[derive(SimpleObject, Clone, PartialEq, Eq, PartialOrd)]
 pub struct DateTime {
     /// The date part of the datetime
@@ -74,6 +77,7 @@ pub struct DateTime {
     pub time: TimeScalar,
 }
 
+/// A new datetime broken into a date and a time
 #[derive(InputObject, Clone, PartialEq, Eq, PartialOrd)]
 pub struct DateTimeInput {
     /// The date part of the datetime

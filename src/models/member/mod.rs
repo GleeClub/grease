@@ -13,6 +13,7 @@ use crate::models::semester::Semester;
 pub mod active_semester;
 pub mod session;
 
+/// A member in the Glee Club
 #[derive(SimpleObject, Clone)]
 #[graphql(complex)]
 pub struct Member {
@@ -410,6 +411,7 @@ impl Member {
     }
 }
 
+/// A voice section members sing in
 #[derive(SimpleObject)]
 pub struct SectionType {
     /// The name of the section (Tenor, Baritone, etc.)
@@ -425,61 +427,111 @@ impl SectionType {
     }
 }
 
+/// A new member in the Glee Club
 #[derive(InputObject)]
 pub struct NewMember {
+    /// The new member's email, which must be unique
     pub email: String,
+    /// The member's first name
     pub first_name: String,
+    /// The member's nick name
     pub preferred_name: Option<String>,
+    /// The member's last name
     pub last_name: String,
+    /// The member's password, MD5-encrypted
     pub pass_hash: String,
+    /// The member's phone number
     pub phone_number: String,
+    /// An optional link to a profile picture for the member
     pub picture: String,
+    /// How many people the member can drive to events (besides themself)
     pub passengers: i64,
+    /// Where the member lives
     pub location: String,
+    /// Whether the member lives on campus
     pub on_campus: bool,
+    /// A short biography written by the member
     pub about: String,
+    /// The member's academic major
     pub major: String,
+    /// The member's academic minor
     pub minor: String,
+    /// Where the member came from
     pub hometown: String,
+    /// What year the member arrived at Georgia Tech
     pub arrived_at_tech: Option<i64>,
+    /// What got them to join Glee Club
     pub gateway_drug: String,
+    /// What conflicts with rehearsal the member may have
     pub conflicts: String,
+    /// Any dietary restrictions the member may have
     pub dietary_restrictions: String,
+    /// Whether the member will be in the class or club
     pub enrollment: Enrollment,
+    /// What voice section the member will sing in
     pub section: Option<String>,
 }
 
+/// An update to a member in the Glee Club
 #[derive(InputObject)]
 pub struct MemberUpdate {
+    /// The member's new email. If they choose a new one, it must not
+    /// be held by other members
     pub email: String,
+    /// The member's first name
     pub first_name: String,
+    /// The member's nick name
     pub preferred_name: Option<String>,
+    /// The member's last name
     pub last_name: String,
+    /// The member's password (MD5-encrypted), if they want to update it
     pub pass_hash: Option<String>,
+    /// The member's phone number
     pub phone_number: String,
+    /// An optional link to a profile picture for the member
     pub picture: String,
+    /// How many people the member can drive to events (besides themself)
     pub passengers: i64,
+    /// Where the member lives
     pub location: String,
+    /// Whether the member lives on campus
     pub on_campus: bool,
+    /// A short biography written by the member
     pub about: String,
+    /// The member's academic major
     pub major: String,
+    /// The member's academic minor
     pub minor: String,
+    /// Where the member came from
     pub hometown: String,
+    /// What year the member arrived at Georgia Tech
     pub arrived_at_tech: Option<i64>,
+    /// What got them to join Glee Club
     pub gateway_drug: String,
+    /// What conflicts with rehearsal the member may have
     pub conflicts: String,
+    /// Any dietary restrictions the member may have
     pub dietary_restrictions: String,
+    /// The new enrollment of the member
     pub enrollment: Option<Enrollment>,
+    /// The new voice section of the member
     pub section: Option<String>,
 }
 
+/// The info needed for a member to register for a new semester
 #[derive(InputObject)]
 pub struct RegisterForSemesterForm {
+    /// Where the member lives
     pub location: String,
+    /// Whether the member lives on-campus
     pub on_campus: bool,
+    /// Any conflicts the member has
     pub conflicts: String,
+    /// Any dietary restrictions the member has
     pub dietary_restrictions: String,
+    /// Whether the member is in the class or the club
     pub enrollment: Enrollment,
+    /// What voice section the member will sing in
     pub section: String,
 }
 

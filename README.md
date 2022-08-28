@@ -1,17 +1,53 @@
-Grease API
----------
+Grease
+------
 
-The new and improved JSON backend for the Georgia Tech Glee Club's official website.
+The [GraphQL][graphql] API for the Georgia Tech Glee Club's official site, [GlubHub][glubhub].
+This API is a wrapper over a [PostgreSQL][psql] database and manages everything the Glee Club
+needs to run successfully. This includes managing events, attendance, carpool, officer notes,
+music, and more. It also runs an email loop to send helpful emails about new and upcoming events
+to all members.
 
-To view the layout, please check out the `wiki`.
+## Usage
 
-This backend is written in [Rust].
+The API is hosted at <https://api.glubhub.org>. Just send a POST request to the API and optionally
+set your login token as header `GREASE_TOKEN` to authenticate as a user after logging in.
 
-### Building:
+Since Grease runs on GraphQL, visiting the API in your browser will give you a GraphiQL instance
+with interactive documentation and a query maker. If you pass `?token=<your token>` at the end of
+the URL, it will automatically set your `GREASE_TOKEN` with every request. All queries, mutations,
+and object types are fully documented there.
 
-To work on this project, you'll need to have [Rust] Nightly installed. Once you install
-rust on the `nightly` toolchain, install the `Musl` compilation target with the following
-command:
+## How It's Hosted
+
+In "production", the app runs on [fly.io][flyio]. fly.io takes docker images and runs them
+continuously like a server. You can manually
+
+## Development
+
+If you wanna work on this project
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Development
+
+To work on this project, you'll need to have [Rust Nightly][install rust] installed. Once you install
+rust on the `nightly` toolchain command:
 
 ```bash
 rustup target add x86_64-unknown-linux-musl
@@ -23,4 +59,10 @@ to build the API with full optimization and upload it to the web hosting platfor
 for now.)
 
 
-[Rust]: https://www.rust-lang.org/learn/get-started
+[fly.io]: https://fly.io/
+[api]: https://api.glubhub.org/
+[graphql]: https://graphql.org/
+[glubhub]: https://glubhub.org/
+[rust]: https://www.rust-lang.org/
+[psql]: https://www.postgresql.org/
+[install rust]: https://www.rust-lang.org/learn/get-started

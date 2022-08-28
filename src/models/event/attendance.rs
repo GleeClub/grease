@@ -7,6 +7,7 @@ use crate::models::member::active_semester::ActiveSemester;
 use crate::models::member::Member;
 use crate::util::current_time;
 
+/// Info about a member's attendance for a specific event
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct Attendance {
@@ -237,10 +238,15 @@ impl Attendance {
     }
 }
 
+/// An update for a member's attendance at a specific event
 #[derive(InputObject)]
 pub struct AttendanceUpdate {
+    /// Whether the member is expected to attend the event
     pub should_attend: bool,
+    /// Whether the member did attend the event
     pub did_attend: bool,
+    /// Whether the member confirmed that they would attend
     pub confirmed: bool,
+    /// How late the member was if they attended
     pub minutes_late: i64,
 }

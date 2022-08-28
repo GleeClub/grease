@@ -37,6 +37,7 @@ impl Role {
     }
 }
 
+/// A member that holds a role
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct MemberRole {
@@ -109,13 +110,17 @@ impl MemberRole {
     }
 }
 
+/// Whether a permission applies to a specific event type or not
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
 #[sqlx(type_name = "permission_type", rename_all = "snake_case")]
 pub enum PermissionType {
+    /// The permission applies globally
     Static,
+    /// The permission applies for a specific type of event
     Event,
 }
 
+/// A permission that grants abilities to a member
 #[derive(SimpleObject)]
 pub struct Permission {
     /// The name of the permission
@@ -139,6 +144,7 @@ impl Permission {
     }
 }
 
+/// A new assignment of a permission to a role
 #[derive(InputObject)]
 pub struct NewRolePermission {
     /// The name of the role this junction refers to
@@ -149,6 +155,7 @@ pub struct NewRolePermission {
     pub event_type: Option<String>,
 }
 
+/// A permissin that is inherited by a role
 #[derive(SimpleObject)]
 pub struct RolePermission {
     /// The ID of the role permission
@@ -200,6 +207,7 @@ impl RolePermission {
     }
 }
 
+/// A permission that a member holds
 #[derive(SimpleObject)]
 pub struct MemberPermission {
     /// The name of the permission

@@ -6,6 +6,7 @@ use crate::models::event::Event;
 use crate::models::member::Member;
 use crate::models::DateTime;
 
+/// A request by a member to not lose credit for missing an event
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct AbsenceRequest {
@@ -42,11 +43,15 @@ impl AbsenceRequest {
     }
 }
 
+/// The current status of an absence request
 #[derive(Clone, Copy, PartialEq, Eq, Enum, sqlx::Type)]
 #[sqlx(type_name = "absence_request_status", rename_all = "snake_case")]
 pub enum AbsenceRequestStatus {
+    /// The request hasn't been responded to yet
     Pending,
+    /// The request has been approved
     Approved,
+    /// The request has been denied
     Denied,
 }
 

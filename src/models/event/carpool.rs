@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use crate::models::event::Event;
 use crate::models::member::Member;
 
+/// A carpool for members driving to an event
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct Carpool {
@@ -90,8 +91,11 @@ impl Carpool {
     }
 }
 
+/// An updated carpool
 #[derive(InputObject)]
 pub struct UpdatedCarpool {
+    /// The email of the driver
     pub driver: String,
+    /// The emails of the passengers
     pub passengers: Vec<String>,
 }

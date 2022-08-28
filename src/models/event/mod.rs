@@ -20,15 +20,22 @@ pub mod gig;
 pub mod public;
 pub mod uniform;
 
+/// How often an event repeats
 #[derive(Clone, Copy, PartialEq, Eq, Enum)]
 pub enum Period {
+    /// The event repeat every day
     Daily,
+    /// The event repeat every week
     Weekly,
+    /// The event repeat every two weeks
     Biweekly,
+    /// The event repeats every thirty days
     Monthly,
+    /// The event repeats every year
     Yearly,
 }
 
+/// The type of an event
 #[derive(SimpleObject)]
 pub struct EventType {
     /// The name of the type of event
@@ -53,6 +60,7 @@ impl EventType {
     }
 }
 
+/// An event where members are singing
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct Event {
@@ -75,10 +83,8 @@ pub struct Event {
     /// Whether members are assumed to attend (we assume as much for most events)
     pub default_attend: bool,
 
-    /// When members are expected to arrive to the event
     #[graphql(skip)]
     pub call_time: OffsetDateTime,
-    /// When members are probably going to be released
     #[graphql(skip)]
     pub release_time: Option<OffsetDateTime>,
 }
@@ -122,11 +128,16 @@ impl Event {
         Attendance::for_member_at_event_opt(&member, self.id, &pool).await
     }
 
+    /// Attendance for all current members for the event
     #[graphql(guard = "LoggedIn")]
     pub async fn all_attendance(
         &self,
         ctx: &Context<'_>,
-        #[graphql(default = false)] empty_if_not_permitted: bool,
+        #[graphql(
+            default = false,
+            desc = "Whether to return an error or no attendance when not permitted"
+        )]
+        empty_if_not_permitted: bool,
     ) -> Result<Vec<Attendance>> {
         let pool: &PgPool = ctx.data_unchecked();
         let user: &Member = ctx.data_unchecked();
@@ -145,11 +156,13 @@ impl Event {
         Attendance::for_event(self.id, pool).await
     }
 
+    /// All carpools for this event
     pub async fn carpools(&self, ctx: &Context<'_>) -> Result<Vec<Carpool>> {
         let pool: &PgPool = ctx.data_unchecked();
         Carpool::for_event(self.id, pool).await
     }
 
+    /// All songs we plan to sing at this event, in order
     pub async fn setlist(&self, ctx: &Context<'_>) -> Result<Vec<Song>> {
         let pool: &PgPool = ctx.data_unchecked();
         Song::setlist_for_event(self.id, pool).await
@@ -394,30 +407,48 @@ impl Event {
     }
 }
 
+/// A new event, broken into different groups of fields
 #[derive(InputObject)]
 pub struct NewEvent {
+    /// The event fields
     pub event: NewEventFields,
+    /// The gig fields, if this event is a gig
     pub gig: Option<NewGig>,
+    /// How often to optionally repeat the event
     pub repeat: Option<NewEventPeriod>,
 }
 
+/// The event-specific fields on a new event
 #[derive(InputObject)]
 pub struct NewEventFields {
+    /// The name of the event
     pub name: String,
+    /// The name of the semester this event belongs to
     pub semester: String,
+    /// The type of the event (see EventType)
     pub r#type: String,
+    /// When members are expected to arrive to the event
     pub call_time: DateTimeInput,
+    /// When members are probably going to be released
     pub release_time: Option<DateTimeInput>,
+    /// How many points attendance of this event is worth
     pub points: i64,
+    /// General information or details about this event
     pub comments: Option<String>,
+    /// Where this event will be held
     pub location: Option<String>,
+    /// Whether this event counts toward the volunteer gig count for the semester
     pub gig_count: Option<bool>,
+    /// Whether members are assumed to attend (we assume as much for most events)
     pub default_attend: bool,
 }
 
+/// How often an event should repeat and until when
 #[derive(InputObject)]
 pub struct NewEventPeriod {
+    /// How many days between repeat events
     pub period: Period,
+    /// The last date the event will repeat until
     pub repeat_until: DateScalar,
 }
 

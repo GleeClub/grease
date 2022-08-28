@@ -8,16 +8,23 @@ use uuid::Uuid;
 use crate::models::DateTime;
 use crate::util::current_time;
 
-pub const DATETIME_FORMAT: &[FormatItem] =
+const DATETIME_FORMAT: &[FormatItem] =
     format_description!("[year][month][day]T[hour][minute][second]Z");
 
+/// Events that are visible to the public
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct PublicEvent {
+    /// The ID of the event
     pub id: i64,
+    /// The name of the event
     pub name: String,
+    /// The location of the event
     pub location: String,
+    // TODO: name _and_ summary?
+    /// A short summary of the event
     pub summary: String,
+    /// A short description of the event
     pub description: String,
 
     #[graphql(skip)]
@@ -28,14 +35,17 @@ pub struct PublicEvent {
 
 #[ComplexObject]
 impl PublicEvent {
+    /// When this event will start
     pub async fn start_time(&self) -> DateTime {
         self.start_time.clone().into()
     }
 
+    /// When this event will end
     pub async fn end_time(&self) -> Option<DateTime> {
         self.end_time.clone().map(Into::into)
     }
 
+    /// An invite to add this event to your calendar
     pub async fn invite(&self) -> String {
         let now = Self::format_datetime(&current_time());
         let start_time = Self::format_datetime(&self.start_time.clone().into());
