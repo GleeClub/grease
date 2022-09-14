@@ -67,13 +67,8 @@ impl Member {
     pub async fn semester(&self, ctx: &Context<'_>) -> Result<Option<ActiveSemester>> {
         let pool: &PgPool = ctx.data_unchecked();
         let user = ctx.data_unchecked::<Member>();
-        if user.email != self.email {
-            Permission::VIEW_USER_PRIVATE_DETAILS
-                .ensure_granted_to(&user.email, pool)
-                .await?;
-        }
-
         let current_semester = Semester::get_current(pool).await?;
+
         ActiveSemester::for_member_during_semester(&self.email, &current_semester.name, pool).await
     }
 
