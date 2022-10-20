@@ -1,6 +1,6 @@
 //! The backend for the Georgia Tech Glee Club's website
 
-#![feature(drain_filter, fs_try_exists, once_cell, generic_associated_types)]
+#![feature(drain_filter, fs_try_exists, once_cell)]
 
 mod email;
 mod error;
