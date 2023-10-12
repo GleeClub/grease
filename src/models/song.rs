@@ -71,7 +71,7 @@ impl Song {
             .into_iter()
             .map(|t| SongLinkSection {
                 name: t.name.clone(),
-                links: all_links.drain_filter(|l| &l.r#type == &t.name).collect(),
+                links: all_links.extract_if(|l| &l.r#type == &t.name).collect(),
             })
             .collect())
     }
@@ -188,7 +188,7 @@ impl PublicSong {
                 title: ps.title,
                 current: ps.current,
                 videos: all_public_videos
-                    .drain_filter(|pv| pv.song == ps.id)
+                    .extract_if(|pv| pv.song == ps.id)
                     .map(|pv| PublicVideo {
                         title: pv.name,
                         url: pv.url.unwrap(),

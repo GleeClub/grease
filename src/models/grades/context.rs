@@ -70,7 +70,7 @@ impl GradesContext {
             events: events
                 .into_iter()
                 .map(|event| {
-                    let gig = gigs.drain_filter(|gig| gig.event == event.id).next();
+                    let gig = gigs.extract_if(|gig| gig.event == event.id).next();
                     (event, gig)
                 })
                 .collect(),

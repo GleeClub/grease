@@ -1,6 +1,6 @@
 //! The backend for the Georgia Tech Glee Club's website
 
-#![feature(drain_filter, fs_try_exists, once_cell)]
+#![feature(extract_if, fs_try_exists)]
 
 mod email;
 mod error;
@@ -33,7 +33,7 @@ use crate::graphql::build_schema;
 use crate::models::member::Member;
 
 const GREASE_TOKEN: &'static str = "GREASE_TOKEN";
-const API_URL: &'static str = "https://api.glubhub.org";
+const API_URL: &'static str = "https://grease.fly.dev";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

@@ -1,3 +1,2 @@
 [build]
-# Allow reading timezone when multithreaded
-rustflags = ["--cfg", "unsound_local_offset"]
+rustflags = ["--cfg", "unsound_local_offset"] # Allow reading timezone when multithreaded
