@@ -295,7 +295,7 @@ impl SongLink {
         if let Some(url) = &self.url {
             Ok(url.clone())
         } else if let Some(file) = &self.file {
-            Ok(format!("https://api.glubhub.org/files/{}", file))
+            Ok(format!("https://grease.fly.dev/files/{}", file))
         } else {
             Err("Song link is malformed and has no URL".into())
         }
